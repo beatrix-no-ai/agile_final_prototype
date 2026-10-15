@@ -10,11 +10,11 @@ const badgeClass = (s: RuleStatus) => (s === "Draft" ? "draft" : s === "Deactiva
 const range = (r: FundRule) => `${cash(r.minBalance)} to under ${cash(r.maxBalance)}`;
 
 export default function Rules(props: Props) {
-  const [creating, setCreating] = useState(false);
-  return creating ? <RuleForm {...props} onBack={() => setCreating(false)} /> : <RuleList {...props} onAdd={() => setCreating(true)} />;
+  const [form, setForm] = useState<{ view: FundRule | null } | null>(null);
+  return form ? <RuleForm {...props} view={form.view} onBack={() => setForm(null)} /> : <RuleList {...props} onAdd={() => setForm({ view: null })} onView={(r) => setForm({ view: r })} />;
 }
 
-function RuleList({ rules, onChange, onAdd, notify, ask, closeAsk }: Props & { onAdd: () => void }) {
+function RuleList({ rules, onChange, onAdd, onView, notify, ask, closeAsk }: Props & { onAdd: () => void; onView: (r: FundRule) => void }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const list = rules.filter((r) => (!q.trim() || `${r.id} ${r.name}`.toLowerCase().includes(q.trim().toLowerCase())) && (!status || r.status === status));
@@ -42,6 +42,7 @@ function RuleList({ rules, onChange, onAdd, notify, ask, closeAsk }: Props & { o
               <td>{r.schools.length ? `${r.schools.length} selected` : "All schools"}</td><td>{cash(r.amount)}</td>
               <td><span className={`badge ${badgeClass(r.status)}`}>{r.status}</span></td>
               <td><div className="actiongroup">
+                <button type="button" onClick={() => onView(r)}>View</button>
                 <button type="button" onClick={() => toggle(r)}>{r.status === "Active" ? "Deactivate" : "Activate"}</button>
               </div></td>
             </tr>
@@ -51,16 +52,17 @@ function RuleList({ rules, onChange, onAdd, notify, ask, closeAsk }: Props & { o
   );
 }
 
-function RuleForm({ rules, onChange, onBack, notify, ask, closeAsk }: Props & { onBack: () => void }) {
-  const [name, setName] = useState("");
-  const [amount, setAmount] = useState("200");
-  const [ageMin, setAgeMin] = useState("7");
-  const [ageMax, setAgeMax] = useState("16");
-  const [balMin, setBalMin] = useState("0");
-  const [balMax, setBalMax] = useState("500");
-  const [schooling, setSchooling] = useState("");
+function RuleForm({ rules, onChange, onBack, view: v, notify, ask, closeAsk }: Props & { onBack: () => void; view: FundRule | null }) {
+  const ro = Boolean(v);
+  const [name, setName] = useState(v?.name ?? "");
+  const [amount, setAmount] = useState(String(v?.amount ?? 200));
+  const [ageMin, setAgeMin] = useState(String(v?.ageMin ?? 7));
+  const [ageMax, setAgeMax] = useState(String(v?.ageMax ?? 16));
+  const [balMin, setBalMin] = useState(String(v?.minBalance ?? 0));
+  const [balMax, setBalMax] = useState(String(v?.maxBalance ?? 500));
+  const [schooling, setSchooling] = useState<string>(v?.schooling ?? "");
   const [find, setFind] = useState("");
-  const [schools, setSchools] = useState<string[]>([]);
+  const [schools, setSchools] = useState<string[]>(v?.schools ?? []);
   const [error, setError] = useState("");
 
   const shown = SCHOOLS.filter((s) => `${s.name} ${s.level}`.toLowerCase().includes(find.trim().toLowerCase()));
@@ -86,12 +88,13 @@ function RuleForm({ rules, onChange, onBack, notify, ask, closeAsk }: Props & { 
   return (
     <div>
       <button type="button" className="backline" onClick={onBack}>← Back to Batch Top-up Rule</button>
-      <div className="card ruleformcard">
-        <div className="ruletitle">Create Batch Top-up Rule</div>
+      <div className={`card ruleformcard${ro ? " rule-view-mode" : ""}`}><fieldset disabled={ro} className="rule-fieldset">
+        <div className="ruletitle">{ro ? "View Batch Top-up Rule" : "Create Batch Top-up Rule"}</div>
         <div className="sectionlabel">1. RULE DETAILS</div>
         <div className="formgrid">
-          <div className="field" style={{ gridColumn: "1/-1" }}><label htmlFor="rule-name">Rule name {req}</label><input id="rule-name" placeholder="e.g. Primary Student Support" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} /></div>
-          <div className="field" style={{ gridColumn: "1/-1" }}><label htmlFor="rule-amount">Top-up per account (S$) {req}</label><input type="number" id="rule-amount" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+          <div className="field"><label htmlFor="rule-id">Rule ID</label><input id="rule-id" readOnly value={v?.id ?? nextRuleId(rules)} /><div className="rule-form-help">Generated automatically on save.</div></div>
+          <div className="field"><label htmlFor="rule-name">Rule name {req}</label><input id="rule-name" placeholder="e.g. Primary Student Support" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} /></div>
+          <div className="field full-row"><label htmlFor="rule-amount">Top-up per account (S$) {req}</label><input type="number" id="rule-amount" min={1} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
         </div>
         <div className="sectionlabel">2. RECIPIENT CRITERIA (ALL MUST MATCH)</div>
         <div className="formgrid">
@@ -120,11 +123,12 @@ function RuleForm({ rules, onChange, onBack, notify, ask, closeAsk }: Props & { 
         </div>
         <div className="rule-form-help">{schools.length ? `${schools.length} selected` : "None selected: applies to all schools."}</div>
         {error && <div className="alert" role="alert">{error}</div>}
-        <div className="formfoot">
+        </fieldset>
+        {!ro && <div className="formfoot">
           <button type="button" className="btn small" onClick={onBack}>Cancel</button>
           <button type="button" className="btn small" onClick={() => save("Draft")}>Save draft</button>
           <button type="button" className="btn small primary" onClick={activate}>Activate</button>
-        </div>
+        </div>}
       </div>
     </div>
   );

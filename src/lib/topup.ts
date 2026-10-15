@@ -1,4 +1,4 @@
-import type { Account, FundRule } from "../data/topup";
+import type { Account, FundRule, Target, Transaction } from "../data/topup";
 
 export type TopUpRule = {
   ageMin: number;
@@ -53,4 +53,30 @@ export function nextRuleId(rules: { id: string }[]): string {
 export function transactionCode(date: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   return m ? `TUT${m[3]}${m[2]}${m[1].slice(-2)}` : "TUT000000";
+}
+
+const ddmmyy = (date: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date); return m ? m[3] + m[2] + m[1].slice(-2) : "000000"; };
+
+/** Per-account outcomes: stored targets, else demo ones built from `accounts` so counts match `t.accounts`. */
+export function allocationsOf(t: Transaction, accounts: Account[]): Target[] {
+  if (t.targets) return t.targets;
+  return Array.from({ length: t.accounts }, (_, n) => {
+    const a = accounts[(n + t.ref.length * 3) % accounts.length];
+    const failed = t.status === "Failed" || (t.status === "Partial Success" && n % 5 === 0);
+    return { student: a.name, account: a.id, status: t.status === "Pending" ? "Pending" : failed ? "Failed" : "Success", ...(failed ? { reason: "Education Account inactive at execution" } : {}) } as Target;
+  });
+}
+
+/** Display IDs, index-aligned with `rows` (newest first). Top-up ID = SIN|BAT + DDMMYY + 3-digit daily seq;
+ *  account txid = TUT + DDMMYY + 5-digit daily seq. Prototype only: production allocates these atomically in the backend. */
+export function ledgerIds(rows: Transaction[], accounts: Account[]) {
+  const seq = new Map<string, number>();
+  const next = (prefix: string, date: string, digits: number) => { const k = `${prefix}|${date}`; const n = (seq.get(k) ?? 0) + 1; seq.set(k, n); return prefix + ddmmyy(date) + String(n).padStart(digits, "0"); };
+  const out = rows.map(() => ({ id: "", targets: [] as Target[] }));
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const t = rows[i];
+    out[i].id = next(t.type === "Batch" ? "BAT" : "SIN", t.date, 3);
+    out[i].targets = allocationsOf(t, accounts).map((a) => (a.status === "Pending" ? a : { ...a, txid: a.txid ?? next("TUT", t.date, 5) }));
+  }
+  return out;
 }

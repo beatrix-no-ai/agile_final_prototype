@@ -132,3 +132,19 @@
 @media(prefers-reduced-motion:reduce){.tu *{transition:none!important}}
 .tu .data-table td:nth-child(5){white-space:nowrap}
 .tu .data-table th:nth-child(6),.tu .data-table td:nth-child(6){padding-right:24px}
+
+/* From prototype: filters row, full-width form row, read-only rule view, scrollable account table */
+.tu .filters-toolbar{flex-wrap:wrap;gap:9px}
+.tu .filters-toolbar .filter-search{flex:1 1 150px;min-width:130px;max-width:260px}
+.tu .filters-toolbar select{flex:0 0 126px;width:126px}
+.tu .filters-toolbar input[type="date"]{flex:0 0 140px;width:140px}
+.tu .filters-toolbar .create-action{margin-left:auto}
+.tu .toolbar>button.btn{min-height:39px;padding:9px 12px}
+.tu .ruleformcard .formgrid .full-row{grid-column:1 / -1}
+.tu .rule-fieldset{border:0;margin:0;padding:0;min-width:0}
+.tu .rule-view-mode .schools-row button{display:none}
+.tu .rule-view-mode .schoolitem{cursor:default}
+.tu .tabletop{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.tu .small{font-size:12px;color:var(--sub)}
+.tu .transaction-scroll{max-height:390px;overflow:auto;border:1px solid var(--border);border-radius:9px}
+.tu .transaction-scroll .data-table thead th{position:sticky;top:0;background:white;z-index:1;box-shadow:0 1px 0 var(--border)}

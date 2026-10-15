@@ -54,7 +54,7 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
           ref: transactionCode(d), type: single ? "Single" : "Batch",
           recipient: single ? `${student!.name} (${student!.id})` : rule!.name,
           detail: single ? `Education Account ${student!.id} · ${reason.trim()}` : reason.trim(),
-          date: d, schedule: later ? freq : "Run now (ad-hoc)", accounts: targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
+          date: d, schedule: later ? freq : "Run now (ad-hoc)", targets: targets.map((a) => ({ student: a.name, account: a.id, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
         }, later ? [] : targets.map((a) => a.id));
         closeAsk(); notify(later ? "Schedule recorded in demo." : "Top-up simulated successfully."); onBack();
       },
@@ -65,7 +65,7 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
 
   return (
     <div>
-      <button type="button" className="backline" onClick={onBack}>← Back to top-up transactions</button>
+      <button type="button" className="backline" onClick={onBack}>← Back to Top-up History</button>
       <div className="two">
         <div className="card leftcard"><h2>Create top-up</h2>
           <div className="field"><label>Top-up Type</label><div className="switch">
@@ -74,9 +74,9 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
 
           {single ? (
             <div>
-              <div className="field"><label htmlFor="student-input">Find student by name or ID <span className="required">*</span></label>
+              <div className="field"><label htmlFor="student-input">Find student by name or Edu Account ID <span className="required">*</span></label>
                 <div className="combo" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
-                  <input id="student-input" type="text" autoComplete="off" role="combobox" aria-expanded={open} aria-controls="student-dropdown" placeholder="Select or search student name / ID..."
+                  <input id="student-input" type="text" autoComplete="off" role="combobox" aria-expanded={open} aria-controls="student-dropdown" placeholder="Select or search student name / Edu Account ID..."
                     value={query} onFocus={() => setOpen(true)}
                     onChange={(e) => { setQuery(e.target.value); setAccountId(""); setOpen(true); }}
                     onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); if (e.key === "Enter") { e.preventDefault(); if (found[0]) pick(found[0]); } }} />
@@ -95,7 +95,7 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
               {student && (
                 <div className="selected-account">
                   <div><small>Student name</small><strong>{student.name}</strong></div>
-                  <div><small>Education account</small><strong>{student.id}</strong></div>
+                  <div><small>Edu Account ID</small><strong>{student.id}</strong></div>
                   <div><small>Account status</small><strong>{student.status}</strong></div>
                   <div><small>Account balance</small><strong>{cash(student.balance)}</strong></div>
                 </div>

@@ -8,10 +8,12 @@ export type Schooling = (typeof SCHOOLING)[number];
 export type RuleSchooling = Schooling;
 export type Account = { id: string; name: string; school: string; class: string; age: number; citizen: boolean; enrolled: boolean; schooling: Schooling; status: "Active" | "Closed"; balance: number };
 
-export const FREQUENCIES = ["Once", "7days", "30days", "365days"] as const;
+export const FREQUENCIES = ["Once", "Weekly", "Monthly", "Yearly"] as const;
 
-export type TxStatus = "Success" | "Pending" | "Failed";
-export type Transaction = { ref: string; type: "Single" | "Batch"; recipient: string; detail: string; date: string; schedule: string; accounts: number; amount: number; status: TxStatus; by: string };
+export type TxStatus = "Success" | "Partial Success" | "Pending" | "Failed";
+/** One account inside a top-up. `txid` exists only once the account has been processed (not Pending). */
+export type Target = { student: string; account: string; status: "Success" | "Pending" | "Failed"; reason?: string; txid?: string };
+export type Transaction = { targets?: Target[]; ref: string; type: "Single" | "Batch"; recipient: string; detail: string; date: string; schedule: string; accounts: number; amount: number; status: TxStatus; by: string };
 
 const FIRST = ["Ethan", "Chloe", "Marcus", "Aisha", "Jun Wei", "Priya", "Daniel", "Siti", "Isaac", "Mei Ling", "Arjun", "Hannah", "Wei Jie", "Nur", "Caleb", "Sophia", "Ryan", "Keerthi", "Zhi Hao", "Olivia"];
 const LAST = ["Tan", "Lim", "Wong", "Rahman", "Chua", "Nair", "Ong", "Goh", "Lee", "Ng", "Koh", "Teo"];
@@ -36,12 +38,12 @@ export const ACCOUNTS: Account[] = Array.from({ length: 60 }, (_, i) => ({
 /** Newest first. */
 export const PAST_TRANSACTIONS: Transaction[] = [
   { ref: "TUT031126", type: "Single", recipient: "Tom Tan (STU001)", detail: "Education Account S202600001 · Scheduled individual support", date: "2026-11-03", schedule: "Once", accounts: 1, amount: 200, status: "Pending", by: "Daniel Lee" },
-  { ref: "TUT051126", type: "Batch", recipient: "Primary Student Support 2026", detail: "Scheduled batch top-up · TUR01001", date: "2026-11-05", schedule: "365days", accounts: 3, amount: 150, status: "Pending", by: "Jessica Tan" },
+  { ref: "TUT051126", type: "Batch", recipient: "Primary Student Support 2026", detail: "Scheduled batch top-up · TUR01001", date: "2026-11-05", schedule: "Yearly", accounts: 3, amount: 150, status: "Pending", by: "Jessica Tan" },
   { ref: "TUT141026", type: "Single", recipient: "Yeo Mei (STU006)", detail: "Education Account S202600006 · Failed: Account closed before top-up execution", date: "2026-10-14", schedule: "Run now (ad-hoc)", accounts: 1, amount: 200, status: "Failed", by: "Daniel Lee" },
   { ref: "TUT131026", type: "Single", recipient: "Ben Lim (STU003)", detail: "Education Account S202600003 · Individual education assistance", date: "2026-10-13", schedule: "Run now (ad-hoc)", accounts: 1, amount: 100, status: "Success", by: "Michelle Tan" },
-  { ref: "TUT140826", type: "Batch", recipient: "Pioneer ad-hoc grant", detail: "Ad-hoc grant for pioneer cohort", date: "2026-08-14", schedule: "Run now (ad-hoc)", accounts: 12, amount: 500, status: "Success", by: "Ryan Lim" },
-  { ref: "TUT010726", type: "Batch", recipient: "Edusave Contribution Q3", detail: "Edusave contribution", date: "2026-07-01", schedule: "30days", accounts: 34, amount: 150, status: "Success", by: "Rachel Wong" },
-  { ref: "TUT050126", type: "Batch", recipient: "Primary level annual top-up", detail: "Annual education top-up", date: "2026-01-05", schedule: "365days", accounts: 21, amount: 200, status: "Success", by: "Daniel Lee" },
+  { ref: "TUT140826", type: "Batch", recipient: "Pioneer ad-hoc grant", detail: "Ad-hoc grant for pioneer cohort", date: "2026-08-14", schedule: "Run now (ad-hoc)", accounts: 12, amount: 500, status: "Partial Success", by: "Ryan Lim" },
+  { ref: "TUT010726", type: "Batch", recipient: "Edusave Contribution Q3", detail: "Edusave contribution", date: "2026-07-01", schedule: "Monthly", accounts: 34, amount: 150, status: "Success", by: "Rachel Wong" },
+  { ref: "TUT050126", type: "Batch", recipient: "Primary level annual top-up", detail: "Annual education top-up", date: "2026-01-05", schedule: "Yearly", accounts: 21, amount: 200, status: "Success", by: "Daniel Lee" },
 ];
 
 export type RuleStatus = "Active" | "Draft" | "Deactivated";
