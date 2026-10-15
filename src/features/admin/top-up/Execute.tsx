@@ -84,7 +84,7 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
                     <div className="combo-pop" id="student-dropdown">
                       {found.length ? found.map((a) => (
                         <button key={a.id} type="button" className="studentitem" onClick={() => pick(a)}>
-                          <span><strong>{a.name}</strong><small>{a.id} · {a.school || "No current school"}</small></span>
+                          <span><strong>{a.name}</strong><small>{a.school || "No current school"}</small></span>
                           <span className="studentaccount"><strong>{cash(a.balance)}</strong><small>{a.id} · {a.status}</small></span>
                         </button>
                       )) : <div className="empty">No students found</div>}
@@ -95,7 +95,6 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
               {student && (
                 <div className="selected-account">
                   <div><small>Student name</small><strong>{student.name}</strong></div>
-                  <div><small>Student ID</small><strong>{student.id}</strong></div>
                   <div><small>Education account</small><strong>{student.id}</strong></div>
                   <div><small>Account status</small><strong>{student.status}</strong></div>
                   <div><small>Account balance</small><strong>{cash(student.balance)}</strong></div>
@@ -114,7 +113,7 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
             </div>
           )}
 
-          {single && <div className="field field-half"><label htmlFor="amount">Amount (S$) <span className="required">*</span></label>
+          {single && <div className="field"><label htmlFor="amount">Amount (S$) <span className="required">*</span></label>
             <input id="amount" type="number" min={1} step={1} placeholder="e.g. 200" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>}
           <div className="field"><label htmlFor="reason">Reason <span className="required">*</span></label>
             <textarea id="reason" maxLength={500} placeholder="e.g. ad-hoc student assistance" value={reason} onChange={(e) => setReason(e.target.value)} />
