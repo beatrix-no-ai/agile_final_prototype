@@ -42,7 +42,6 @@ function RuleList({ rules, onChange, onAdd, notify, ask, closeAsk }: Props & { o
               <td>{r.schools.length ? `${r.schools.length} selected` : "All schools"}</td><td>{cash(r.amount)}</td>
               <td><span className={`badge ${badgeClass(r.status)}`}>{r.status}</span></td>
               <td><div className="actiongroup">
-                <button type="button" disabled title="Editing rules is disabled">Edit</button>
                 <button type="button" onClick={() => toggle(r)}>{r.status === "Active" ? "Deactivate" : "Activate"}</button>
               </div></td>
             </tr>

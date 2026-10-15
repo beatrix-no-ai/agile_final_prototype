@@ -64,8 +64,7 @@
 .tu .data-table td small{display:block;color:var(--sub);margin-top:3px;font-size:11px}
 .tu .actiongroup{display:flex;align-items:center;gap:8px;white-space:nowrap}
 .tu .actiongroup button{border:1px solid var(--border);border-radius:9px;background:white;color:var(--maroon-text);padding:8px 11px;font-weight:500}
-.tu .actiongroup button:last-child{border:0;background:transparent}
-.tu .actiongroup button:hover:not(:disabled){background:#faf1f3}
+.tu .actiongroup button:hover{background:#faf1f3;border-color:#dcc9cd}
 .tu .backline{display:block;border:0;background:none;color:var(--maroon-text);font-size:12px;margin:4px 0 17px;padding:0}
 .tu .ruleformcard{padding:20px 16px 16px}
 .tu .ruleformcard .field{margin-bottom:13px}
@@ -101,3 +100,35 @@
 @media(max-width:1050px){.tu .two{grid-template-columns:1fr}.tu .leftcard{min-height:unset}.tu .field-half{max-width:100%}}
 @media(max-width:750px){.tu .toolbar{flex-wrap:wrap}.tu .toolbar>input{flex:1 1 100%}.tu .toolbar>select{flex:1 1 140px}.tu .toolbar>button.btn{margin-left:auto}}
 @media(max-width:600px){.tu .formgrid{grid-template-columns:1fr}.tu .tabs button{font-size:11px;padding:10px}.tu .leftcard,.tu .rightcard,.tu .tablecard{padding:14px}}
+
+/* Polish */
+.tu .tabs button{transition:color .15s,border-color .15s}
+.tu .tabs button:hover:not(.active){color:var(--maroon-text)}
+.tu .tabs button.active{border-bottom-width:2px;margin-bottom:-1px}
+.tu .data-table tbody tr{transition:background .12s}
+.tu .data-table tbody tr:hover{background:#fcf9f9}
+.tu .data-table td:nth-child(4){white-space:nowrap}
+.tu .data-table td:nth-child(7),.tu .data-table td:nth-child(8){font-variant-numeric:tabular-nums;white-space:nowrap}
+.tu .data-table th:nth-child(6),.tu .data-table td:nth-child(6){text-align:right}
+.tu .data-table td:first-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+.tu .badge{white-space:nowrap}
+.tu .toolbar input:focus-visible,.tu .toolbar select:focus-visible{border-color:var(--maroon)}
+.tu .field input:not([type=checkbox]):focus,.tu .field select:focus,.tu .field textarea:focus{border-color:var(--maroon)}
+.tu .field input:not([type=checkbox])::placeholder,.tu .field textarea::placeholder,.tu .toolbar input::placeholder{color:#a69b9d}
+.tu .btn,.tu .switch button,.tu .studentitem,.tu .actiongroup button{transition:background .12s,filter .12s,border-color .12s}
+.tu .btn:active{transform:translateY(1px)}
+.tu .btn.primary:hover{filter:brightness(1.08)}
+.tu .switch button:not(.selected):hover{color:var(--maroon-text)}
+.tu .studentitem:focus-visible{outline-offset:-2px}
+.tu .rightcard{position:sticky;top:24px}
+.tu .summaryrow strong{max-width:60%;overflow-wrap:anywhere}
+.tu .selected-account{background:#fcf9f9}
+.tu .eligible-item{padding:8px 0}
+.tu .dialog{box-shadow:0 18px 50px #2e262833}
+.tu .backline{font-weight:600;padding:6px 0}
+.tu .backline:hover{text-decoration:underline}
+.tu .empty{padding:28px 16px}
+@media(max-width:1050px){.tu .rightcard{position:static}}
+@media(prefers-reduced-motion:reduce){.tu *{transition:none!important}}
+.tu .data-table td:nth-child(5){white-space:nowrap}
+.tu .data-table th:nth-child(6),.tu .data-table td:nth-child(6){padding-right:24px}
