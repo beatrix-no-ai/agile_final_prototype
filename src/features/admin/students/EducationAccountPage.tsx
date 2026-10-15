@@ -8,7 +8,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
 import { payableOf } from "../../../lib/fees";
 import { StatusBadge } from "../fee-types/parts";
-import { ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledgerFor } from "../../../lib/accounts";
+import { ACCOUNT_CLOSES_AT, ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledgerFor } from "../../../lib/accounts";
 import { SCHOOLS } from "../../../data/schools";
 import { schoolCodeFor } from "../../../data/users";
 import { formatSGD } from "../../../lib/format";
@@ -57,10 +57,11 @@ export default function EducationAccountPage() {
   const opened = new Date(Date.UTC(dob.getUTCFullYear() + ACCOUNT_OPENS_AT, dob.getUTCMonth(), dob.getUTCDate(), 6, 12));
   const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleString("en-SG", { timeZone: "Asia/Singapore", ...o });
   const school = SCHOOLS.find((s) => s.code === schoolCodeFor(role)) ?? SCHOOLS.find((s) => s.level === (student.level.startsWith("P") ? "Primary" : "Secondary"));
-  const status = accountStatus(student.level);
+  const active = accountStatus(student.level) === "Active" && ageForLevel(student.level) < ACCOUNT_CLOSES_AT;
+  const closed = new Date(Date.UTC(dob.getUTCFullYear() + ACCOUNT_CLOSES_AT, dob.getUTCMonth(), dob.getUTCDate()));
 
   const details: [string, ReactNode][] = [
-    ["Account status", <Badge key="a" tone={status === "Active" ? "success" : "warning"}>{status}</Badge>],
+    ["Account status", <Badge key="a" tone={active ? "success" : "neutral"}>{active ? "Active" : "Not active"}</Badge>],
     ["Current enrolment", <Badge key="s" tone={statusTone[student.status]}>{student.status}</Badge>],
     ["Date of birth", fmt(dob, { day: "2-digit", month: "2-digit", year: "numeric" })],
     ["Education account ID", student.id],
@@ -69,7 +70,7 @@ export default function EducationAccountPage() {
     ["Current class", student.class],
     ["Academic year", "2026"],
     ["Opened", `${fmt(opened, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} SGT`],
-    ["Closed", "—"],
+    ["Closed", ageForLevel(student.level) >= ACCOUNT_CLOSES_AT ? fmt(closed, { day: "numeric", month: "short", year: "numeric" }) : "—"],
     ...(role === "school" ? ([["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>]] as [string, ReactNode][]) : []),
   ];
 
