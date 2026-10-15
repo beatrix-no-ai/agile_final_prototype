@@ -3,10 +3,11 @@ import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import AssignCharges from "./AssignCharges";
 import FeeTypeList from "./FeeTypeList";
-import HqFeeDashboard from "./HqFeeDashboard";
+import HqFeeDashboard, { SchoolFeeBody } from "./HqFeeDashboard";
 import StudentCharges from "./StudentCharges";
 
 const TABS = [
+  { id: "dash", label: "Fee dashboard", hint: "Collected vs outstanding" },
   { id: "types", label: "Fee types", hint: "Set up what the school charges" },
   { id: "assign", label: "Assign and generate", hint: "Issue charges to a class" },
   { id: "stu", label: "Student fees", hint: "Review every charge" },
@@ -17,13 +18,13 @@ type TabId = (typeof TABS)[number]["id"];
 export default function FeeTypes() {
   const { role } = useSession();
   const school = schoolCodeFor(role);
-  const [tab, setTab] = useState<TabId>("stu");
+  const [tab, setTab] = useState<TabId>("dash");
   const [preset, setPreset] = useState("");
 
   if (role === "hq" || !school) return <HqFeeDashboard />;
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="Fee workspace" className="grid gap-2 sm:grid-cols-3">
+      <div role="tablist" aria-label="Fee workspace" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {TABS.map((t, i) => {
           const on = tab === t.id;
           return (
@@ -44,6 +45,7 @@ export default function FeeTypes() {
           );
         })}
       </div>
+      {tab === "dash" && <SchoolFeeBody school={school} />}
       {tab === "stu" && <StudentCharges school={school} />}
       {tab === "types" && <FeeTypeList school={school} onAssign={(id) => { setPreset(id); setTab("assign"); }} />}
       {tab === "assign" && <AssignCharges school={school} presetFee={preset} />}

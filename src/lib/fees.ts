@@ -42,6 +42,11 @@ export function seedCharges(): Charge[] {
     const t3 = makeCharge(nextChargeId(out), ft, s, "2026 Term 3");
     out.push(i % 7 === 3 ? { ...t3, issued: "2026-08-20", status: "overdue" } : { ...t3, issued: "2026-08-20", status: "paid", paidOn: "2026-09-05" });
     out.push(makeCharge(nextChargeId(out), ft, s, "2026 Term 4"));
+    const sup = FEE_TYPES.find((f) => f.school === ft.school && f.level === s.level);   // level-specific supplementary fee
+    if (sup) {
+      const c = makeCharge(nextChargeId(out), sup, s, "2026 Term 4");
+      out.push(i % 2 ? { ...c, status: "paid", paidOn: "2026-10-05" } : c);
+    }
   });
   return out;
 }
