@@ -11,7 +11,7 @@ import { SCHOOLING, type FundRule, type RuleSchooling, type RuleStatus } from ".
 import { formatSGD } from "../../../lib/format";
 import { checkRule, nextRuleId } from "../../../lib/topup";
 
-const TONE: Record<RuleStatus, BadgeTone> = { Active: "success", Draft: "warning", Paused: "neutral" };
+const TONE: Record<RuleStatus, BadgeTone> = { Active: "success", Draft: "warning", Deactivated: "neutral" };
 const num = (s: string) => (s.trim() === "" ? NaN : Number(s));
 
 type Props = { rules: FundRule[]; onChange: (next: FundRule[]) => void };
@@ -26,7 +26,7 @@ export default function Rules({ rules, onChange }: Props) {
   const viewed = rules.find((r) => r.id === viewId);
   if (viewed) return <RuleView rule={viewed} onBack={() => setViewId(null)} />;
   if (draft) return <RuleForm draft={draft} rules={rules} onCancel={() => setDraft(null)} onSave={(r) => { onChange(r.id && rules.some((x) => x.id === r.id) ? rules.map((x) => (x.id === r.id ? r : x)) : [r, ...rules]); setDraft(null); }} />;
-  return <RuleList rules={rules} onView={(r) => setViewId(r.id)} onNew={() => setDraft(BLANK)} onEdit={(r) => setDraft({ id: r.id, name: r.name, amount: String(r.amount), ageMin: String(r.ageMin), ageMax: String(r.ageMax), minBalance: String(r.minBalance), maxBalance: String(r.maxBalance), schooling: r.schooling, schools: [...r.schools] })} onToggle={(id) => onChange(rules.map((r) => (r.id === id ? { ...r, status: r.status === "Active" ? "Paused" : "Active" } : r)))} />;
+  return <RuleList rules={rules} onView={(r) => setViewId(r.id)} onNew={() => setDraft(BLANK)} onEdit={(r) => setDraft({ id: r.id, name: r.name, amount: String(r.amount), ageMin: String(r.ageMin), ageMax: String(r.ageMax), minBalance: String(r.minBalance), maxBalance: String(r.maxBalance), schooling: r.schooling, schools: [...r.schools] })} onToggle={(id) => onChange(rules.map((r) => (r.id === id ? { ...r, status: r.status === "Active" ? "Deactivated" : "Active" } : r)))} />;
 }
 
 function RuleList({ rules, onView, onNew, onEdit, onToggle }: { rules: FundRule[]; onView: (r: FundRule) => void; onNew: () => void; onEdit: (r: FundRule) => void; onToggle: (id: string) => void }) {
@@ -34,7 +34,8 @@ function RuleList({ rules, onView, onNew, onEdit, onToggle }: { rules: FundRule[
   const [status, setStatus] = useState("All");
   const rows = rules.filter((r) => `${r.name} ${r.id}`.toLowerCase().includes(q.trim().toLowerCase()) && (status === "All" || r.status === status));
   const columns: Column<FundRule>[] = [
-    { key: "name", header: "Rule", sortable: true, render: (r) => (<><span className="font-semibold">{r.name}</span><span className="block text-[13px] text-on-surface-variant">{r.id}</span></>) },
+    { key: "id", header: "Rule ID", sortable: true },
+    { key: "name", header: "Rule name", sortable: true, render: (r) => <span className="font-semibold">{r.name}</span> },
     { key: "ageMin", header: "Age range", render: (r) => `${r.ageMin}-${r.ageMax} yrs` },
     { key: "minBalance", header: "Balance range", sortable: true, render: (r) => range(r) },
     { key: "schooling", header: "Schooling status" },
@@ -44,14 +45,15 @@ function RuleList({ rules, onView, onNew, onEdit, onToggle }: { rules: FundRule[
   ];
   return (
     <div className="space-y-4">
-      <Card title="Funding rules" action={<Button size="sm" icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={onNew}>Add rule</Button>}>
+      <Card>
         <div className="mb-4 flex flex-wrap items-end gap-3">
           <input aria-label="Search rules" className={inputClass.replace("w-full", "min-w-48 max-w-xs flex-1")} placeholder="Search rule name or ID..." value={q} onChange={(e) => setQ(e.target.value)} />
           <select aria-label="Filter by status" className={inputClass.replace("w-full", "w-44")} value={status} onChange={(e) => setStatus(e.target.value)}>
-            {["All", "Active", "Draft", "Paused"].map((s) => <option key={s} value={s}>{s === "All" ? "All statuses" : s}</option>)}
+            {["All", "Active", "Draft", "Deactivated"].map((s) => <option key={s} value={s}>{s === "All" ? "All statuses" : s}</option>)}
           </select>
+          <Button icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={onNew}>Add rule</Button>
         </div>
-        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} rowActions={(r) => (<><RowAction onClick={() => onView(r)}>View</RowAction><RowAction onClick={() => onEdit(r)}>Edit</RowAction><RowAction onClick={() => onToggle(r.id)}>{r.status === "Active" ? "Pause" : "Activate"}</RowAction></>)} pageSize={8} empty={<EmptyState title="No matching rules" hint="Change the search or status filter, or add a rule." />} />
+        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} rowActions={(r) => (<><RowAction onClick={() => onView(r)}>View</RowAction><RowAction onClick={() => onEdit(r)}>Edit</RowAction><RowAction onClick={() => onToggle(r.id)}>{r.status === "Active" ? "Deactivate" : "Activate"}</RowAction></>)} pageSize={8} empty={<EmptyState title="No matching rules" hint="Change the search or status filter, or add a rule." />} />
       </Card>
     </div>
   );
@@ -80,7 +82,7 @@ function RuleForm({ draft, rules, onCancel, onSave }: { draft: Draft; rules: Fun
   return (
     <div>
       <button type="button" onClick={onCancel} className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-        <ArrowLeft size={16} weight="bold" aria-hidden="true" /> Back to funding rules
+        <ArrowLeft size={16} weight="bold" aria-hidden="true" /> Back to batch top-up rules
       </button>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(17rem,1fr)] lg:items-start">
         <Card title={d.id ? `Edit funding rule ${d.id}` : "Create funding rule"}>
@@ -173,7 +175,7 @@ function RuleView({ rule: r, onBack }: { rule: FundRule; onBack: () => void }) {
   return (
     <div>
       <button type="button" onClick={onBack} className="mb-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-        <ArrowLeft size={16} weight="bold" aria-hidden="true" /> Back to funding rules
+        <ArrowLeft size={16} weight="bold" aria-hidden="true" /> Back to batch top-up rules
       </button>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Rule information" action={<Badge tone={TONE[r.status]}>{r.status}</Badge>}>

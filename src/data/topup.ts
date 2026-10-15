@@ -10,7 +10,8 @@ export type Account = { id: string; name: string; school: string; class: string;
 
 export type Schedule = "now" | "once" | "weekly" | "monthly" | "quarterly" | "yearly";
 
-export type Execution = { id: string; title: string; reason: string; schedule: Schedule; eligible: number; amount: number; total: number; date: string; by: string; status?: "Success" | "Scheduled" };
+export type ExecStatus = "Success" | "Pending" | "Failed";
+export type Execution = { id: string; type: "Single" | "Batch"; title: string; reason: string; schedule: Schedule; eligible: number; amount: number; total: number; date: string; by: string; status?: ExecStatus; note?: string };
 
 const FIRST = ["Ethan", "Chloe", "Marcus", "Aisha", "Jun Wei", "Priya", "Daniel", "Siti", "Isaac", "Mei Ling", "Arjun", "Hannah", "Wei Jie", "Nur", "Caleb", "Sophia", "Ryan", "Keerthi", "Zhi Hao", "Olivia"];
 const LAST = ["Tan", "Lim", "Wong", "Rahman", "Chua", "Nair", "Ong", "Goh", "Lee", "Ng", "Koh", "Teo"];
@@ -33,12 +34,15 @@ export const ACCOUNTS: Account[] = Array.from({ length: 60 }, (_, i) => ({
 }));
 
 export const PAST_EXECUTIONS: Execution[] = [
-  { id: "TU-0005", title: "Primary level annual top-up", reason: "Annual education top-up", schedule: "yearly", eligible: 21, amount: 200, total: 4200, date: "2026-01-05", by: "HQ Officer" },
-  { id: "TU-0006", title: "Edusave Contribution Q3", reason: "Edusave contribution", schedule: "quarterly", eligible: 34, amount: 150, total: 5100, date: "2026-07-01", by: "HQ Officer" },
-  { id: "TU-0007", title: "Pioneer ad-hoc grant", reason: "Ad-hoc grant for pioneer cohort", schedule: "now", eligible: 12, amount: 500, total: 6000, date: "2026-08-14", by: "HQ Officer" },
+  { id: "TU-0005", type: "Batch", title: "Primary level annual top-up", reason: "Annual education top-up", schedule: "yearly", eligible: 21, amount: 200, total: 4200, date: "2026-01-05", by: "HQ Officer" },
+  { id: "TU-0006", type: "Batch", title: "Edusave Contribution Q3", reason: "Edusave contribution", schedule: "quarterly", eligible: 34, amount: 150, total: 5100, date: "2026-07-01", by: "HQ Officer" },
+  { id: "TU-0007", type: "Batch", title: "Pioneer ad-hoc grant", reason: "Ad-hoc grant for pioneer cohort", schedule: "now", eligible: 12, amount: 500, total: 6000, date: "2026-08-14", by: "HQ Officer" },
+  { id: "TU-0008", type: "Single", title: "Single top-up: Ben Lim", reason: "Individual education assistance", schedule: "now", eligible: 1, amount: 100, total: 100, date: "2026-10-13", by: "HQ Officer", status: "Success" },
+  { id: "TU-0009", type: "Single", title: "Single top-up: Yeo Mei", reason: "Failed: account closed before top-up execution", schedule: "now", eligible: 1, amount: 200, total: 200, date: "2026-10-14", by: "HQ Officer", status: "Failed" },
+  { id: "TU-0010", type: "Batch", title: "Primary Student Support 2026", reason: "Scheduled batch top-up", schedule: "yearly", eligible: 3, amount: 150, total: 450, date: "2026-11-05", by: "HQ Officer", status: "Pending" },
 ];
 
-export type RuleStatus = "Active" | "Draft" | "Paused";
+export type RuleStatus = "Active" | "Draft" | "Deactivated";
 /** Balance range is [minBalance, maxBalance): max excluded. Empty `schools` = all schools. */
 export type FundRule = { id: string; name: string; ageMin: number; ageMax: number; minBalance: number; maxBalance: number; schooling: RuleSchooling; amount: number; schools: string[]; status: RuleStatus };
 
