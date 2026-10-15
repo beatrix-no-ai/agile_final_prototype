@@ -8,7 +8,9 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
 import { payableOf } from "../../../lib/fees";
 import { StatusBadge } from "../fee-types/parts";
-import { accountStatus, ledgerFor } from "../../../lib/accounts";
+import { ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledgerFor } from "../../../lib/accounts";
+import { SCHOOLS } from "../../../data/schools";
+import { schoolCodeFor } from "../../../data/users";
 import { formatSGD } from "../../../lib/format";
 import { useSession } from "../../../session";
 import { statusTone } from "./logic";
@@ -49,12 +51,25 @@ export default function EducationAccountPage() {
   const initials = student.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const feesPath = `/admin/students/${student.id}/fees`;
 
+  // ASSUMPTION: mock students carry no DOB or school; DOB is derived from level age and the id, the account opened on the 7th birthday.
+  const seq = Number(student.id.replace(/\D/g, "")) || 0;
+  const dob = new Date(Date.UTC(2026 - ageForLevel(student.level), seq % 12, (seq % 28) + 1));
+  const opened = new Date(Date.UTC(dob.getUTCFullYear() + ACCOUNT_OPENS_AT, dob.getUTCMonth(), dob.getUTCDate(), 6, 12));
+  const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleString("en-SG", { timeZone: "Asia/Singapore", ...o });
+  const school = SCHOOLS.find((s) => s.code === schoolCodeFor(role)) ?? SCHOOLS.find((s) => s.level === (student.level.startsWith("P") ? "Primary" : "Secondary"));
+  const status = accountStatus(student.level);
+
   const details: [string, ReactNode][] = [
-    ["Education Account ID", student.id],
-    ["Level", student.level],
-    ["Class", student.class],
-    ["Schooling status", <Badge key="s" tone={statusTone[student.status]}>{student.status}</Badge>],
-    ["Account status", <Badge key="a" tone="success">{accountStatus(student.level)}</Badge>],
+    ["Account status", <Badge key="a" tone={status === "Active" ? "success" : "warning"}>{status}</Badge>],
+    ["Current enrolment", <Badge key="s" tone={statusTone[student.status]}>{student.status}</Badge>],
+    ["Date of birth", fmt(dob, { day: "2-digit", month: "2-digit", year: "numeric" })],
+    ["Education account ID", student.id],
+    ["Current school", school?.name ?? "—"],
+    ["Current level", student.level],
+    ["Current class", student.class],
+    ["Academic year", "2026"],
+    ["Opened", `${fmt(opened, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} SGT`],
+    ["Closed", "—"],
     ...(role === "school" ? ([["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>]] as [string, ReactNode][]) : []),
   ];
 
@@ -69,13 +84,13 @@ export default function EducationAccountPage() {
           <div className="flex flex-col items-center text-center">
             <div className="grid size-20 place-items-center rounded-full bg-primary-fixed text-2xl font-bold text-primary" aria-hidden>{initials}</div>
             <h2 className="mt-3 text-xl font-semibold text-on-surface">{student.name}</h2>
-            <p className="text-sm text-on-surface-variant">{student.level} · {student.class}</p>
+            <p className="text-sm text-on-surface-variant">Education account</p>
           </div>
           <dl className="mt-5 divide-y divide-line border-t border-line text-sm">
             {details.map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-3 py-2.5">
                 <dt className="text-on-surface-variant">{k}</dt>
-                <dd className="font-medium text-on-surface">{v}</dd>
+                <dd className="text-right font-medium text-on-surface">{v}</dd>
               </div>
             ))}
           </dl>
