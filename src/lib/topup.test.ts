@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { parseAmount } from "./amount";
-import { checkRule, eligibleAccounts, eligibleForRule, nextExecutionId, nextRuleId, totalFunds, type TopUpRule } from "./topup";
+import { eligibleAccounts, eligibleForRule, nextRuleId, totalFunds, transactionCode, type TopUpRule } from "./topup";
 import { ACCOUNTS, FUND_RULES, type Account } from "../data/topup";
 
 const acc = (id: string, o: Partial<Account> = {}): Account => ({ id, name: id, school: "Riverbank Primary School", class: "P4 Courage", age: 10, citizen: true, enrolled: true, schooling: "Enrolled", status: "Active", balance: 100, ...o });
@@ -70,13 +70,6 @@ describe("totalFunds", () => {
   });
 });
 
-describe("nextExecutionId", () => {
-  test("uses the max existing number, not the list length", () => {
-    expect(nextExecutionId([{ id: "TU-0005" }, { id: "TU-0007" }, { id: "TU-0006" }])).toBe("TU-0008");
-    expect(nextExecutionId([])).toBe("TU-0001");
-  });
-});
-
 describe("eligibleForRule", () => {
   const r = { ageMin: 7, ageMax: 12, minBalance: 100, maxBalance: 500, schooling: "Enrolled" as const, schools: ["Riverbank Primary School"] };
   test("balance in [min, max); age inclusive; school must match", () => {
@@ -90,28 +83,8 @@ describe("eligibleForRule", () => {
   });
 });
 
-describe("checkRule", () => {
-  const base = { ageMin: 10, ageMax: 14, minBalance: 0, maxBalance: 400, schooling: "Enrolled" as const, amount: 100, schools: ["Riverbank Primary School"] };
-  test("flags invalid input and skips the overlap check", () => {
-    expect(checkRule({ ...base, ageMin: 15 }, FUND_RULES).errors).toHaveLength(1);
-    expect(checkRule({ ...base, minBalance: 400 }, FUND_RULES).errors).toHaveLength(1);
-    expect(checkRule({ ...base, amount: 0, maxBalance: 0 }, FUND_RULES).overlaps).toEqual([]);
-  });
-  test("empty schools is valid (all schools) and overlaps everything on school", () => {
-    expect(checkRule({ ...base, schools: [] }, FUND_RULES).errors).toEqual([]);
-    expect(checkRule({ ...base, schools: [] }, FUND_RULES).overlaps.map((o) => o.rule.id)).toEqual(["R-1001", "R-1002"]);
-  });
-  test("warns only when age, balance, schooling AND school all overlap an Active rule", () => {
-    expect(checkRule(base, FUND_RULES).overlaps.map((o) => o.rule.id)).toEqual(["R-1001"]);
-    expect(checkRule({ ...base, ageMin: 13, ageMax: 15 }, FUND_RULES).overlaps).toEqual([]); // age only
-    expect(checkRule({ ...base, schools: ["Sunrise Primary School"] }, FUND_RULES).overlaps).toEqual([]); // school only
-    expect(checkRule({ ...base, minBalance: 500, maxBalance: 900 }, FUND_RULES).overlaps).toEqual([]); // R-1001 max 500 is exclusive
-    expect(checkRule({ ...base, schooling: "Not Enrolled" }, FUND_RULES).overlaps).toEqual([]); // schooling differs
-  });
-  test("ignores Draft rules and the rule being edited", () => {
-    expect(checkRule({ ...base, schools: ["Eastlake Secondary School"] }, FUND_RULES).overlaps.map((o) => o.rule.id)).toEqual(["R-1002"]); // R-1003 is Draft
-    expect(checkRule(base, FUND_RULES, "R-1001").overlaps).toEqual([]);
-  });
+test("nextRuleId continues from the highest id", () => expect(nextRuleId(FUND_RULES)).toBe("TUR01004"));
+test("transactionCode is TUT + DDMMYY", () => {
+  expect(transactionCode("2026-11-03")).toBe("TUT031126");
+  expect(transactionCode("")).toBe("TUT000000");
 });
-
-test("nextRuleId continues from the highest id", () => expect(nextRuleId(FUND_RULES)).toBe("R-1004"));

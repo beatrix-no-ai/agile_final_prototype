@@ -14,12 +14,6 @@ export function totalFunds(count: number, amount: number): number {
   return (Math.round(amount * 100) * count) / 100;
 }
 
-/** Next "TU-0001" style id from the highest existing number. */
-export function nextExecutionId(rows: { id: string }[]): string {
-  const max = rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 0);
-  return `TU-${String(max + 1).padStart(4, "0")}`;
-}
-
 /** Accounts matching every rule. Age and balance bounds are inclusive; flags only exclude when on. */
 export function eligibleAccounts(rule: TopUpRule, accounts: Account[]): Account[] {
   return accounts.filter(
@@ -50,37 +44,13 @@ export function eligibleForRule(rule: RuleCriteria, accounts: Account[]): Accoun
   );
 }
 
-export type RuleInput = RuleCriteria & { amount: number };
-export type Overlap = { rule: FundRule; ageMin: number; ageMax: number; minBalance: number; maxBalance: number; schools: string[] };
-
-/**
- * Validation errors plus overlap warnings against the other Active rules.
- * Overlap needs shared age, balance range, schooling status AND school scope; it is a warning, never a block.
- * `selfId` is excluded when editing.
- */
-export function checkRule(input: RuleInput, others: FundRule[], selfId?: string): { errors: string[]; overlaps: Overlap[] } {
-  const { ageMin: a, ageMax: b, minBalance, maxBalance, amount, schools, schooling } = input;
-  const errors: string[] = [];
-  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b > 120 || a > b) errors.push("Age range must be whole numbers from 0 to 120, minimum not above maximum.");
-  if (!(minBalance >= 0) || !(maxBalance > minBalance)) errors.push("Balance range: minimum must be at least S$0 and maximum greater than minimum.");
-  if (!(amount > 0)) errors.push("Top-up amount must be greater than S$0.");
-  if (!schooling) errors.push("Select a schooling status.");
-  if (errors.length) return { errors, overlaps: [] };
-  const overlaps = others
-    .filter((r) => r.id !== selfId && r.status === "Active")
-    .flatMap((r) => {
-      const shared = schools.length && r.schools.length ? schools.filter((s) => r.schools.includes(s)) : schools.length ? schools : r.schools;
-      const lo = Math.max(minBalance, r.minBalance);
-      const hi = Math.min(maxBalance, r.maxBalance);
-      const schoolsMeet = !schools.length || !r.schools.length || shared.length > 0;
-      const schoolingMeets = schooling === r.schooling;
-      if (a > r.ageMax || b < r.ageMin || !(lo < hi) || !schoolsMeet || !schoolingMeets) return [];
-      return [{ rule: r, ageMin: Math.max(a, r.ageMin), ageMax: Math.min(b, r.ageMax), minBalance: lo, maxBalance: hi, schools: shared }];
-    });
-  return { errors, overlaps };
+/** "TUR" + five digits, continuing from the highest existing rule (first is TUR01001). */
+export function nextRuleId(rules: { id: string }[]): string {
+  return `TUR${String(rules.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 1000) + 1).padStart(5, "0")}`;
 }
 
-/** Next "R-1004" style id. */
-export function nextRuleId(rules: { id: string }[]): string {
-  return `R-${rules.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 1000) + 1}`;
+/** "TUT" + DDMMYY of the execution date. Same-day transactions share a code (as in the team prototype). */
+export function transactionCode(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return m ? `TUT${m[3]}${m[2]}${m[1].slice(-2)}` : "TUT000000";
 }

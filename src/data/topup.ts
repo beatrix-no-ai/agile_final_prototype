@@ -8,10 +8,10 @@ export type Schooling = (typeof SCHOOLING)[number];
 export type RuleSchooling = Schooling;
 export type Account = { id: string; name: string; school: string; class: string; age: number; citizen: boolean; enrolled: boolean; schooling: Schooling; status: "Active" | "Closed"; balance: number };
 
-export type Schedule = "now" | "once" | "weekly" | "monthly" | "quarterly" | "yearly";
+export const FREQUENCIES = ["Once", "7days", "30days", "365days"] as const;
 
-export type ExecStatus = "Success" | "Pending" | "Failed";
-export type Execution = { id: string; type: "Single" | "Batch"; title: string; reason: string; schedule: Schedule; eligible: number; amount: number; total: number; date: string; by: string; status?: ExecStatus; note?: string };
+export type TxStatus = "Success" | "Pending" | "Failed";
+export type Transaction = { ref: string; type: "Single" | "Batch"; recipient: string; detail: string; date: string; schedule: string; accounts: number; amount: number; status: TxStatus; by: string };
 
 const FIRST = ["Ethan", "Chloe", "Marcus", "Aisha", "Jun Wei", "Priya", "Daniel", "Siti", "Isaac", "Mei Ling", "Arjun", "Hannah", "Wei Jie", "Nur", "Caleb", "Sophia", "Ryan", "Keerthi", "Zhi Hao", "Olivia"];
 const LAST = ["Tan", "Lim", "Wong", "Rahman", "Chua", "Nair", "Ong", "Goh", "Lee", "Ng", "Koh", "Teo"];
@@ -33,22 +33,24 @@ export const ACCOUNTS: Account[] = Array.from({ length: 60 }, (_, i) => ({
   balance: 20 + ((i * 137) % 1481) + (i % 4) * 0.5, // S$20 .. ~S$1,500
 }));
 
-export const PAST_EXECUTIONS: Execution[] = [
-  { id: "TU-0005", type: "Batch", title: "Primary level annual top-up", reason: "Annual education top-up", schedule: "yearly", eligible: 21, amount: 200, total: 4200, date: "2026-01-05", by: "HQ Officer" },
-  { id: "TU-0006", type: "Batch", title: "Edusave Contribution Q3", reason: "Edusave contribution", schedule: "quarterly", eligible: 34, amount: 150, total: 5100, date: "2026-07-01", by: "HQ Officer" },
-  { id: "TU-0007", type: "Batch", title: "Pioneer ad-hoc grant", reason: "Ad-hoc grant for pioneer cohort", schedule: "now", eligible: 12, amount: 500, total: 6000, date: "2026-08-14", by: "HQ Officer" },
-  { id: "TU-0008", type: "Single", title: "Single top-up: Ben Lim", reason: "Individual education assistance", schedule: "now", eligible: 1, amount: 100, total: 100, date: "2026-10-13", by: "HQ Officer", status: "Success" },
-  { id: "TU-0009", type: "Single", title: "Single top-up: Yeo Mei", reason: "Failed: account closed before top-up execution", schedule: "now", eligible: 1, amount: 200, total: 200, date: "2026-10-14", by: "HQ Officer", status: "Failed" },
-  { id: "TU-0010", type: "Batch", title: "Primary Student Support 2026", reason: "Scheduled batch top-up", schedule: "yearly", eligible: 3, amount: 150, total: 450, date: "2026-11-05", by: "HQ Officer", status: "Pending" },
+/** Newest first. */
+export const PAST_TRANSACTIONS: Transaction[] = [
+  { ref: "TUT031126", type: "Single", recipient: "Tom Tan (STU001)", detail: "Education Account EA-00001 · Scheduled individual support", date: "2026-11-03", schedule: "Once", accounts: 1, amount: 200, status: "Pending", by: "Daniel Lee" },
+  { ref: "TUT051126", type: "Batch", recipient: "Primary Student Support 2026", detail: "Scheduled batch top-up · TUR01001", date: "2026-11-05", schedule: "365days", accounts: 3, amount: 150, status: "Pending", by: "Jessica Tan" },
+  { ref: "TUT141026", type: "Single", recipient: "Yeo Mei (STU006)", detail: "Education Account EA-00006 · Failed: Account closed before top-up execution", date: "2026-10-14", schedule: "Run now (ad-hoc)", accounts: 1, amount: 200, status: "Failed", by: "Daniel Lee" },
+  { ref: "TUT131026", type: "Single", recipient: "Ben Lim (STU003)", detail: "Education Account EA-00003 · Individual education assistance", date: "2026-10-13", schedule: "Run now (ad-hoc)", accounts: 1, amount: 100, status: "Success", by: "Michelle Tan" },
+  { ref: "TUT140826", type: "Batch", recipient: "Pioneer ad-hoc grant", detail: "Ad-hoc grant for pioneer cohort", date: "2026-08-14", schedule: "Run now (ad-hoc)", accounts: 12, amount: 500, status: "Success", by: "Ryan Lim" },
+  { ref: "TUT010726", type: "Batch", recipient: "Edusave Contribution Q3", detail: "Edusave contribution", date: "2026-07-01", schedule: "30days", accounts: 34, amount: 150, status: "Success", by: "Rachel Wong" },
+  { ref: "TUT050126", type: "Batch", recipient: "Primary level annual top-up", detail: "Annual education top-up", date: "2026-01-05", schedule: "365days", accounts: 21, amount: 200, status: "Success", by: "Daniel Lee" },
 ];
 
 export type RuleStatus = "Active" | "Draft" | "Deactivated";
 /** Balance range is [minBalance, maxBalance): max excluded. Empty `schools` = all schools. */
 export type FundRule = { id: string; name: string; ageMin: number; ageMax: number; minBalance: number; maxBalance: number; schooling: RuleSchooling; amount: number; schools: string[]; status: RuleStatus };
 
-/** Saved funding rules (Top-up team's model). A saved rule never moves money; batch top-ups pick an Active one. */
+/** Saved batch top-up rules. A saved rule never moves money; batch top-ups pick an Active one. */
 export const FUND_RULES: FundRule[] = [
-  { id: "R-1001", name: "Primary Student Support 2026", ageMin: 7, ageMax: 12, minBalance: 0, maxBalance: 500, schooling: "Enrolled", amount: 150, schools: ["Riverbank Primary School", "Maple Grove Primary School"], status: "Active" },
-  { id: "R-1002", name: "Secondary Education Assistance", ageMin: 13, ageMax: 16, minBalance: 100, maxBalance: 400, schooling: "Enrolled", amount: 250, schools: ["Greenfield Secondary School", "Eastlake Secondary School"], status: "Active" },
-  { id: "R-1003", name: "Mid-year top-up", ageMin: 10, ageMax: 14, minBalance: 0, maxBalance: 600, schooling: "Enrolled", amount: 80, schools: ["Maple Grove Primary School", "Eastlake Secondary School"], status: "Draft" },
+  { id: "TUR01001", name: "Primary Student Support 2026", ageMin: 7, ageMax: 12, minBalance: 0, maxBalance: 500, schooling: "Enrolled", amount: 150, schools: ["Riverbank Primary School", "Maple Grove Primary School"], status: "Active" },
+  { id: "TUR01002", name: "Secondary Education Assistance", ageMin: 13, ageMax: 16, minBalance: 100, maxBalance: 400, schooling: "Enrolled", amount: 250, schools: ["Greenfield Secondary School", "Hillcrest Secondary School"], status: "Active" },
+  { id: "TUR01003", name: "Mid-year top-up", ageMin: 10, ageMax: 14, minBalance: 0, maxBalance: 600, schooling: "Enrolled", amount: 80, schools: ["Riverbank Primary School", "Eastlake Secondary School"], status: "Draft" },
 ];
