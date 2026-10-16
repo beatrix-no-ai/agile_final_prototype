@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MASTER } from "../../../data/fees";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import AssignCharges from "./AssignCharges";
@@ -7,25 +8,31 @@ import HqFeeDashboard, { SchoolFeeBody } from "./HqFeeDashboard";
 import StudentCharges from "./StudentCharges";
 
 const TABS = [
-  { id: "dash", label: "Fee dashboard", hint: "Collected vs outstanding" },
-  { id: "types", label: "Fee types", hint: "Set up what the school charges" },
-  { id: "assign", label: "Assign and generate", hint: "Issue charges to a class" },
+  { id: "dash", label: "Student fees & dashboard", hint: "Collected vs outstanding" },
+  { id: "assign", label: "Assign fees", hint: "Issue charges to a class" },
+  { id: "types", label: "School fee catalogue", hint: "Set up what the school charges" },
   { id: "stu", label: "Student fees", hint: "Review every charge" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+
+const HQ_TABS = [
+  { id: "dash", label: "Fee dashboard", hint: "All schools, read-only" },
+  { id: "master", label: "Master catalogue", hint: "MOE-wide fee types" },
+] as const;
 
 /** Fee (Req 3): schools set up fee types, assign them to classes and review charges; HQ reviews every school read-only. */
 export default function FeeTypes() {
   const { role } = useSession();
   const school = schoolCodeFor(role);
-  const [tab, setTab] = useState<TabId>("dash");
+  const [tab, setTab] = useState<TabId | "master">("dash");
   const [preset, setPreset] = useState("");
+  const hq = role === "hq" || !school;
+  const tabs = hq ? HQ_TABS : TABS;
 
-  if (role === "hq" || !school) return <HqFeeDashboard />;
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="Fee workspace" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        {TABS.map((t, i) => {
+      <div role="tablist" aria-label="Fee workspace" className={`grid gap-2 sm:grid-cols-2 ${hq ? "" : "lg:grid-cols-4"}`}>
+        {tabs.map((t, i) => {
           const on = tab === t.id;
           return (
             <button
@@ -45,10 +52,14 @@ export default function FeeTypes() {
           );
         })}
       </div>
-      {tab === "dash" && <SchoolFeeBody school={school} />}
-      {tab === "stu" && <StudentCharges school={school} />}
-      {tab === "types" && <FeeTypeList school={school} onAssign={(id) => { setPreset(id); setTab("assign"); }} />}
-      {tab === "assign" && <AssignCharges school={school} presetFee={preset} />}
+      {hq ? (tab === "master" ? <FeeTypeList school={MASTER} /> : <HqFeeDashboard />) : (
+        <>
+          {tab === "dash" && <SchoolFeeBody school={school} />}
+          {tab === "stu" && <StudentCharges school={school} />}
+          {tab === "types" && <FeeTypeList school={school} onAssign={(id) => { setPreset(id); setTab("assign"); }} />}
+          {tab === "assign" && <AssignCharges school={school} presetFee={preset} />}
+        </>
+      )}
     </div>
   );
 }
