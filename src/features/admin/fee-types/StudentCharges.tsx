@@ -51,6 +51,7 @@ export default function StudentCharges({ school }: { school: string }) {
       <Tiles items={[
         { label: "Charges shown", value: rows.length, note: `${a.unpaid} unpaid, ${a.paid} paid${a.overdue ? `, ${a.overdue} overdue` : ""}` },
         { label: "Outstanding payable", value: formatSGD(a.outstanding), alert: a.outstanding > 0 },
+        { label: "FAS subsidies applied", value: formatSGD(a.subsidy), good: true, note: "On issued charges, per component" },
         { label: "Total fee value", value: formatSGD(a.fee), note: `Payable ${formatSGD(a.payable)}` },
       ]} />
       <Card title="Student fees">
