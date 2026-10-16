@@ -21,7 +21,6 @@ const tiles = (rows: Charge[]) => {
       { label: "Fee value issued", value: formatSGD(a.fee), note: `${rows.length} charges, ${studentsIn(rows)} students` },
       { label: "Collected", value: formatSGD(a.collected), good: true, note: `${a.paid} paid` },
       { label: "Outstanding", value: formatSGD(a.outstanding), alert: a.outstanding > 0, note: `${a.unpaid} unpaid${a.overdue ? `, ${a.overdue} overdue` : ""}` },
-      { label: "FAS subsidies applied", value: formatSGD(a.subsidy), good: true, note: "On issued charges, per component" },
     ]} />
   );
 };
