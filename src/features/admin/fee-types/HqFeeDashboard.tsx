@@ -32,7 +32,7 @@ function AggTable({ label, groups, extra, sub }: { label: string; groups: [strin
         <thead>
           <tr className="border-b border-line text-left text-[13px] text-on-surface-variant">
             <th className="py-2 font-semibold">{label}</th>
-            {["Charges", "Fee value", "Subsidy", "Payable", "Collected", "Outstanding"].map((h) => <th key={h} className="text-right font-semibold">{h}</th>)}
+            {["Charges", "Fee value", "Payable", "Collected", "Outstanding"].map((h) => <th key={h} className="text-right font-semibold">{h}</th>)}
             {extra && <th className="px-3 text-left font-semibold">Actions</th>}
           </tr>
         </thead>
@@ -44,7 +44,6 @@ function AggTable({ label, groups, extra, sub }: { label: string; groups: [strin
                 <td className="py-2 font-medium">{k}{sub && <div className="mt-1 max-w-48 font-normal">{sub(rows)}</div>}</td>
                 <td className="text-right tabular-nums">{rows.length}</td>
                 <td className="text-right tabular-nums">{formatSGD(a.fee)}</td>
-                <td className="text-right tabular-nums text-success">{formatSGD(a.subsidy)}</td>
                 <td className="text-right tabular-nums font-semibold">{formatSGD(a.payable)}</td>
                 <td className="text-right tabular-nums text-success">{formatSGD(a.collected)}</td>
                 <td className={`text-right tabular-nums ${a.outstanding ? "text-alert" : ""}`}>{formatSGD(a.outstanding)}</td>
@@ -74,7 +73,6 @@ function Bars({ groups }: { groups: [string, Charge[]][] }) {
       <div className="mb-5 flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-on-surface-variant">
         <span className="flex items-center gap-2"><span aria-hidden className="size-3 rounded-sm bg-success" />Collected</span>
         <span className="flex items-center gap-2"><span aria-hidden className="size-3 rounded-sm bg-alert" />Outstanding</span>
-        <span>Bar length = payable after FAS subsidy</span>
       </div>
       <ul className="divide-y divide-line">
         {aggs.map(({ k, n, a }) => {
@@ -94,7 +92,6 @@ function Bars({ groups }: { groups: [string, Charge[]][] }) {
               <div className="mt-1.5 flex flex-wrap gap-x-5 text-[13px] tabular-nums">
                 <span className="text-success"><b>{formatSGD(a.collected)}</b> collected ({pct}%)</span>
                 <span className={a.outstanding ? "text-alert" : "text-on-surface-variant"}><b>{formatSGD(a.outstanding)}</b> outstanding</span>
-                {a.subsidy > 0 && <span className="text-on-surface-variant">FAS saved {formatSGD(a.subsidy)}</span>}
               </div>
             </li>
           );

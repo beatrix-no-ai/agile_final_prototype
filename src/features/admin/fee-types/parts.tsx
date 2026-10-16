@@ -5,7 +5,7 @@ import { Modal } from "../../../components/ui/Modal";
 import type { Charge, ChargeStatus, FeeType } from "../../../data/fees";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
-import { feeOf, payableOf, subsidyOf } from "../../../lib/fees";
+import { feeOf, payableOf } from "../../../lib/fees";
 
 const TONE: Record<ChargeStatus, BadgeTone> = { paid: "success", outstanding: "warning", overdue: "alert" };
 export const STATUS_LABEL: Record<ChargeStatus, string> = { paid: "Paid", outstanding: "Outstanding", overdue: "Overdue" };
@@ -38,7 +38,7 @@ function KV({ k, v }: { k: string; v: ReactNode }) {
   );
 }
 
-/** One charge with its per-component fee, FAS subsidy and payable amount. */
+/** One charge with its per-component fee and payable amount. */
 export function ChargeModal({ charge, feeName, onClose }: { charge: Charge | null; feeName?: string; onClose: () => void }) {
   const st = charge && studentOf(charge.studentId);
   return (
@@ -55,20 +55,18 @@ export function ChargeModal({ charge, feeName, onClose }: { charge: Charge | nul
             <KV k="Status" v={<StatusBadge status={charge.status} />} />
           </dl>
           <table className="mt-4 w-full text-sm">
-            <thead><tr className="border-b border-line text-left text-[13px] text-on-surface-variant"><th className="py-2 font-semibold">Component</th><th className="text-right font-semibold">Fee</th><th className="text-right font-semibold">FAS subsidy</th><th className="text-right font-semibold">Payable</th></tr></thead>
+            <thead><tr className="border-b border-line text-left text-[13px] text-on-surface-variant"><th className="py-2 font-semibold">Component</th><th className="text-right font-semibold">Fee</th><th className="text-right font-semibold">Payable</th></tr></thead>
             <tbody>
               {charge.components.map((c) => (
                 <tr key={c.name} className="border-b border-line">
                   <td className="py-2">{c.name}</td>
                   <td className="text-right tabular-nums">{formatSGD(c.amount)}</td>
-                  <td className="text-right tabular-nums text-success">{c.subsidy ? `- ${formatSGD(c.subsidy)}` : "-"}</td>
                   <td className="text-right tabular-nums">{formatSGD(c.amount - Math.min(c.subsidy ?? 0, c.amount))}</td>
                 </tr>
               ))}
               <tr className="font-semibold">
                 <td className="py-2">Total</td>
                 <td className="text-right tabular-nums">{formatSGD(feeOf(charge))}</td>
-                <td className="text-right tabular-nums text-success">- {formatSGD(subsidyOf(charge))}</td>
                 <td className="text-right tabular-nums text-primary">{formatSGD(payableOf(charge))}</td>
               </tr>
             </tbody>
