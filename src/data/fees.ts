@@ -8,10 +8,12 @@ export const MASTER = "MOE";
 
 export type ChargeStatus = "outstanding" | "overdue" | "paid";
 export type ChargeComponent = FeeComponent & { subsidy?: number };
-/** One fee issued to one student for one term. Components are copied from the fee type when issued. */
+/** Fee assistance scheme applied to a charge. A student receives at most one: MOEFAS takes precedence over SBFAS. */
+export type FasScheme = "MOEFAS" | "SBFAS";
+/** One fee issued to one student for one term. Components are copied from the fee type when issued; `fas` records the scheme whose subsidy was applied. */
 export type Charge = {
   id: string; studentId: string; ftId: string; title: string; term: string;
-  issued: string; due: string; status: ChargeStatus; paidOn?: string; components: ChargeComponent[];
+  issued: string; due: string; status: ChargeStatus; paidOn?: string; components: ChargeComponent[]; fas?: FasScheme;
 };
 
 export const TERMS = ["2026 Term 4", "2027 Term 1", "2026 Term 3"];

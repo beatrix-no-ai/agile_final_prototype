@@ -10,7 +10,7 @@ import { MASTER, TERMS, type Charge, type FeeType } from "../../../data/fees";
 import { SCHOOLS } from "../../../data/schools";
 import { CLASS_RECORDS } from "../../../data/schoolMgmt";
 import { formatSGD } from "../../../lib/format";
-import { alreadyCharged, feeOf, studentsOfClass } from "../../../lib/fees";
+import { alreadyCharged, fasOf, feeOf, studentsOfClass } from "../../../lib/fees";
 import { selectClass, studentOf } from "./parts";
 
 type Result = { created: number; skipped: number; level: string; term: string };
@@ -52,6 +52,8 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const students = level ? CLASS_RECORDS.filter((c) => c.school === school && c.level === level).flatMap((c) => studentsOfClass(school, c.name)) : [];
   const plan = chosen.filter((f) => !f.level || f.level === level).flatMap((fee) => students.map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, term) })));
   const todo = plan.filter((p) => !p.dup);
+  const withFas = students.map((s) => fasOf(s)).filter((f): f is NonNullable<typeof f> => f !== null);
+  const fasSummary = ["MOEFAS", "SBFAS"].map((k) => `${withFas.filter((f) => f.scheme === k).length} ${k}`).filter((x) => !x.startsWith("0")).join(" + ") || "FAS";
 
   const add = (id: string) => { if (id && !picked.includes(id)) { setPicked([...picked, id]); setResult(null); } };
   const generate = () => {
@@ -136,6 +138,14 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
       ) : (
         <div className="mt-2"><EmptyState title={chosen.length ? "Select a level to generate the charges." : "Nothing to generate yet"} /></div>
       )}
+      {level && chosen.length && withFas.length ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-on-surface-variant">
+          <Badge tone="primary">FAS</Badge>
+          <span>
+            {withFas.length} of {students.length} students receive {fasSummary} — for them the subsidy is deducted from the fee when the charge is generated, so their payable is lower than {formatSGD(perStudent)}. A student never receives both schemes: MOEFAS takes precedence over SBFAS.
+          </span>
+        </p>
+      ) : null}
       {result && (
         <p role="status" className="mt-4 flex items-center gap-2 rounded-card border border-line bg-success-container px-4 py-3 text-sm font-medium text-success">
           <CheckCircle size={18} weight="bold" aria-hidden="true" />

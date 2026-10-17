@@ -1,6 +1,5 @@
 import { useRef, useState, type RefObject } from "react";
 import { Sparkle } from "@phosphor-icons/react";
-import { AssumptionTag } from "../../../components/ui/AssumptionTag";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
@@ -63,9 +62,8 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: FasA
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
 
-      <p className="text-[13px]">
-        <span className="mr-2"><AssumptionTag /></span>
-        If the student already receives MOEFAS, MOEFAS takes precedence and SBFAS is not granted. Confirm the rule with MOE.
+      <p className="text-[13px] rounded-control border border-line bg-surface-container-low px-3 py-2.5">
+        A student cannot receive both schemes: if MOEFAS applies, MOEFAS takes precedence and SBFAS is not granted — approve SBFAS only when the student has no MOEFAS.
       </p>
 
       {decided ? (

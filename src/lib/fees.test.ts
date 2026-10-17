@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { feeReducer, initialFeeState } from "../data/feeStore";
-import { FEE_TYPES } from "../data/fees";
-import { STUDENTS } from "../data/students";
-import { aggregate, feeDraftOk, feeOf, nextChargeId, payableOf, seedCharges, studentsOfClass, subsidyOf, validateFeeType } from "./fees";
+import { FEE_TYPES, type FeeType } from "../data/fees";
+import { STUDENTS, type Student } from "../data/students";
+import { aggregate, fasOf, feeDraftOk, feeOf, makeCharge, MOEFAS_RATE, nextChargeId, payableOf, SBFAS_RATE, seedCharges, studentsOfClass, subsidyOf, subsidyRate, validateFeeType } from "./fees";
 
 const draft = (o = {}) => ({ name: "Trip", level: "", components: [{ name: "Bus", amount: "12.50", on: true }], ...o });
 
@@ -60,4 +60,57 @@ test("seed charges: unique ids, aggregate splits collected and outstanding", () 
   expect(a.collected + a.outstanding).toBeCloseTo(a.payable, 2);
   expect(a.overdue).toBeGreaterThan(0);
   expect(nextChargeId(rows)).toBe(`CH-${1000 + rows.length + 1}`);
+});
+
+const fasStudent = (moefas: Student["moefas"], sbfas: Student["sbfas"]): Student => ({
+  id: "S1", name: "Test", level: "P1", class: "P1 Courage", status: "Enrolled", balance: 0, moefas, sbfas,
+});
+const fasFee: FeeType = { id: "FT-1", school: "S001", name: "Test fee", updated: "2026-10-12", components: [{ name: "Tuition", amount: 100 }, { name: "Materials", amount: 50 }] };
+
+describe("fasOf — MOEFAS takes precedence over SBFAS (a student never receives both)", () => {
+  test("MOEFAS when only MOEFAS is approved", () => {
+    expect(fasOf(fasStudent("Approved", "Not applied"))).toEqual({ scheme: "MOEFAS", rate: MOEFAS_RATE });
+  });
+  test("MOEFAS wins even if both are approved — SBFAS is ignored", () => {
+    expect(fasOf(fasStudent("Approved", "Approved"))?.scheme).toBe("MOEFAS");
+  });
+  test("SBFAS only when MOEFAS is not approved", () => {
+    expect(fasOf(fasStudent("Not applied", "Approved"))).toEqual({ scheme: "SBFAS", rate: SBFAS_RATE });
+    expect(fasOf(fasStudent("Rejected", "Approved"))?.scheme).toBe("SBFAS");
+  });
+  test("null when neither is approved", () => {
+    expect(fasOf(fasStudent("Pending", "Pending"))).toBeNull();
+    expect(fasOf(fasStudent("Not applied", "Not applied"))).toBeNull();
+  });
+});
+
+describe("makeCharge — stamps the scheme and deducts its subsidy", () => {
+  test("records fas and the per-component subsidy for MOEFAS", () => {
+    const c = makeCharge("CH-1", fasFee, fasStudent("Approved", "Not applied"), "2026 Term 4");
+    expect(c.fas).toBe("MOEFAS");
+    expect(subsidyOf(c)).toBe(75);            // 50% of 150
+    expect(payableOf(c)).toBe(75);
+  });
+  test("SBFAS subsidises less than MOEFAS on the same fee", () => {
+    const moefas = makeCharge("CH-1", fasFee, fasStudent("Approved", "Not applied"), "2026 Term 4");
+    const sbfas = makeCharge("CH-2", fasFee, fasStudent("Not applied", "Approved"), "2026 Term 4");
+    expect(sbfas.fas).toBe("SBFAS");
+    expect(subsidyOf(sbfas)).toBeLessThan(subsidyOf(moefas));
+  });
+  test("no fas and no subsidy without FAS", () => {
+    const c = makeCharge("CH-1", fasFee, fasStudent("Not applied", "Not applied"), "2026 Term 4");
+    expect(c.fas).toBeUndefined();
+    expect(subsidyOf(c)).toBe(0);
+    expect(subsidyRate(fasStudent("Not applied", "Not applied"))).toBe(0);
+  });
+});
+
+describe("seed invariants", () => {
+  test("no student has both schemes Approved at once", () => {
+    expect(STUDENTS.filter((s) => s.moefas === "Approved" && s.sbfas === "Approved")).toEqual([]);
+  });
+  test("the mock data has both MOEFAS and SBFAS recipients", () => {
+    expect(STUDENTS.some((s) => s.moefas === "Approved")).toBe(true);
+    expect(STUDENTS.some((s) => s.sbfas === "Approved")).toBe(true);
+  });
 });

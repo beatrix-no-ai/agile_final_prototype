@@ -5,10 +5,11 @@ import { DataTable, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { inputClass } from "../../../components/ui/Field";
 import { useFees } from "../../../data/feeStore";
-import type { Charge } from "../../../data/fees";
+import type { Charge, FasScheme } from "../../../data/fees";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
 import { formatSGD } from "../../../lib/format";
-import { aggregate, feeOf, payableOf } from "../../../lib/fees";
+import { aggregate, feeOf, payableOf, subsidyOf } from "../../../lib/fees";
+import { Badge } from "../../../components/ui/Badge";
 import { ChargeModal, Chips, StatusBadge, Tiles, selectClass, studentOf } from "./parts";
 
 type Row = { id: string; charge: Charge; student: string; studentId: string; levelClass: string; level: string; title: string; term: string; due: string; fee: number; payable: number; status: string };
@@ -31,6 +32,7 @@ export default function StudentCharges({ school }: { school: string }) {
     return [{ id: c.id, charge: c, student: s.name, studentId: s.id, levelClass: `${s.level}, ${s.class}`, level: s.level, title: c.title, term: c.term, due: c.due, fee: feeOf(c), payable: payableOf(c), status: c.status }];
   }), [mine, q, level, term, status]);
   const a = aggregate(rows.map((r) => r.charge));
+  const byScheme = (scheme: FasScheme) => rows.filter((r) => r.charge.fas === scheme).reduce((t, r) => t + subsidyOf(r.charge), 0);
   const terms = [...new Set(mine.map((c) => c.term))].sort();
   const count = (s: string) => mine.filter((c) => !s || c.status === s).length;
   const filtered = !!(q || level || term || status);
@@ -41,6 +43,9 @@ export default function StudentCharges({ school }: { school: string }) {
     { key: "levelClass", header: "Level / class", sortable: true },
     { key: "title", header: "Charge", sortable: true, render: (r) => (<>{r.title}<span className="block text-[13px] text-on-surface-variant">{r.term}, due {r.due}</span></>) },
     { key: "fee", header: "Fee", sortable: true, align: "right", render: (r) => formatSGD(r.fee) },
+    { key: "fas", header: "FAS", sortable: true, render: (r) => r.charge.fas ? (
+      (<><Badge tone="primary">{r.charge.fas}</Badge><span className="block text-[13px] text-success">− {formatSGD(subsidyOf(r.charge))}</span></>)
+    ) : <span className="text-on-surface-variant">—</span> },
     { key: "payable", header: "Payable", sortable: true, align: "right", render: (r) => <span className="font-semibold">{formatSGD(r.payable)}</span> },
     { key: "status", header: "Status", sortable: true, render: (r) => <StatusBadge status={r.charge.status} /> },
     { key: "view", header: "", render: (r) => <Button size="sm" variant="ghost" onClick={() => setOpen(r.charge)} aria-label={`Components of ${r.id}`}>Components</Button> },
@@ -51,7 +56,7 @@ export default function StudentCharges({ school }: { school: string }) {
       <Tiles items={[
         { label: "Charges shown", value: rows.length, note: `${a.unpaid} unpaid, ${a.paid} paid${a.overdue ? `, ${a.overdue} overdue` : ""}` },
         { label: "Outstanding payable", value: formatSGD(a.outstanding), alert: a.outstanding > 0 },
-        { label: "FAS subsidies applied", value: formatSGD(a.subsidy), good: true, note: "On issued charges, per component" },
+        { label: "FAS subsidies applied", value: formatSGD(a.subsidy), good: true, note: `MOEFAS − ${formatSGD(byScheme("MOEFAS"))} · SBFAS − ${formatSGD(byScheme("SBFAS"))}` },
         { label: "Total fee value", value: formatSGD(a.fee), note: `Payable ${formatSGD(a.payable)}` },
       ]} />
       <Card title="Student fees">

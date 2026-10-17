@@ -71,7 +71,10 @@ export default function EducationAccountPage() {
     ["Academic year", "2026"],
     ["Opened", `${fmt(opened, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} SGT`],
     ["Closed", ageForLevel(student.level) >= ACCOUNT_CLOSES_AT ? fmt(closed, { day: "numeric", month: "short", year: "numeric" }) : "—"],
-    ...(role === "school" ? ([["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>]] as [string, ReactNode][]) : []),
+    ...(role === "school" ? ([
+      ["MOEFAS", <Badge key="m" tone={SBFAS_TONE[student.moefas]}>{student.moefas}</Badge>],
+      ["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>],
+    ] as [string, ReactNode][]) : []),
   ];
 
   return (

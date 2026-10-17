@@ -9,7 +9,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
 import type { Charge } from "../../../data/fees";
 import { formatSGD } from "../../../lib/format";
-import { feeOf, payableOf, subsidyOf } from "../../../lib/fees";
+import { feeOf, fasOf, payableOf, subsidyOf } from "../../../lib/fees";
 import { ChargeModal, StatusBadge } from "../fee-types/parts";
 import { useStudent } from "./useStudent";
 
@@ -32,10 +32,11 @@ export default function StudentFees() {
     .sort((a, b) => Number(a.status === "paid") - Number(b.status === "paid") || a.due.localeCompare(b.due))
     .map((c) => ({ id: c.id, charge: c, title: c.title, term: c.term, due: c.due, fee: feeOf(c), subsidy: subsidyOf(c), payable: payableOf(c), status: c.status }));
   const total = rows.filter((r) => r.status !== "paid").reduce((t, r) => t + r.payable, 0);
+  const fas = fasOf(student);
   const columns: Column<Row>[] = [
     { key: "title", header: "Charge", sortable: true, render: (r) => (<><span className="font-medium">{r.title}</span><span className="block text-[13px] text-on-surface-variant">{r.id}, {r.term}, due {r.due}</span></>) },
     { key: "fee", header: "Fee", sortable: true, align: "right", render: (r) => formatSGD(r.fee) },
-    { key: "subsidy", header: "Subsidy", align: "right", render: (r) => (r.subsidy ? `- ${formatSGD(r.subsidy)}` : "-") },
+    { key: "subsidy", header: "Subsidy", align: "right", render: (r) => (r.subsidy ? `- ${formatSGD(r.subsidy)}${r.charge.fas ? ` · ${r.charge.fas}` : ""}` : "-") },
     { key: "payable", header: "Payable", sortable: true, align: "right", render: (r) => <span className="font-semibold">{formatSGD(r.payable)}</span> },
     { key: "status", header: "Status", sortable: true, render: (r) => <StatusBadge status={r.charge.status} /> },
     { key: "view", header: "", render: (r) => <Button size="sm" variant="ghost" onClick={() => setOpen(r.charge)} aria-label={`Components of ${r.id}`}>Components</Button> },
@@ -51,8 +52,15 @@ export default function StudentFees() {
           <span>{student.id}</span>
           <span>{student.level}, {student.class}</span>
           <span>Account balance <strong className="text-on-surface">{formatSGD(student.balance)}</strong></span>
+          <span>MOEFAS <Badge tone="neutral">{student.moefas}</Badge></span>
           <span>SBFAS <Badge tone="neutral">{student.sbfas}</Badge></span>
         </p>
+        {fas && (
+          <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
+            <Badge tone="primary">{fas.scheme}</Badge>
+            <span>takes precedence — subsidy of {Math.round(fas.rate * 100)}% is deducted from each issued charge; the student does not also receive {fas.scheme === "MOEFAS" ? "SBFAS" : "MOEFAS"}.</span>
+          </p>
+        )}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
         <p className="mt-4 text-right text-sm">Total unpaid <strong className="text-on-surface">{formatSGD(total)}</strong>{total > student.balance && <span className="text-alert"> (exceeds account balance)</span>}</p>
       </Card>

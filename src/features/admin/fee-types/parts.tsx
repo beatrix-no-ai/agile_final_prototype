@@ -5,7 +5,7 @@ import { Modal } from "../../../components/ui/Modal";
 import type { Charge, ChargeStatus, FeeType } from "../../../data/fees";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
-import { feeOf, payableOf } from "../../../lib/fees";
+import { feeOf, payableOf, subsidyOf } from "../../../lib/fees";
 
 const TONE: Record<ChargeStatus, BadgeTone> = { paid: "success", outstanding: "warning", overdue: "alert" };
 export const STATUS_LABEL: Record<ChargeStatus, string> = { paid: "Paid", outstanding: "Outstanding", overdue: "Overdue" };
@@ -54,19 +54,30 @@ export function ChargeModal({ charge, feeName, onClose }: { charge: Charge | nul
             {charge.status === "paid" && charge.paidOn && <KV k="Paid on" v={charge.paidOn} />}
             <KV k="Status" v={<StatusBadge status={charge.status} />} />
           </dl>
+          {charge.fas && (
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
+              <Badge tone="primary">{charge.fas} applied</Badge>
+              <span>
+                Subsidy <strong>− {formatSGD(subsidyOf(charge))}</strong> deducted from the fee of {formatSGD(feeOf(charge))} · payable{" "}
+                <strong>{formatSGD(payableOf(charge))}</strong>
+              </span>
+            </p>
+          )}
           <table className="mt-4 w-full text-sm">
-            <thead><tr className="border-b border-line text-left text-[13px] text-on-surface-variant"><th className="py-2 font-semibold">Component</th><th className="text-right font-semibold">Fee</th><th className="text-right font-semibold">Payable</th></tr></thead>
+            <thead><tr className="border-b border-line text-left text-[13px] text-on-surface-variant"><th className="py-2 font-semibold">Component</th><th className="text-right font-semibold">Fee</th><th className="text-right font-semibold">Subsidy</th><th className="text-right font-semibold">Payable</th></tr></thead>
             <tbody>
               {charge.components.map((c) => (
                 <tr key={c.name} className="border-b border-line">
                   <td className="py-2">{c.name}</td>
                   <td className="text-right tabular-nums">{formatSGD(c.amount)}</td>
+                  <td className="text-right tabular-nums text-success">{c.subsidy ? `− ${formatSGD(Math.min(c.subsidy, c.amount))}` : "—"}</td>
                   <td className="text-right tabular-nums">{formatSGD(c.amount - Math.min(c.subsidy ?? 0, c.amount))}</td>
                 </tr>
               ))}
               <tr className="font-semibold">
                 <td className="py-2">Total</td>
                 <td className="text-right tabular-nums">{formatSGD(feeOf(charge))}</td>
+                <td className="text-right tabular-nums text-success">{subsidyOf(charge) ? `− ${formatSGD(subsidyOf(charge))}` : "—"}</td>
                 <td className="text-right tabular-nums text-primary">{formatSGD(payableOf(charge))}</td>
               </tr>
             </tbody>

@@ -1,5 +1,5 @@
 import { schoolOfLevel } from "../data/schoolMgmt";
-import { FEE_TYPES, TERM_DUE, type Charge, type ChargeComponent, type FeeComponent, type FeeType } from "../data/fees";
+import { FEE_TYPES, TERM_DUE, type Charge, type ChargeComponent, type FasScheme, type FeeComponent, type FeeType } from "../data/fees";
 import { STUDENTS, type Student } from "../data/students";
 
 /** Mock "today" for issue and paid dates. */
@@ -12,17 +12,28 @@ export const feeOf = (c: { components: FeeComponent[] }) => sum(c.components.map
 export const subsidyOf = (c: { components: ChargeComponent[] }) => sum(c.components.map((x) => Math.min(x.subsidy ?? 0, x.amount)));
 export const payableOf = (c: { components: ChargeComponent[] }) => sum(c.components.map((x) => x.amount - Math.min(x.subsidy ?? 0, x.amount)));
 
-/** ASSUMPTION: an approved SBFAS gives a flat 20% subsidy on every component (real tiers are Sprint 2). */
-export const subsidyRate = (s: Pick<Student, "sbfas">) => (s.sbfas === "Approved" ? 0.2 : 0);
+// ASSUMPTION: flat rates per scheme (real per-component tiers are Sprint 2). MOEFAS subsidises more than SBFAS.
+export const MOEFAS_RATE = 0.5;
+export const SBFAS_RATE = 0.2;
+
+/** The single scheme whose subsidy applies to this student's charges: MOEFAS takes precedence over SBFAS — a student never receives both. */
+export function fasOf(s: Pick<Student, "moefas" | "sbfas">): { scheme: FasScheme; rate: number } | null {
+  if (s.moefas === "Approved") return { scheme: "MOEFAS", rate: MOEFAS_RATE };
+  if (s.sbfas === "Approved") return { scheme: "SBFAS", rate: SBFAS_RATE };
+  return null;
+}
+
+export const subsidyRate = (s: Pick<Student, "moefas" | "sbfas">) => fasOf(s)?.rate ?? 0;
 
 export const nextChargeId = (rows: { id: string }[]) => `CH-${rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 1000) + 1}`;
 export const nextFeeTypeId = (rows: { id: string }[]) => `FT-${String(rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(2, "0")}`;
 
 export const makeCharge = (id: string, ft: FeeType, s: Student, term: string): Charge => {
-  const rate = subsidyRate(s);
+  const fas = fasOf(s);
   return {
     id, studentId: s.id, ftId: ft.id, title: ft.name, term, issued: TODAY, due: TERM_DUE[term] ?? "2026-11-13", status: "outstanding",
-    components: ft.components.map((c) => ({ name: c.name, amount: c.amount, subsidy: Math.round(c.amount * rate * 100) / 100 })),
+    fas: fas?.scheme,
+    components: ft.components.map((c) => ({ name: c.name, amount: c.amount, subsidy: Math.round(c.amount * (fas?.rate ?? 0) * 100) / 100 })),
   };
 };
 
