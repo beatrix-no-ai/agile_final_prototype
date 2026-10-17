@@ -25,6 +25,14 @@ export type SbfasApplication = {
 // ASSUMPTION: tier names (Tier 1 = highest subsidy), band edges and SLA length are invented; confirm with MOE.
 export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"];
 
+/**
+ * Next application reference in the SBFAS-XXXX format: 4-digit zero-padded sequence continuing from the
+ * highest existing one (seeds start at 2000). Past 9999 the digits simply grow (SBFAS-10000) — never
+ * validate or parse the reference with a fixed-length pattern, and sort by the numeric sequence, not the string.
+ */
+export const nextSbfasId = (apps: Pick<SbfasApplication, "id">[]) =>
+  `SBFAS-${String(apps.reduce((m, a) => Math.max(m, Number(a.id.replace(/\D/g, "")) || 0), 2000) + 1).padStart(4, "0")}`;
+
 // ASSUMPTION: per-capita monthly income bands (S$) are mock values.
 const B1 = "Up to S$450";
 const B2 = "S$451 - S$700";

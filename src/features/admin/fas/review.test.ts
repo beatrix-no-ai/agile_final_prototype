@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } from "./review";
-import { SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
+import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
 import { STUDENTS } from "../../../data/students";
 
 const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
@@ -55,4 +55,11 @@ test("every seeded application links to a real student record (name, id and leve
     expect(s!.name).toBe(a.student);
     expect(s!.level).toBe(a.level);
   }
+});
+
+test("nextSbfasId: SBFAS-XXXX format, 4-digit padded, continues from the highest sequence", () => {
+  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS-2053");    // highest seed is SBFAS-2052
+  expect(nextSbfasId([])).toBe("SBFAS-2001");                     // empty queue starts above the 20xx seed series
+  expect(nextSbfasId([{ id: "SBFAS-0999" }])).toBe("SBFAS-2001"); // floor 2000 keeps new ids clear of old seeds
+  expect(nextSbfasId([{ id: "SBFAS-9999" }])).toBe("SBFAS-10000"); // past 9999 the digits grow, nothing breaks
 });
