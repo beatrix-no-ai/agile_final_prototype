@@ -9,8 +9,7 @@ export type NavItem = { to: string; label: string; icon: Icon; badge?: number; t
 
 export const homeFor = (role: Role) => (role === "parent" ? "/parent" : "/admin");
 
-// Sprint 1 scope: School, Class, Student, Top-up, Fee. Dashboard, Education Accounts, FAS,
-// Budget, Audit, Settings and Simulation (/admin/schools) are Sprint 2: routes still exist, but they are not in the menu.
+// Admin navigation is intentionally compact; the e-Service navigation exposes the parent requirements.
 const HQ: NavItem[] = [
   { to: "/admin/school-maintenance", label: "School", desc: "Maintain the school master list.", icon: Buildings },
   { to: "/admin/classes", label: "Class", desc: "Classes and their rosters.", icon: ChalkboardTeacher },
@@ -31,7 +30,7 @@ const PARENT: NavItem[] = [
   { to: "/parent/students", label: "Students", icon: UsersThree, badge: children.length },
   { to: "/parent/payments", label: "Payments", icon: CreditCard },
   { to: "/parent/transactions", label: "Transactions", icon: Receipt },
-  { to: "/parent/fas", label: "Financial Aid (FAS)", icon: HandHeart },
+  { to: "/parent/fas", label: "Financial Assistance Scheme", icon: HandHeart },
   { to: "/parent/statements", label: "Statements", icon: FileText },
   { to: "/parent/settings", label: "Settings", icon: Gear },
 ];
