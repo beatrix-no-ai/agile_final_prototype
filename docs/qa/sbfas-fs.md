@@ -25,7 +25,7 @@
 
 | Field | Type | Values / format | Notes |
 |---|---|---|---|
-| `id` | string | `FAS-20xx` | Displayed under the student name |
+| `id` | string | `SBFAS-20xx` | Displayed under the student name |
 | `student` | string | full name | Must match the student record exactly (test: seeded rows all link) |
 | `studentId` | string | `S2026xxxx` | Links the application to the student's account & charges |
 | `level` | string | e.g. `P5`, `Sec 2` | Comes from the student record |
