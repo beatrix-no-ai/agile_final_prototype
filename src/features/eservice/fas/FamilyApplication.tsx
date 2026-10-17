@@ -13,7 +13,7 @@ import { Tracker } from "./Tracker";
 import { useSync } from "./useSync";
 
 const pulse = "motion-safe:animate-pulse rounded-card bg-track";
-const blank: FormValues = { contact: "", mailingAddress: "", circumstance: "", note: "" };
+const blank: FormValues = { contact: "", mailingAddress: "", note: "" };
 
 export default function FamilyApplication() {
   const query = useMockQuery(true);

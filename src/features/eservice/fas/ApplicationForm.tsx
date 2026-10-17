@@ -3,7 +3,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { application, circumstances, household } from "../../../data/familyFas";
+import { application, household } from "../../../data/familyFas";
 import { children } from "../../../data/parent";
 import { fmtDate } from "../overview/shared";
 import { validateForm, type FormValues } from "./logic";
@@ -103,12 +103,6 @@ export function ApplicationForm({ values, onChange, filledNote, onAskAi }: Props
         </Field>
         <Field required label="Mailing address" error={errors.mailingAddress}>
           <input name="mailingAddress" autoComplete="street-address" className={inputClass} value={values.mailingAddress} onChange={set("mailingAddress")} />
-        </Field>
-        <Field required label="What best describes your situation?" error={errors.circumstance}>
-          <select name="circumstance" className={inputClass} value={values.circumstance} onChange={set("circumstance")}>
-            <option value="">Choose one</option>
-            {circumstances.map((c) => <option key={c}>{c}</option>)}
-          </select>
         </Field>
         <Field label="Anything else the bursar should know? (optional)">
           <textarea name="note" rows={3} className={`${inputClass} py-2`} value={values.note} onChange={set("note")} />
