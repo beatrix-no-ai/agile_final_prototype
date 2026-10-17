@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { FAS_APPLICATIONS, type FasApplication, type FasStatus } from "../../../data/fasApplications";
+import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
 import { useFees } from "../../../data/feeStore";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
@@ -18,7 +18,7 @@ import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draf
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
-const statusTone: Record<FasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "primary", Rejected: "alert" };
+const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "primary", Rejected: "alert" };
 const VERB: Record<Action, string> = { approve: "approved", override: "overridden", reject: "rejected" };
 
 function Sla({ days }: { days: number }) {
@@ -27,12 +27,12 @@ function Sla({ days }: { days: number }) {
 }
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
-type Row = FasApplication & { payable: number; balance: number };
+type Row = SbfasApplication & { payable: number; balance: number };
 
-export default function FasApplications() {
-  const query = useMockQuery(FAS_APPLICATIONS);
+export default function SbfasApplications() {
+  const query = useMockQuery(SBFAS_APPLICATIONS);
   const fees = useFees();
-  const [apps, setApps] = useState<FasApplication[]>(FAS_APPLICATIONS);
+  const [apps, setApps] = useState<SbfasApplication[]>(SBFAS_APPLICATIONS);
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [message, setMessage] = useState("");
@@ -88,7 +88,7 @@ export default function FasApplications() {
     ) },
     { key: "recommendedTier", header: "Recommended tier", sortable: true },
     { key: "slaDays", header: "SLA", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Closed</span>) },
-    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{a.status}{a.finalTier ? ` - ${a.finalTier}` : ""}</Badge> },
+    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{a.status}{a.sbfasTier ? ` - ${a.sbfasTier}` : ""}</Badge> },
   ];
 
   const tabs: [Filter, string][] = [

@@ -21,7 +21,7 @@
 
 ## 2. Data fields
 
-### 2.1 FAS application (`FasApplication`)
+### 2.1 SBFAS application (`SbfasApplication`)
 
 | Field | Type | Values / format | Notes |
 |---|---|---|---|
@@ -35,7 +35,7 @@
 | `slaDays` | number | integer | Working days **left** to decide |
 | `explanation` | string | free text | AI explanation shown in the review modal |
 | `status` | enum | `Pending` / `Approved` / `Overridden` / `Rejected` | Set only via a decision |
-| `finalTier` | enum? | `Tier 1..4` / absent | Absent when Rejected or still Pending |
+| `sbfasTier` | enum? | `Tier 1..4` / absent | The SBFAS tier granted; absent when Rejected or still Pending |
 | `justification` | string? | free text | Mandatory for Override; stored with the decision |
 
 ### 2.2 Student record (SBFAS-relevant fields)
@@ -61,9 +61,9 @@
 ### Decisions & history
 
 - **BR1 — Mutual exclusion, MOEFAS first.** A student never receives both schemes. Effective scheme = `moefas === "Approved" ? MOEFAS : sbfas === "Approved" ? SBFAS : none`. If a record somehow holds both `Approved`, **MOEFAS wins and SBFAS is ignored** (never stacked).
-- **BR2 — Approve.** Sets `status = Approved`, `finalTier = recommendedTier`. No justification required.
-- **BR3 — Override.** Requires (a) a non-blank justification and (b) a tier **different** from the recommendation — otherwise the action is blocked with a field error. Sets `status = Overridden`, `finalTier = chosen tier`.
-- **BR4 — Reject.** Sets `status = Rejected`, clears `finalTier`. Justification optional.
+- **BR2 — Approve.** Sets `status = Approved`, `sbfasTier = recommendedTier`. No justification required.
+- **BR3 — Override.** Requires (a) a non-blank justification and (b) a tier **different** from the recommendation — otherwise the action is blocked with a field error. Sets `status = Overridden`, `sbfasTier = chosen tier`.
+- **BR4 — Reject.** Sets `status = Rejected`, clears `sbfasTier`. Justification optional.
 - **BR5 — History tabs.** Granted = `Approved ∪ Overridden`. Declined = `Rejected`. Pending appears in neither. Counts on the tab labels must match the table contents.
 - **BR6 — Queue order.** Pending applications first, then highest `riskScore` first. Decided rows keep their risk order after the pending block.
 - **BR7 — SLA.** `slaDays ≤ 0` renders a red **Overdue** badge; `slaDays ≤ 2` highlights the count in warning colour. Decided rows show *Closed* (SLA no longer applies).

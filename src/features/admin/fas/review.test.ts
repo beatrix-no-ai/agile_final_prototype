@@ -1,9 +1,9 @@
 import { expect, test } from "vitest";
 import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } from "./review";
-import { FAS_APPLICATIONS, type FasApplication } from "../../../data/fasApplications";
+import { SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
 import { STUDENTS } from "../../../data/students";
 
-const app = (id: string, riskScore: number, status: FasApplication["status"] = "Pending"): FasApplication => ({
+const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
   id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
 });
 
@@ -32,10 +32,10 @@ test("valid override, approve and reject pass without justification where not re
 test("applyDecision sets status, final tier and justification on one app only", () => {
   const list = [app("a", 20), app("b", 90)];
   const out = applyDecision(list, "b", "override", { justification: " why ", tier: "Tier 1" });
-  expect(out[1]).toMatchObject({ status: "Overridden", finalTier: "Tier 1", justification: "why" });
+  expect(out[1]).toMatchObject({ status: "Overridden", sbfasTier: "Tier 1", justification: "why" });
   expect(out[0].status).toBe("Pending");
-  expect(applyDecision(list, "a", "reject", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Rejected", finalTier: undefined });
-  expect(applyDecision(list, "a", "approve", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Approved", finalTier: "Tier 2" });
+  expect(applyDecision(list, "a", "reject", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Rejected", sbfasTier: undefined });
+  expect(applyDecision(list, "a", "approve", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Approved", sbfasTier: "Tier 2" });
 });
 
 test("decision history tabs: approved and overridden are granted, rejected is declined, pending is neither", () => {
@@ -49,7 +49,7 @@ test("decision history tabs: approved and overridden are granted, rejected is de
 });
 
 test("every seeded application links to a real student record (name, id and level agree)", () => {
-  for (const a of FAS_APPLICATIONS) {
+  for (const a of SBFAS_APPLICATIONS) {
     const s = STUDENTS.find((x) => x.id === a.studentId);
     expect(s, a.id).toBeDefined();
     expect(s!.name).toBe(a.student);

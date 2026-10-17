@@ -5,7 +5,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { FAS_TIERS, type FasApplication, type FasTier } from "../../../data/fasApplications";
+import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { validateDecision, type Action, type Draft, type DecisionError } from "./review";
@@ -20,7 +20,7 @@ export function RiskBadge({ score }: { score: number }) {
 /** Extra fee fields carried alongside the application (computed in the queue from real charges). */
 export type FeeContext = { payable: number; balance: number };
 
-type Props = { app: (FasApplication & FeeContext) | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
+type Props = { app: (SbfasApplication & FeeContext) | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
 
 function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -31,8 +31,8 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: FasApplication & FeeContext }) {
-  const [tier, setTier] = useState<FasTier>(app.recommendedTier);
+function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: SbfasApplication & FeeContext }) {
+  const [tier, setTier] = useState<SbfasTier>(app.recommendedTier);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
   const tierRef = useRef<HTMLSelectElement>(null);
@@ -90,14 +90,14 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: FasA
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
-          <p className="font-semibold text-on-surface">Decision recorded: {app.status}{app.finalTier ? ` - ${app.finalTier}` : ""}</p>
+          <p className="font-semibold text-on-surface">Decision recorded: {app.status}{app.sbfasTier ? ` - ${app.sbfasTier}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
         </div>
       ) : (
         <>
           <Field label="Override tier" error={error?.field === "tier" ? error.message : undefined}>
-            <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as FasTier)}>
-              {FAS_TIERS.map((t) => (
+            <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
+              {SBFAS_TIERS.map((t) => (
                 <option key={t} value={t}>{t}{t === app.recommendedTier ? " (AI recommended)" : ""}</option>
               ))}
             </select>

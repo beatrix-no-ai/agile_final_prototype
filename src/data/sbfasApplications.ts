@@ -1,9 +1,9 @@
 import { STUDENTS } from "./students";
 
-export type FasTier = "Tier 1" | "Tier 2" | "Tier 3" | "Tier 4";
-export type FasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
+export type SbfasTier = "Tier 1" | "Tier 2" | "Tier 3" | "Tier 4";
+export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
 
-export type FasApplication = {
+export type SbfasApplication = {
   id: string;
   /** Display name; `studentId` links the application to the student's Education Account, fees and FAS subsidy. */
   student: string;
@@ -13,17 +13,17 @@ export type FasApplication = {
   incomeBand: string;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
   riskScore: number;
-  recommendedTier: FasTier;
+  recommendedTier: SbfasTier;
   /** Working days left to decide. 0 or below = overdue. */
   slaDays: number;
   explanation: string;
-  status: FasStatus;
-  finalTier?: FasTier;
+  status: SbfasStatus;
+  sbfasTier?: SbfasTier;
   justification?: string;
 };
 
 // ASSUMPTION: tier names (Tier 1 = highest subsidy), band edges and SLA length are invented; confirm with MOE.
-export const FAS_TIERS: FasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"];
+export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"];
 
 // ASSUMPTION: per-capita monthly income bands (S$) are mock values.
 const B1 = "Up to S$450";
@@ -36,14 +36,14 @@ const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
 
 const p = (
   id: string, student: string, incomeBand: string, riskScore: number,
-  recommendedTier: FasTier, slaDays: number, explanation: string,
-): FasApplication => {
+  recommendedTier: SbfasTier, slaDays: number, explanation: string,
+): SbfasApplication => {
   const s = of(student);
   return { id, student, studentId: s.id, level: s.level, incomeBand, riskScore, recommendedTier, slaDays, explanation, status: "Pending" };
 };
 
 // Handoff examples: High 89 / Medium 54 / Low 18.
-export const FAS_APPLICATIONS: FasApplication[] = [
+export const SBFAS_APPLICATIONS: SbfasApplication[] = [
   p("FAS-2041", "Kavitha d/o Raman", B1, 89, "Tier 1", 1,
     "Per-capita income is in the lowest band and the household has 3 school-going children. Two fee payments were late in the last 12 months and the Education Account balance would not cover this term. Predicted difficulty meeting fees without support is high."),
   p("FAS-2042", "Foo Mei Ling", B1, 82, "Tier 1", 2,
