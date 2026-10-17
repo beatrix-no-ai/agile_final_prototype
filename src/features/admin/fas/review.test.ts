@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { applyDecision, sortQueue, validateDecision } from "./review";
+import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } from "./review";
 import type { FasApplication } from "../../../data/fasApplications";
 
 const app = (id: string, riskScore: number, status: FasApplication["status"] = "Pending"): FasApplication => ({
@@ -35,4 +35,14 @@ test("applyDecision sets status, final tier and justification on one app only", 
   expect(out[0].status).toBe("Pending");
   expect(applyDecision(list, "a", "reject", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Rejected", finalTier: undefined });
   expect(applyDecision(list, "a", "approve", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Approved", finalTier: "Tier 2" });
+});
+
+test("decision history tabs: approved and overridden are granted, rejected is declined, pending is neither", () => {
+  expect(isGranted({ status: "Approved" })).toBe(true);
+  expect(isGranted({ status: "Overridden" })).toBe(true);
+  expect(isGranted({ status: "Rejected" })).toBe(false);
+  expect(isGranted({ status: "Pending" })).toBe(false);
+  expect(isDeclined({ status: "Rejected" })).toBe(true);
+  expect(isDeclined({ status: "Approved" })).toBe(false);
+  expect(isDeclined({ status: "Pending" })).toBe(false);
 });

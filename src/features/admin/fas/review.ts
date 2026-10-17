@@ -12,6 +12,10 @@ export function sortQueue(apps: FasApplication[]): FasApplication[] {
   return [...apps].sort((a, b) => pending(a) - pending(b) || b.riskScore - a.riskScore);
 }
 
+/** A decided application counts as granted when SBFAS was approved or overridden to a tier, declined when rejected. */
+export const isGranted = (a: Pick<FasApplication, "status">) => a.status === "Approved" || a.status === "Overridden";
+export const isDeclined = (a: Pick<FasApplication, "status">) => a.status === "Rejected";
+
 /** Review Focus 3: an override needs a non-blank justification and a tier different from the recommendation. */
 export function validateDecision(action: Action, draft: Draft, recommended: FasTier): DecisionError | null {
   if (action !== "override") return null;
