@@ -1,10 +1,12 @@
 import { useRef, useState, type RefObject } from "react";
+import { Link } from "react-router";
 import { Sparkle } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { FAS_TIERS, type FasApplication, type FasTier } from "../../../data/fasApplications";
+import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
@@ -15,7 +17,10 @@ export function RiskBadge({ score }: { score: number }) {
   return <Badge tone={riskTone[level]}>{level} - {score}</Badge>;
 }
 
-type Props = { app: FasApplication | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
+/** Extra fee fields carried alongside the application (computed in the queue from real charges). */
+export type FeeContext = { payable: number; balance: number };
+
+type Props = { app: (FasApplication & FeeContext) | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
 
 function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -26,7 +31,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: FasApplication }) {
+function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: FasApplication & FeeContext }) {
   const [tier, setTier] = useState<FasTier>(app.recommendedTier);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
@@ -49,11 +54,28 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: FasA
   return (
     <div className="space-y-5">
       <dl className="grid grid-cols-2 gap-4">
-        <Dt label="Student">{app.student} ({app.level})</Dt>
+        <Dt label="Student">
+          <Link to={`/admin/students/${app.studentId}/fees`} className="rounded text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            {app.student} ({app.level})
+          </Link>
+        </Dt>
         <Dt label="Per-capita income band">{app.incomeBand}</Dt>
         <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
       </dl>
+
+      <div className="rounded-control border border-line bg-surface-container-low p-4">
+        <dl className="grid grid-cols-2 gap-4">
+          <Dt label="Fee payable">
+            <span className="text-alert">{formatSGD(app.payable)}</span>
+            <Link to={`/admin/students/${app.studentId}/fees`} className="ml-1.5 text-[13px] font-normal text-primary underline-offset-2 hover:underline">view fees</Link>
+          </Dt>
+          <Dt label="Account balance (top-ups)">{formatSGD(app.balance)}</Dt>
+        </dl>
+        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">
+          Two different things: an <b>FAS subsidy reduces the fee</b> the family owes, while <b>MOE top-ups credit the Education Account balance</b> used to pay it. A top-up never changes the subsidy, and the subsidy is not paid into the account.
+        </p>
+      </div>
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-on-surface">

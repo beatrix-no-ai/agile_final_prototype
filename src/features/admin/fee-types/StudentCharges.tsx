@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, type Column } from "../../../components/ui/DataTable";
@@ -45,7 +46,7 @@ export default function StudentCharges({ school }: { school: string }) {
     { key: "title", header: "Charge", sortable: true, render: (r) => (<>{r.title}<span className="block text-[13px] text-on-surface-variant">issued {r.charge.issued}, due {r.due}</span></>) },
     { key: "fee", header: "Fee", sortable: true, align: "right", render: (r) => formatSGD(r.fee) },
     { key: "fas", header: "FAS", sortable: true, render: (r) => r.charge.fas ? (
-      (<><Badge tone="primary">{r.charge.fas}</Badge><span className="block text-[13px] text-success">− {formatSGD(subsidyOf(r.charge))}</span></>)
+      (<Link to="/admin/fas" className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" title="View FAS applications and decisions"><Badge tone="primary">{r.charge.fas}</Badge><span className="block text-[13px] text-success">− {formatSGD(subsidyOf(r.charge))}</span></Link>)
     ) : <span className="text-on-surface-variant">—</span> },
     { key: "balance", header: "Outstanding", sortable: true, align: "right", render: (r) => r.balance ? <span className="font-semibold">{formatSGD(r.balance)}</span> : <span className="text-on-surface-variant">—</span> },
     { key: "status", header: "Status", sortable: true, render: (r) => <StatusBadge status={r.charge ? chargeStatus(r.charge) : "outstanding"} /> },

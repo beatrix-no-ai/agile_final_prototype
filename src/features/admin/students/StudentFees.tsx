@@ -60,8 +60,11 @@ export default function StudentFees() {
         </p>
         {fas && (
           <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
-            <Badge tone="primary">{fas.scheme}</Badge>
-            <span>takes precedence — subsidy of {Math.round(fas.rate * 100)}% is deducted from each issued charge; the student does not also receive {fas.scheme === "MOEFAS" ? "SBFAS" : "MOEFAS"}.</span>
+            <Link to="/admin/fas" className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Badge tone="primary">{fas.scheme}</Badge></Link>
+            <span>
+              takes precedence — subsidy of {Math.round(fas.rate * 100)}% is deducted from each issued charge; the student does not also receive {fas.scheme === "MOEFAS" ? "SBFAS" : "MOEFAS"}.
+              The subsidy reduces the fee; MOE top-ups credit the <Link to={`/admin/students/${student.id}/account`} className="text-primary underline-offset-2 hover:underline">Education Account balance</Link> — two different things.
+            </span>
           </p>
         )}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />

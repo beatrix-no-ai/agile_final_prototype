@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { inputClass } from "../../../components/ui/Field";
@@ -81,10 +82,10 @@ function ChargeBody({ charge, feeName, st, status, balance, onPay }: {
       </dl>
       {charge.fas && (
         <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
-          <Badge tone="primary">{charge.fas} applied</Badge>
+          <Link to="/admin/fas" className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Badge tone="primary">{charge.fas} applied</Badge></Link>
           <span>
             Subsidy <strong>− {formatSGD(subsidyOf(charge))}</strong> deducted from the fee of {formatSGD(feeOf(charge))} · payable{" "}
-            <strong>{formatSGD(payableOf(charge))}</strong>
+            <strong>{formatSGD(payableOf(charge))}</strong>. The subsidy reduces the fee — it is separate from MOE top-ups, which credit the Education Account.
           </span>
         </p>
       )}

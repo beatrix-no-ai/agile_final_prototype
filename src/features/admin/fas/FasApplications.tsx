@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle } from "@phosphor-icons/react";
+import { Link } from "react-router";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { FAS_APPLICATIONS, type FasApplication, type FasStatus } from "../../../data/fasApplications";
+import { useFees } from "../../../data/feeStore";
+import { STUDENTS } from "../../../data/students";
+import { formatSGD } from "../../../lib/format";
+import { balanceOf, chargeStatus } from "../../../lib/fees";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal, RiskBadge } from "./ReviewModal";
@@ -21,8 +26,12 @@ function Sla({ days }: { days: number }) {
   return <span className={days <= 2 ? "font-semibold text-warning" : ""}>{days} {days === 1 ? "day" : "days"} left</span>;
 }
 
+/** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
+type Row = FasApplication & { payable: number; balance: number };
+
 export default function FasApplications() {
   const query = useMockQuery(FAS_APPLICATIONS);
+  const fees = useFees();
   const [apps, setApps] = useState<FasApplication[]>(FAS_APPLICATIONS);
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -31,13 +40,21 @@ export default function FasApplications() {
   // The decided row moves away, so the opener is gone: park focus on the confirmation instead of losing it to <body>.
   useEffect(() => { if (message) msgRef.current?.focus(); }, [message]);
 
-  const sorted = useMemo(() => sortQueue(apps), [apps]);
-  const rows = useMemo(
-    () => sorted.filter((a) => filter === "all"
+  const enriched: Row[] = useMemo(
+    () => sortQueue(apps).map((a) => ({
+      ...a,
+      // What the family still owes (after any FAS subsidy and payments) — separate from the account's top-up balance.
+      payable: fees.state.charges.filter((c) => c.studentId === a.studentId && chargeStatus(c) !== "paid").reduce((t, c) => t + balanceOf(c), 0),
+      balance: STUDENTS.find((s) => s.id === a.studentId)?.balance ?? 0,
+    })),
+    [apps, fees.state.charges],
+  );
+  const rows: Row[] = useMemo(
+    () => enriched.filter((a) => filter === "all"
       || (filter === "pending" && a.status === "Pending")
       || (filter === "granted" && isGranted(a))
       || (filter === "declined" && isDeclined(a))),
-    [sorted, filter],
+    [enriched, filter],
   );
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
@@ -52,10 +69,23 @@ export default function FasApplications() {
     );
   };
 
-  const columns: Column<FasApplication>[] = [
-    { key: "student", header: "Student", sortable: true, render: (a) => (<><span className="font-semibold">{a.student}</span><span className="block text-[13px] text-on-surface-variant">{a.id} - {a.level}</span></>) },
+  const columns: Column<Row>[] = [
+    { key: "student", header: "Student", sortable: true, render: (a) => (
+      <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        <span className="font-semibold">{a.student}</span>
+        <span className="block text-[13px] text-on-surface-variant">{a.id} - {a.level}</span>
+      </Link>
+    ) },
     { key: "incomeBand", header: "Per-capita income band" },
     { key: "riskScore", header: "AI risk rating", sortable: true, render: (a) => <RiskBadge score={a.riskScore} /> },
+    { key: "payable", header: "Fee payable", sortable: true, align: "right", render: (a) => (
+      <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        {a.payable ? <span className="font-semibold">{formatSGD(a.payable)}</span> : <span className="text-on-surface-variant">—</span>}
+      </Link>
+    ) },
+    { key: "balance", header: "Account balance", sortable: true, align: "right", render: (a) => (
+      <span className="tabular-nums" title="Education Account balance from MOE top-ups — separate from the FAS subsidy">{formatSGD(a.balance)}</span>
+    ) },
     { key: "recommendedTier", header: "Recommended tier", sortable: true },
     { key: "slaDays", header: "SLA", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Closed</span>) },
     { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{a.status}{a.finalTier ? ` - ${a.finalTier}` : ""}</Badge> },
@@ -108,7 +138,7 @@ export default function FasApplications() {
           />
         )}
       </Card>
-      <ReviewModal app={apps.find((a) => a.id === openId) ?? null} onClose={() => setOpenId(null)} onDecide={decide} />
+      <ReviewModal app={enriched.find((a) => a.id === openId) ?? null} onClose={() => setOpenId(null)} onDecide={decide} />
     </div>
   );
 }

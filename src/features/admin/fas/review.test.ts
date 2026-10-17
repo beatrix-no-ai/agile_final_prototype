@@ -1,9 +1,10 @@
 import { expect, test } from "vitest";
 import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } from "./review";
-import type { FasApplication } from "../../../data/fasApplications";
+import { FAS_APPLICATIONS, type FasApplication } from "../../../data/fasApplications";
+import { STUDENTS } from "../../../data/students";
 
 const app = (id: string, riskScore: number, status: FasApplication["status"] = "Pending"): FasApplication => ({
-  id, student: id, level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
+  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
 });
 
 test("sortQueue: pending first, then risk score desc", () => {
@@ -45,4 +46,13 @@ test("decision history tabs: approved and overridden are granted, rejected is de
   expect(isDeclined({ status: "Rejected" })).toBe(true);
   expect(isDeclined({ status: "Approved" })).toBe(false);
   expect(isDeclined({ status: "Pending" })).toBe(false);
+});
+
+test("every seeded application links to a real student record (name, id and level agree)", () => {
+  for (const a of FAS_APPLICATIONS) {
+    const s = STUDENTS.find((x) => x.id === a.studentId);
+    expect(s, a.id).toBeDefined();
+    expect(s!.name).toBe(a.student);
+    expect(s!.level).toBe(a.level);
+  }
 });
