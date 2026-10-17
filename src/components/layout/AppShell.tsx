@@ -4,7 +4,6 @@ import { homeFor, navFor } from "../../data/nav";
 import { useSession, type Role } from "../../session";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
-import TopBar from "./TopBar";
 import { guardRedirect } from "../../features/admin/simulation/logic";
 import SimulationBanner from "../../features/admin/simulation/SimulationBanner";
 
@@ -44,39 +43,36 @@ export default function AppShell() {
   if (redirect) return <Navigate to={redirect} replace />;
   if (!role) return null;
 
-  // Reference-portal structure: burgundy top bar, then a centered 1280px row of sidebar + content.
+  // icebearhoho header layout: no top bar — the page header (title, actions, bell, avatar) heads the content column.
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-control focus:bg-primary focus:px-4 focus:py-2 focus:text-on-primary"
       >
         Skip to content
       </a>
-      <TopBar />
-      <div className="mx-auto flex w-full max-w-[1280px] items-start">
-        <Sidebar />
-        <div className="min-w-0 flex-1 px-5 pb-16 pt-4 md:pt-1">
-          <SimulationBanner />
-          <Header
-            title={pageTitle}
-            subtitle={simulating?.schoolName ?? (role === "parent" ? SUBTITLE[role] : undefined)}
-            showFilter={role !== "parent"}
-          />
-          <main ref={mainRef} id="main" tabIndex={-1} className="outline-none">
-            {simulating ? (
-              // Read-only simulation: a disabled fieldset natively disables every button, input and select inside it
-              // (dialogs included), so simulated screens need no per-screen gating. Links stay clickable.
-              // ponytail: sort headers, pagination and filters are disabled too; no way to whitelist inside a disabled fieldset.
-              <fieldset disabled className="m-0 min-w-0 border-0 p-0">
-                <legend className="sr-only">Simulated screen, read-only</legend>
-                <Outlet />
-              </fieldset>
-            ) : (
+      <Sidebar />
+      <div className="min-w-0 flex-1 p-6">
+        <SimulationBanner />
+        <Header
+          title={pageTitle}
+          subtitle={simulating?.schoolName ?? (role === "parent" ? SUBTITLE[role] : undefined)}
+          showFilter={role !== "parent"}
+        />
+        <main ref={mainRef} id="main" tabIndex={-1} className="outline-none">
+          {simulating ? (
+            // Read-only simulation: a disabled fieldset natively disables every button, input and select inside it
+            // (dialogs included), so simulated screens need no per-screen gating. Links stay clickable.
+            // ponytail: sort headers, pagination and filters are disabled too; no way to whitelist inside a disabled fieldset.
+            <fieldset disabled className="m-0 min-w-0 border-0 p-0">
+              <legend className="sr-only">Simulated screen, read-only</legend>
               <Outlet />
-            )}
-          </main>
-        </div>
+            </fieldset>
+          ) : (
+            <Outlet />
+          )}
+        </main>
       </div>
     </div>
   );
