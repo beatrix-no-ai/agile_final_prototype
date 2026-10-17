@@ -111,16 +111,18 @@ describe("makeCharge — stamps the scheme and deducts its subsidy", () => {
     id: "S1", name: "Test", level: "P1", class: "P1 Courage", status: "Enrolled", balance: 0, moefas, sbfas,
   });
   const fasFee: FeeType = { id: "FT-1", school: "S001", name: "Test fee", updated: "2026-10-12", components: [{ name: "Tuition", amount: 100 }, { name: "Materials", amount: 50 }] };
-  test("records fas and the per-component subsidy for MOEFAS", () => {
+  test("records fas and the per-component subsidy for MOEFAS (real scheme: school & misc fees waived in full)", () => {
     const c = makeCharge("CH-1", fasFee, fasStudent("Approved", "Not applied"));
     expect(c.fas).toBe("MOEFAS");
-    expect(subsidyOf(c)).toBe(75);            // 50% of 150
-    expect(payableOf(c)).toBe(75);
+    expect(subsidyOf(c)).toBe(150);           // 100% of 150
+    expect(payableOf(c)).toBe(0);
+    expect(chargeStatus(c)).toBe("paid");     // fully subsidised — nothing left to pay
   });
-  test("SBFAS subsidises less than MOEFAS on the same fee", () => {
+  test("SBFAS subsidises less than MOEFAS on the same fee (school-defined 50% default)", () => {
     const moefas = makeCharge("CH-1", fasFee, fasStudent("Approved", "Not applied"));
     const sbfas = makeCharge("CH-2", fasFee, fasStudent("Not applied", "Approved"));
     expect(sbfas.fas).toBe("SBFAS");
+    expect(subsidyOf(sbfas)).toBe(75);        // 50% of 150
     expect(subsidyOf(sbfas)).toBeLessThan(subsidyOf(moefas));
   });
   test("no fas and no subsidy without FAS", () => {

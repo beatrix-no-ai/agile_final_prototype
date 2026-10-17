@@ -32,9 +32,10 @@ export function fundingOf(c: Charge) {
   return { fee: feeOf(c), subsidy: subsidyOf(c), scheme: c.fas, fromAccount, fromGateway, remaining: balanceOf(c) };
 }
 
-// ASSUMPTION: flat rates per scheme (real per-component tiers are Sprint 2). MOEFAS subsidises more than SBFAS.
-export const MOEFAS_RATE = 0.5;
-export const SBFAS_RATE = 0.2;
+// Real scheme structure (MOE reference): MOE FAS waives school & misc fees in full nationwide.
+// SBFAS is school-defined (typically a 50-75% reduction or a full waiver) — 50% is this build's default school package.
+export const MOEFAS_RATE = 1;
+export const SBFAS_RATE = 0.5;
 
 /** The single scheme whose subsidy applies to this student's charges: MOEFAS takes precedence over SBFAS — a student never receives both. */
 export function fasOf(s: Pick<Student, "moefas" | "sbfas">): { scheme: FasScheme; rate: number } | null {

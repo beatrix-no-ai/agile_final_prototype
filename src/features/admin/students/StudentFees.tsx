@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
+import { benefitsFor, MOE_FAS_BENEFITS, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import type { Charge, ChargeStatus } from "../../../data/fees";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus, feeOf, fasOf, paidOf, payableOf, subsidyOf } from "../../../lib/fees";
@@ -59,13 +60,26 @@ export default function StudentFees() {
           <span>SBFAS <Badge tone="neutral">{student.sbfas}</Badge></span>
         </p>
         {fas && (
-          <p className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
-            <Link to="/admin/fas" className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Badge tone="primary">{fas.scheme}</Badge></Link>
-            <span>
-              takes precedence — subsidy of {Math.round(fas.rate * 100)}% is deducted from each issued charge; the student does not also receive {fas.scheme === "MOEFAS" ? "SBFAS" : "MOEFAS"}.
-              The subsidy reduces the fee; MOE top-ups credit the <Link to={`/admin/students/${student.id}/account`} className="text-primary underline-offset-2 hover:underline">Education Account balance</Link> — two different things.
-            </span>
-          </p>
+          <div className="mb-4 space-y-2">
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
+              <Link to="/admin/fas" className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Badge tone="primary">{fas.scheme}</Badge></Link>
+              <span>
+                takes precedence — subsidy of {Math.round(fas.rate * 100)}% is deducted from each issued charge; the student does not also receive {fas.scheme === "MOEFAS" ? "SBFAS" : "MOEFAS"}.
+                The subsidy reduces the fee; MOE top-ups credit the <Link to={`/admin/students/${student.id}/account`} className="text-primary underline-offset-2 hover:underline">Education Account balance</Link> — two different things.
+              </span>
+            </p>
+            {fas.scheme === "MOEFAS" ? (
+              <p className="rounded-control border border-line bg-surface-container-lowest px-3 py-2.5 text-sm">
+                <b>{MOE_FAS_BENEFITS.title} ({student.level.startsWith("Sec") ? "Secondary" : "Primary"}):</b>{" "}
+                {benefitsFor(student.level).join(" · ")}.
+              </p>
+            ) : (
+              <p className="rounded-control border border-line bg-surface-container-lowest px-3 py-2.5 text-sm">
+                <b>{SBFAS_PACKAGE.title}:</b> {SBFAS_PACKAGE.items.join(" · ")}. Funded from {SBFAS_PACKAGE.funding}.
+              </p>
+            )}
+            <p className="px-1 text-[12.5px] text-on-surface-variant">{REIMBURSEMENT_NOTE}</p>
+          </div>
         )}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
         <p className="mt-4 text-right text-sm">Total outstanding <strong className="text-on-surface">{formatSGD(total)}</strong>{total > student.balance && <span className="text-alert"> (exceeds account balance)</span>}</p>
