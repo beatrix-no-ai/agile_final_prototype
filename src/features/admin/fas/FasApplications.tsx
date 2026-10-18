@@ -26,7 +26,7 @@ function Sla({ days }: { days: number }) {
 }
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
-type Row = SbfasApplication & { payable: number; balance: number; nationality: string; components: { name: string; amount: number }[] };
+type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
 
 export default function SbfasApplications() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
@@ -37,18 +37,13 @@ export default function SbfasApplications() {
 
   const enriched: Row[] = useMemo(
     () => sortQueue(apps).map((a) => {
-      // R4 decision inputs beside the application: nationality, and the fee components each tier would subsidise.
-      const mine = fees.state.charges.filter((c) => c.studentId === a.studentId);
-      const unpaid = mine.filter((c) => chargeStatus(c) !== "paid");
-      const comps = new Map<string, number>();
-      for (const c of (unpaid.length ? unpaid : mine)) for (const k of c.components) comps.set(k.name, (comps.get(k.name) ?? 0) + k.amount);
+      // R4 decision inputs beside the application: nationality, plus what the family still owes.
+      const unpaid = fees.state.charges.filter((c) => c.studentId === a.studentId && chargeStatus(c) !== "paid");
       return {
         ...a,
-        // What the family still owes (after any FAS subsidy and payments) — separate from the account's top-up balance.
         payable: unpaid.reduce((t, c) => t + balanceOf(c), 0),
         balance: STUDENTS.find((s) => s.id === a.studentId)?.balance ?? 0,
         nationality: STUDENTS.find((s) => s.id === a.studentId)?.nationality ?? "—",
-        components: [...comps.entries()].map(([name, amount]) => ({ name, amount })),
       };
     }),
     [apps, fees.state.charges],

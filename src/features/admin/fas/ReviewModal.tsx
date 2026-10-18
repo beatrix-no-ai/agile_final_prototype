@@ -5,8 +5,8 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { SBFAS_TIERS, SBFAS_TIER_RATES, INCOME_API_SOURCE, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import { formatDate, formatSGD } from "../../../lib/format";
+import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
@@ -22,8 +22,6 @@ export type FeeContext = {
   payable: number;
   balance: number;
   nationality: string;
-  /** Outstanding fee components (name → total) that the tier table prices each subsidy against. */
-  components: { name: string; amount: number }[];
 };
 
 type Props = { app: (SbfasApplication & FeeContext) | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
@@ -68,7 +66,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Household income band (monthly)">{app.householdBand}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
-        <Dt label="Income source">{INCOME_API_SOURCE} · synced {formatDate(app.incomeSyncedOn)}</Dt>
         <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
       </dl>
@@ -89,41 +86,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
         </p>
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
-
-      {app.components.length > 0 && (
-        <div className="rounded-control border border-line p-4">
-          <p className="text-[13px] font-semibold text-on-surface">What each tier would cover</p>
-          <p className="mt-0.5 text-[12.5px] text-on-surface-variant">
-            Subsidy per fee component on this student's outstanding charges. Income bands are read-only from the {INCOME_API_SOURCE}.
-          </p>
-          <table className="mt-2 w-full text-[13px]">
-            <thead>
-              <tr className="text-left text-on-surface-variant">
-                <th scope="col" className="py-1 pr-2 font-medium">Component</th>
-                <th scope="col" className="py-1 pr-2 text-right font-medium">Fee</th>
-                {SBFAS_TIERS.map((t) => (
-                  <th scope="col" key={t} className={`py-1 text-right font-medium${t === app.recommendedTier ? " text-primary font-semibold" : ""}`}>
-                    {t} · {Math.round(SBFAS_TIER_RATES[t] * 100)}%{t === app.recommendedTier ? " · AI" : ""}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {app.components.map((c) => (
-                <tr key={c.name} className="border-t border-line">
-                  <td className="py-1 pr-2">{c.name}</td>
-                  <td className="py-1 pr-2 text-right">{formatSGD(c.amount)}</td>
-                  {SBFAS_TIERS.map((t) => (
-                    <td key={t} className={`py-1 text-right${t === app.recommendedTier ? " font-semibold text-primary" : " text-success"}`}>
-                      − {formatSGD(c.amount * SBFAS_TIER_RATES[t])}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">

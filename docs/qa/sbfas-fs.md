@@ -41,8 +41,8 @@
 | `justification` | string? | Tự do | Bắt buộc khi Override; lưu kèm quyết định |
 
 Hằng số liên quan (R4):
-- `INCOME_API_SOURCE = "MyInfo (SingPass) API"` — nguồn duy nhất của `incomeBand` / `householdBand` / `incomeSyncedOn`; trường đọc-only, school user không tự nhập.
-- `SBFAS_TIER_RATES` — tỉ lệ subsidy theo tier: Tier 1 = 75%, Tier 2 = 65%, Tier 3 = 55%, Tier 4 = 50% (thực tế SBFAS do trường quản trong khoảng 50–75%). Cửa sổ review hiển thị bảng "mỗi tier trừ bao nhiêu trên từng fee component" của charge chưa trả của học sinh.
+- `INCOME_API_SOURCE = "MyInfo (SingPass) API"` — nguồn duy nhất của `incomeBand` / `householdBand` / `incomeSyncedOn`; trường đọc-only, school user không tự nhập (không hiển thị trên màn hình review).
+- `SBFAS_TIER_RATES` — tỉ lệ subsidy theo tier: Tier 1 = 75%, Tier 2 = 65%, Tier 3 = 55%, Tier 4 = 50% (thực tế SBFAS do trường quản trong khoảng 50–75%). Hiện là dữ liệu tham chiếu, chưa điều chỉnh subsidy trên charge.
 
 ### 2.2 Hồ sơ học sinh (các trường liên quan SBFAS)
 
