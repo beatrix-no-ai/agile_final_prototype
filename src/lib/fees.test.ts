@@ -1,8 +1,10 @@
+import { initialRegistry } from "../data/registryStore";
+import { studentsOfClass } from "./registry";
 import { describe, expect, test } from "vitest";
 import { feeReducer, initialFeeState } from "../data/feeStore";
 import { FEE_TYPES, type FeeType } from "../data/fees";
 import { STUDENTS, type Student } from "../data/students";
-import { addDays, aggregate, balanceOf, chargeStatus, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, studentsOfClass, subsidyOf, subsidyRate, validateFeeType } from "./fees";
+import { addDays, aggregate, balanceOf, chargeStatus, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, subsidyOf, subsidyRate, validateFeeType } from "./fees";
 
 const draft = (o = {}) => ({ name: "Trip", level: "", components: [{ name: "Bus", amount: "12.50", on: true }], ...o });
 
@@ -36,7 +38,8 @@ describe("generate (no term: one charge per student per fee type per issue date)
   const school = "S002";
   const ft = FEE_TYPES.find((f) => f.school === school)!;
   const klass = STUDENTS.find((s) => s.level === "P1")!.class;
-  const students = studentsOfClass(school, klass);
+  const reg = initialRegistry();
+  const students = studentsOfClass(reg.students, reg.classes, school, klass);
   const issued = "2026-10-12", due = "2026-11-11";
   test("creates one outstanding charge per student and skips repeats for the same issue date", () => {
     const s0 = { ...initialFeeState(), charges: [] };

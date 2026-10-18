@@ -3,16 +3,15 @@ import { ArrowLeft } from "@phosphor-icons/react";
 import { ActionCell, RowAction } from "../../../components/ui/DataTable";
 import { Card } from "../../../components/ui/Card";
 import { Segmented } from "../../../components/ui/Segmented";
-import { SCHOOLS } from "../../../data/schools";
+import { useRegistry } from "../../../data/registryStore";
 import { useFees } from "../../../data/feeStore";
 import type { Charge, FeeType } from "../../../data/fees";
-import { schoolOfLevel } from "../../../data/schoolMgmt";
+import { schoolOfStudent } from "../../../lib/registry";
 import { formatSGD } from "../../../lib/format";
 import { aggregate } from "../../../lib/fees";
-import { FeeTypeModal, Tiles, selectClass, studentOf } from "./parts";
+import { FeeTypeModal, Tiles, selectClass, useInSchool, useStudentOf } from "./parts";
 
 const studentsIn = (rows: Charge[]) => new Set(rows.map((c) => c.studentId)).size;
-const inSchool = (charges: Charge[], code: string) => charges.filter((c) => { const s = studentOf(c.studentId); return s && schoolOfLevel(s.level) === code; });
 
 const tiles = (rows: Charge[]) => {
   const a = aggregate(rows);
@@ -106,6 +105,8 @@ type Pie = "ft" | "level";
 /** One school's fee breakdown: filters, tiles, composition donut, then by level, class and fee type. Shared by the HQ drill-down and the School user's dashboard tab. */
 export function SchoolFeeBody({ school }: { school: string }) {
   const { state } = useFees();
+  const studentOf = useStudentOf();
+  const inSchool = useInSchool();
   const [level, setLevel] = useState("");
   const [ftId, setFtId] = useState("");
   const [pie, setPie] = useState<Pie>("ft");
@@ -154,6 +155,9 @@ export function SchoolFeeBody({ school }: { school: string }) {
 /** HQ: read-only fee position of all schools; drill into a school for its breakdown. */
 export default function HqFeeDashboard() {
   const { state } = useFees();
+  const { state: reg } = useRegistry();
+  const studentOf = useStudentOf();
+  const inSchool = useInSchool();
   const [school, setSchool] = useState("");
   const [kind, setKind] = useState("");
 
@@ -163,14 +167,14 @@ export default function HqFeeDashboard() {
         <button type="button" onClick={() => setSchool("")} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
           <ArrowLeft size={16} weight="bold" aria-hidden="true" /> All schools
         </button>
-        <h2 className="text-lg font-semibold">{SCHOOLS.find((s) => s.code === school)?.name ?? school}: fee breakdown</h2>
+        <h2 className="text-lg font-semibold">{reg.schools.find((s) => s.code === school)?.name ?? school}: fee breakdown</h2>
         <SchoolFeeBody school={school} />
       </div>
     );
   }
 
-  const list = SCHOOLS.filter((s) => !kind || s.level === kind);
-  const shown = state.charges.filter((c) => { const s = studentOf(c.studentId); return s && list.some((x) => x.code === schoolOfLevel(s.level)); });
+  const list = reg.schools.filter((s) => !kind || s.level === kind);
+  const shown = state.charges.filter((c) => { const s = studentOf(c.studentId); return s && list.some((x) => x.code === schoolOfStudent(s, reg.classes)); });
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -191,7 +195,7 @@ export default function HqFeeDashboard() {
             const a = aggregate(rows), pct = a.fee ? Math.round((a.collected / a.fee) * 100) : 0;
             return <div className="h-1.5 overflow-hidden rounded-full bg-track" title={`${pct}% of fee value collected`}><div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} /></div>;
           }}
-          extra={(k) => <RowAction onClick={() => setSchool(SCHOOLS.find((s) => s.name === k)?.code ?? "")}>View fees</RowAction>}
+          extra={(k) => <RowAction onClick={() => setSchool(reg.schools.find((s) => s.name === k)?.code ?? "")}>View fees</RowAction>}
         />
       </Card>
     </div>

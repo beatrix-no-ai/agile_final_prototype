@@ -8,8 +8,7 @@ import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { useFees } from "../../../data/feeStore";
 import { MASTER, type FeeType } from "../../../data/fees";
-import { SCHOOLS } from "../../../data/schools";
-import { schoolOfLevel } from "../../../data/schoolMgmt";
+import { useRegistry } from "../../../data/registryStore";
 import { LEVELS, type Level } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { TODAY, feeDraftOk, nextFeeTypeId, validateFeeType, type FeeDraft } from "../../../lib/fees";
@@ -28,7 +27,8 @@ export default function FeeTypeList({ school, onAssign }: { school: string; onAs
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<{ id: string; draft: FeeDraft } | null>(null);
   const [notice, setNotice] = useState("");
-  const schoolName = SCHOOLS.find((s) => s.code === school)?.name ?? school;
+  const { state: reg } = useRegistry();
+  const schoolName = reg.schools.find((s) => s.code === school)?.name ?? school;
   const scopes = master ? ["Primary", "Secondary"] : [...new Set(mine.map((f) => f.level).filter(Boolean))] as string[];
   const shown = mine.filter((f) => !filter || (master ? !f.scope || f.scope === filter : !f.level || f.level === filter));
   const noun = master ? "MOE Bill" : "School Bill";
@@ -122,7 +122,9 @@ function FeeTypeForm({ school, master, initial, others, id, onSave }: { school: 
   const [d, setD] = useState(initial);
   const [tried, setTried] = useState(false);
   const { errors, components } = validateFeeType(d, others);
-  const levels = LEVELS.filter((l) => schoolOfLevel(l) === school);
+  const { state: reg } = useRegistry();
+  const kind = reg.schools.find((s) => s.code === school)?.level;
+  const levels = kind ? LEVELS.filter((l) => (kind === "Primary") === l.startsWith("P")) : [];
   const setRow = (i: number, p: Partial<FeeDraft["components"][number]>) => setD((x) => ({ ...x, components: x.components.map((c, j) => (j === i ? { ...c, ...p } : c)) }));
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

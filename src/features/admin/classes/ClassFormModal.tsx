@@ -3,7 +3,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import type { ClassRecord } from "../../../data/schoolMgmt";
-import { SCHOOLS } from "../../../data/schools";
+import { useRegistry } from "../../../data/registryStore";
 import { LEVELS } from "../../../data/students";
 import { validateClass, type ClassInput } from "../../../lib/schoolMgmt";
 
@@ -18,6 +18,7 @@ type Props = {
 };
 
 export default function ClassFormModal({ fixedSchool, editing, all, enrolled, onClose, onSave }: Props) {
+  const { state: reg } = useRegistry();
   const [v, setV] = useState<ClassInput>(
     editing ? { ...editing, capacity: String(editing.capacity) } : { school: fixedSchool ?? "", name: "", level: "", teacher: "", room: "", capacity: "40" },
   );
@@ -25,7 +26,7 @@ export default function ClassFormModal({ fixedSchool, editing, all, enrolled, on
   const others = all.filter((c) => c.name !== editing?.name);
   const errors = submitted ? validateClass(v, others, enrolled) : {};
   const set = (k: keyof ClassInput) => (e: { target: { value: string } }) => setV((p) => ({ ...p, [k]: e.target.value, ...(k === "school" ? { level: "" } : {}) }));
-  const schoolType = SCHOOLS.find((s) => s.code === v.school)?.level;
+  const schoolType = reg.schools.find((s) => s.code === v.school)?.level;
   const levelOptions = LEVELS.filter((l) => !schoolType || (schoolType === "Primary") === l.startsWith("P"));
 
   const submit = (e: React.FormEvent) => {
@@ -59,7 +60,7 @@ export default function ClassFormModal({ fixedSchool, editing, all, enrolled, on
         <Field required label="School" error={errors.school}>
           <select className={inputClass} value={v.school} onChange={set("school")} disabled={!!editing || !!fixedSchool}>
             <option value="">Select school</option>
-            {SCHOOLS.map((s) => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
+            {reg.schools.filter((s) => s.active || s.code === v.school).map((s) => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
           </select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">

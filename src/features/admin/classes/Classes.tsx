@@ -8,18 +8,19 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { SCHOOLS } from "../../../data/schools";
+import { useRegistry } from "../../../data/registryStore";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
-import { CLASS_RECORDS, schoolOfLevel, type ClassRecord } from "../../../data/schoolMgmt";
-import { LEVELS, STUDENTS } from "../../../data/students";
+import type { ClassRecord } from "../../../data/schoolMgmt";
+import { LEVELS } from "../../../data/students";
 import ClassFormModal from "./ClassFormModal";
 
 type Row = ClassRecord & { students: number };
-const count = (name: string) => STUDENTS.filter((s) => s.class === name).length;
 
 export default function Classes() {
-  const [classes, setClasses] = useState(CLASS_RECORDS);
+  const { state: reg, dispatch } = useRegistry();
+  const classes = reg.classes;
+  const count = (name: string) => reg.students.filter((s) => s.class === name).length;
   const navigate = useNavigate();
   const { role } = useSession();
   const hq = role === "hq";
@@ -34,16 +35,16 @@ export default function Classes() {
 
   const rows: Row[] = useMemo(
     () => classes.filter((c) => (!school || c.school === school) && (!level || c.level === level)).map((c) => ({ ...c, students: count(c.name) })),
-    [classes, level, school],
+    [classes, level, school, reg.students],
   );
   const save = (c: ClassRecord) => {
     const exists = form?.editing != null;
-    setClasses((all) => (exists ? all.map((x) => (x.name === form!.editing!.name ? c : x)) : [c, ...all]));
+    dispatch({ type: "saveClass", editing: form?.editing?.name ?? null, record: c });
     setNotice(`${c.name} was ${exists ? "updated" : "added"}.`);
   };
 
   const columns: Column<Row>[] = [
-    ...(hq ? [{ key: "school", header: "School", sortable: true, render: (c: Row) => SCHOOLS.find((s) => s.code === c.school)?.name ?? c.school } as Column<Row>] : []),
+    ...(hq ? [{ key: "school", header: "School", sortable: true, render: (c: Row) => reg.schools.find((s) => s.code === c.school)?.name ?? c.school } as Column<Row>] : []),
     { key: "name", header: "Class", sortable: true, render: (c) => <span className="font-medium">{c.name}</span> },
     { key: "level", header: "Level", sortable: true },
     { key: "teacher", header: "Form teacher", sortable: true },
@@ -74,14 +75,14 @@ export default function Classes() {
             <Field label="School">
               <select className={inputClass} value={school} onChange={(e) => { setSchool(e.target.value); setLevel(""); }}>
                 <option value="">All schools</option>
-                {SCHOOLS.map((s) => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
+                {reg.schools.map((s) => <option key={s.code} value={s.code}>{s.code} - {s.name}</option>)}
               </select>
             </Field>
           )}
           <Field label="Level">
             <select className={inputClass} value={level} onChange={(e) => setLevel(e.target.value)}>
               <option value="">All levels</option>
-              {LEVELS.filter((l) => !school || schoolOfLevel(l) === school).map((l) => <option key={l}>{l}</option>)}
+              {LEVELS.filter((l) => { const kind = reg.schools.find((s) => s.code === school)?.level; return !kind || (kind === "Primary") === l.startsWith("P"); }).map((l) => <option key={l}>{l}</option>)}
             </select>
           </Field>
           <Button className="justify-self-start" variant="secondary" disabled={!level && !(hq && school)} onClick={() => { setLevel(""); if (hq) setSchool(""); }}>Reset filters</Button>

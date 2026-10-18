@@ -8,16 +8,17 @@ import { DataTable, RowAction, type Column } from "../../../components/ui/DataTa
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { SCHOOL_RECORDS } from "../../../data/schoolMgmt";
+import { useRegistry } from "../../../data/registryStore";
 import { MODULES, POSITIONS, STAFF, createSchoolUser, updateSchoolUser, validateUser, type Module, type Position, type StaffAccount, type UserInput } from "../../../data/users";
 import { useSession } from "../../../session";
 
 const FORM = "user-form";
-const schoolName = (code?: string) => SCHOOL_RECORDS.find((s) => s.code === code)?.name ?? "";
 const EMPTY: UserInput = { schoolCode: "", name: "", email: "", position: "School Admin", modules: [] };
 
 /** MOE HQ manages every school user; a Principal manages their own school's users and assigns their modules. */
 export default function Users() {
+  const { state: reg } = useRegistry();
+  const schoolName = (code?: string) => reg.schools.find((s) => s.code === code)?.name ?? "";
   const { role, staff } = useSession();
   const hq = role === "hq";
   const mySchool = hq ? "" : staff?.schoolCode ?? "";
@@ -63,7 +64,7 @@ export default function Users() {
             <Field label="School">
               <select className={inputClass} value={school} onChange={(e) => setSchool(e.target.value)}>
                 <option value="">All schools</option>
-                {SCHOOL_RECORDS.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+                {reg.schools.filter((s) => s.active).map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
               </select>
             </Field>
           )}
@@ -112,6 +113,8 @@ type FormProps = {
 };
 
 function UserFormModal({ editing, hq, mySchool, self, onClose, onDone }: FormProps) {
+  const { state: reg } = useRegistry();
+  const schoolName = (code?: string) => reg.schools.find((s) => s.code === code)?.name ?? "";
   const [v, setV] = useState<UserInput>(editing
     ? { schoolCode: editing.schoolCode ?? "", name: editing.name, email: editing.email, position: editing.title as Position, modules: [...editing.modules] }
     : { ...EMPTY, schoolCode: hq ? "" : mySchool });
@@ -157,7 +160,7 @@ function UserFormModal({ editing, hq, mySchool, self, onClose, onDone }: FormPro
         <Field required label="School" error={errors.schoolCode} hint={hq ? undefined : "Your school"}>
           <select className={inputClass} value={v.schoolCode} disabled={!hq || !!editing} onChange={(e) => setV((p) => ({ ...p, schoolCode: e.target.value }))}>
             <option value="">Select school</option>
-            {SCHOOL_RECORDS.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+            {reg.schools.filter((s) => s.active).map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
           </select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">

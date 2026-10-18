@@ -6,7 +6,9 @@ import { Button } from "../../../components/ui/Button";
 import { inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import type { Charge, ChargeStatus, FeeType, PayMethod } from "../../../data/fees";
-import { STUDENTS } from "../../../data/students";
+import { useRegistry } from "../../../data/registryStore";
+import type { Student } from "../../../data/students";
+import { schoolOfStudent } from "../../../lib/registry";
 import { formatDate, formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus, feeOf, paidOf, paidOnOf, payableOf, subsidyOf } from "../../../lib/fees";
 import { maskNric } from "../../../lib/nric";
@@ -15,7 +17,21 @@ const TONE: Record<ChargeStatus, BadgeTone> = { paid: "success", outstanding: "w
 export const STATUS_LABEL: Record<ChargeStatus, string> = { paid: "Paid", outstanding: "Outstanding", overdue: "Overdue" };
 export const StatusBadge = ({ status }: { status: ChargeStatus }) => <Badge tone={TONE[status]}>{STATUS_LABEL[status]}</Badge>;
 
-export const studentOf = (id: string) => STUDENTS.find((s) => s.id === id);
+/** Looks a student up in the shared registry. */
+export function useStudentOf() {
+  const { state } = useRegistry();
+  return (id: string) => state.students.find((s) => s.id === id);
+}
+
+/** The charges that belong to one school, by the school of each student's class. */
+export function useInSchool() {
+  const { state } = useRegistry();
+  return (charges: Charge[], code: string) =>
+    charges.filter((c) => {
+      const s = state.students.find((x) => x.id === c.studentId);
+      return s && schoolOfStudent(s, state.classes) === code;
+    });
+}
 
 export function Tiles({ items }: { items: { label: string; value: ReactNode; note?: ReactNode; alert?: boolean; good?: boolean }[] }) {
   return (
@@ -54,6 +70,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 
 /** One charge: what is owed, how it is made up, what has been paid, and a form to record the next payment. */
 export function ChargeModal({ charge, feeName, onClose, onPay }: { charge: Charge | null; feeName?: string; onClose: () => void; onPay?: (chargeId: string, amount: number, method: PayMethod) => void }) {
+  const studentOf = useStudentOf();
   const st = charge && studentOf(charge.studentId);
   const status = charge ? chargeStatus(charge) : "outstanding";
   const balance = charge ? balanceOf(charge) : 0;
@@ -65,7 +82,7 @@ export function ChargeModal({ charge, feeName, onClose, onPay }: { charge: Charg
 }
 
 function ChargeBody({ charge, feeName, st, status, balance, onPay }: {
-  charge: Charge; feeName?: string; st: ReturnType<typeof studentOf> | null; status: ChargeStatus; balance: number;
+  charge: Charge; feeName?: string; st: Student | undefined | null; status: ChargeStatus; balance: number;
   onPay?: (chargeId: string, amount: number, method: PayMethod) => void;
 }) {
   const [amount, setAmount] = useState(balance.toFixed(2));

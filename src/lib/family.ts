@@ -1,11 +1,11 @@
 import type { FeeAction } from "../data/feeStore";
 import { FAMILY_STUDENT_NAMES, type Child, type Invoice, type Transaction } from "../data/parent";
-import { SCHOOLS } from "../data/schools";
-import { schoolOfLevel } from "../data/schoolMgmt";
+import type { ClassRecord, SchoolRecord } from "../data/schoolMgmt";
 import type { Charge } from "../data/fees";
 import type { Level, Student } from "../data/students";
 import { isPayable, settle, type Mode } from "../features/eservice/payments/settle";
 import { ledgerFor } from "./accounts";
+import { schoolOfStudent } from "./registry";
 import { balanceOf, chargeStatus, payableOf } from "./fees";
 
 const cents = (n: number) => Math.round(n * 100) / 100;
@@ -17,12 +17,12 @@ export const levelLabel = (l: Level) => (l.startsWith("P") ? `Primary ${l.slice(
  * What the parent portal shows, built from the school side so both portals always agree.
  * The children are the real student records; the balance is the student's balance less what has been paid out of it.
  */
-export function familyChildren(students: readonly Student[], debits: Record<string, number>): Child[] {
+export function familyChildren(students: readonly Student[], debits: Record<string, number>, schools: readonly Pick<SchoolRecord, "code" | "name">[], classes: readonly ClassRecord[]): Child[] {
   return FAMILY_STUDENT_NAMES.map((name) => students.find((s) => s.name === name)!).map((s) => ({
     id: s.id,
     name: s.name,
     level: levelLabel(s.level),
-    school: SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "",
+    school: schools.find((x) => x.code === schoolOfStudent(s, classes))?.name ?? "",
     educationBalance: cents(s.balance - (debits[s.id] ?? 0)),
   }));
 }

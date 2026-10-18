@@ -9,13 +9,15 @@ import { DataTable, RowAction, type Column } from "../../../components/ui/DataTa
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { SCHOOL_RECORDS, type SchoolRecord } from "../../../data/schoolMgmt";
+import { useRegistry } from "../../../data/registryStore";
+import type { SchoolRecord } from "../../../data/schoolMgmt";
 import { saveSchoolUser, usersOfSchool } from "../../../data/users";
 import SchoolFormModal, { SCHOOL_TYPES } from "./SchoolFormModal";
 
 export default function SchoolMaintenance() {
   const navigate = useNavigate();
-  const [schools, setSchools] = useState(SCHOOL_RECORDS);
+  const { state: reg, dispatch } = useRegistry();
+  const schools = reg.schools;
   const [type, setType] = useState("");
   const [q, setQ] = useState("");
   const [form, setForm] = useState<{ editing: SchoolRecord | null } | null>(null);
@@ -29,7 +31,7 @@ export default function SchoolMaintenance() {
   }, [schools, type, q]);
   const save = (s: SchoolRecord, u: { name: string; email: string; resetPassword: boolean }) => {
     const exists = schools.some((x) => x.code === s.code);
-    setSchools((all) => (exists ? all.map((x) => (x.code === s.code ? s : x)) : [s, ...all]));
+    dispatch({ type: "saveSchool", record: s });
     const acct = saveSchoolUser(s.code, u.name, u.email, u.resetPassword);
     const showPassword = !exists || u.resetPassword;
     setNotice(`${s.name} was ${exists ? "updated" : "added"}. Principal login: ${acct.email}.`);

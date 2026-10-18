@@ -10,11 +10,11 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { useFees } from "../../../data/feeStore";
 import { MASTER, type Charge, type FeeType } from "../../../data/fees";
-import { SCHOOLS } from "../../../data/schools";
-import { CLASS_RECORDS } from "../../../data/schoolMgmt";
+import { useRegistry } from "../../../data/registryStore";
 import { formatSGD } from "../../../lib/format";
-import { addDays, alreadyCharged, chargeStatus, fasOf, feeOf, studentsOfClass, TODAY } from "../../../lib/fees";
-import { selectClass, studentOf } from "./parts";
+import { addDays, alreadyCharged, chargeStatus, fasOf, feeOf, TODAY } from "../../../lib/fees";
+import { studentsOfClass } from "../../../lib/registry";
+import { selectClass, useStudentOf } from "./parts";
 
 type Result = { created: number; skipped: number; level: string; issued: string; due: string };
 type Scope = "level" | "class" | "student";
@@ -41,6 +41,7 @@ export default function AssignCharges({ school, presetFee }: { school: string; p
 function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const { state, dispatch } = useFees();
   const { state: fasState } = useFas();
+  const { state: reg } = useRegistry();
   const live = (xs: Student[]) => xs.map((s) => overlayFas(s, fasState)); // a new charge is priced on the student's current FAS
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
   const [level, setLevel] = useState("");
@@ -51,13 +52,14 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const [due, setDue] = useState(addDays(TODAY, 30));
   const [result, setResult] = useState<Result | null>(null);
 
-  const kind = SCHOOLS.find((s) => s.code === school)?.level;
+  const kind = reg.schools.find((s) => s.code === school)?.level;
   const master = state.types.filter((f) => f.school === MASTER && (!f.scope || f.scope === kind));
   const own = state.types.filter((f) => f.school === school);
   const chosen = [...master, ...own].filter((f) => picked.includes(f.id));
-  const levels = [...new Set(CLASS_RECORDS.filter((c) => c.school === school).map((c) => c.level))];
-  const classes = CLASS_RECORDS.filter((c) => c.school === school);
-  const schoolStudents = live(classes.flatMap((c) => studentsOfClass(school, c.name)));
+  const levels = [...new Set(reg.classes.filter((c) => c.school === school).map((c) => c.level))];
+  const classes = reg.classes.filter((c) => c.school === school);
+  const inClass = (name: string) => studentsOfClass(reg.students, reg.classes, school, name);
+  const schoolStudents = live(classes.flatMap((c) => inClass(c.name)));
   // MOE Bills and School Bills stay separate: picking one source locks the other.
   const source = chosen.length ? (chosen[0].school === MASTER ? "moe" : "school") : null;
   // A MOE Bill always goes to the whole level (cohort); only a School Bill can be narrowed to a class or one student.
@@ -65,8 +67,8 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const perStudent = chosen.reduce((t, f) => t + total(f), 0);
 
   // Each fee applies to a student only when its own level (if any) matches that student's level.
-  const students = effScope === "level" ? (level ? live(classes.filter((c) => c.level === level).flatMap((c) => studentsOfClass(school, c.name))) : [])
-    : effScope === "class" ? (cls ? live(studentsOfClass(school, cls)) : [])
+  const students = effScope === "level" ? (level ? live(classes.filter((c) => c.level === level).flatMap((c) => inClass(c.name))) : [])
+    : effScope === "class" ? (cls ? live(inClass(cls)) : [])
     : schoolStudents.filter((s) => s.id === studentId);
   const target = effScope === "level" ? level : effScope === "class" ? cls : students[0]?.name ?? "";
   const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, issued) })));
@@ -206,6 +208,7 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
 type Round = { key: string; issued: string; due: string; title: string; ftId: string; rows: Charge[] };
 
 function History({ school }: { school: string }) {
+  const studentOf = useStudentOf();
   const { state } = useFees();
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");

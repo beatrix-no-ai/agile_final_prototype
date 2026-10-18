@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { feeReducer, initialFeeState } from "../data/feeStore";
 import { FAMILY_STUDENT_NAMES } from "../data/parent";
+import { CLASS_RECORDS, SCHOOL_RECORDS } from "../data/schoolMgmt";
 import { STUDENTS } from "../data/students";
 import { ledgerFor } from "./accounts";
 import { balanceOf, chargeStatus, payableOf } from "./fees";
@@ -8,7 +9,7 @@ import { familyChildren, familyInvoices, familyTransactions, payActions } from "
 import { settle } from "../features/eservice/payments/settle";
 
 const fees = initialFeeState();
-const kids = familyChildren(STUDENTS, {});
+const kids = familyChildren(STUDENTS, {}, SCHOOL_RECORDS, CLASS_RECORDS);
 const [ethan, chloe] = kids;
 const invoices = familyInvoices(fees.charges, kids.map((k) => k.id));
 
@@ -25,7 +26,7 @@ describe("the parent's children are real students", () => {
   test("the Education Account balance is the student's balance less what the parent has paid from it", () => {
     const s = STUDENTS.find((x) => x.id === chloe.id)!;
     expect(chloe.educationBalance).toBe(s.balance);
-    expect(familyChildren(STUDENTS, { [chloe.id]: 10 })[1].educationBalance).toBe(Math.round((s.balance - 10) * 100) / 100);
+    expect(familyChildren(STUDENTS, { [chloe.id]: 10 }, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(Math.round((s.balance - 10) * 100) / 100);
   });
 
   test("the Payments demo cases still exist: one empty account, one that only partly covers the bill", () => {
@@ -114,7 +115,7 @@ describe("paying", () => {
     for (const a of payActions(invoices, kids, ids, "account-first")) s = feeReducer(s, a);
     expect(familyInvoices(s.charges, [chloe.id]).every((i) => i.status === "paid")).toBe(true);
     expect(s.debits[chloe.id]).toBe(chloe.educationBalance);
-    expect(familyChildren(STUDENTS, s.debits)[1].educationBalance).toBe(0);
+    expect(familyChildren(STUDENTS, s.debits, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(0);
     expect(settle(familyInvoices(s.charges, [chloe.id]), kids, ids, "gateway").total).toBe(0);
   });
 

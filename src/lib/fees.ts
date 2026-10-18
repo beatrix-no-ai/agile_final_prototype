@@ -79,7 +79,6 @@ export const nextPaymentId = (c: Charge) => `${c.id}-P${c.payments.length + 1}`;
 export const makePayment = (c: Charge, amount: number, method: Payment["method"]): Payment => ({ id: nextPaymentId(c), on: TODAY, amount: Math.round(amount * 100) / 100, method });
 
 /** Students of one class in one school. */
-export const studentsOfClass = (school: string, klass: string) => STUDENTS.filter((s) => s.class === klass && schoolOfLevel(s.level) === school);
 
 /**
  * Mock history without terms — three issuance waves per school fee type:

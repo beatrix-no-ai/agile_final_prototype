@@ -7,11 +7,12 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { inputClass } from "../../../components/ui/Field";
 import { useFees } from "../../../data/feeStore";
 import type { Charge, FasScheme } from "../../../data/fees";
-import { schoolOfLevel } from "../../../data/schoolMgmt";
+import { useRegistry } from "../../../data/registryStore";
+import { schoolOfStudent } from "../../../lib/registry";
 import { formatSGD } from "../../../lib/format";
 import { aggregate, balanceOf, chargeStatus, feeOf, payableOf, subsidyOf } from "../../../lib/fees";
 import { Badge } from "../../../components/ui/Badge";
-import { ChargeModal, Chips, StatusBadge, Tiles, selectClass, studentOf } from "./parts";
+import { ChargeModal, Chips, StatusBadge, Tiles, selectClass, useStudentOf } from "./parts";
 
 type Row = { id: string; charge: Charge; student: string; studentId: string; levelClass: string; level: string; title: string; due: string; fee: number; payable: number; balance: number; status: string };
 
@@ -25,7 +26,9 @@ export default function StudentCharges({ school }: { school: string }) {
   // Re-resolve from state so the modal reflects a payment recorded while it is open.
   const open = state.charges.find((c) => c.id === openId) ?? null;
 
-  const mine = useMemo(() => state.charges.filter((c) => { const s = studentOf(c.studentId); return s && schoolOfLevel(s.level) === school; }), [state.charges, school]);
+  const studentOf = useStudentOf();
+  const { state: reg } = useRegistry();
+  const mine = useMemo(() => state.charges.filter((c) => { const s = reg.students.find((x) => x.id === c.studentId); return s && schoolOfStudent(s, reg.classes) === school; }), [state.charges, school, reg]);
   const levels = [...new Set(mine.map((c) => studentOf(c.studentId)!.level))];
   const rows: Row[] = useMemo(() => mine.flatMap((c) => {
     const s = studentOf(c.studentId)!;

@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { HeaderActions } from "../../../components/layout/HeaderActions";
 import { Plus, Wallet } from "@phosphor-icons/react";
 import { useNavigate, useSearchParams } from "react-router";
-import { SCHOOLS } from "../../../data/schools";
 import { maskNric } from "../../../lib/nric";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -13,8 +12,9 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { STATUSES, STUDENTS, UNASSIGNED_ACCOUNTS, type SbfasStatus, type Student } from "../../../data/students";
-import { schoolOfLevel } from "../../../data/schoolMgmt";
+import { STATUSES, UNASSIGNED_ACCOUNTS, type SbfasStatus, type Student } from "../../../data/students";
+import { useRegistry } from "../../../data/registryStore";
+import { schoolOfStudent } from "../../../lib/registry";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import AssignStudentModal from "./AddStudentModal";
@@ -23,10 +23,10 @@ import { assignStudent, filterStudents, statusTone } from "./logic";
 const sbfasTone: Record<SbfasStatus, BadgeTone> = { Approved: "success", Pending: "warning", Rejected: "alert", "Not applied": "neutral" };
 
 export default function Students() {
-  const [stored, setStudents] = useState(STUDENTS);
+  const { state: reg, dispatch: regDispatch } = useRegistry();
   const { state: fas } = useFas();
   const { state: fee } = useFees();
-  const students = useMemo(() => stored.map((s) => withBalance(withFas(s, fas), fee.debits)), [stored, fas, fee.debits]); // SBFAS status follows the FAS queue
+  const students = useMemo(() => reg.students.map((s) => withBalance(withFas(s, fas), fee.debits)), [reg.students, fas, fee.debits]); // SBFAS status follows the FAS queue
   const [params] = useSearchParams(); // "View students" on the Classes page arrives as ?class=<name>
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -37,14 +37,15 @@ export default function Students() {
   const [adding, setAdding] = useState(false);
   const navigate = useNavigate();
   const [notice, setNotice] = useState("");
-  const schoolName = (s: Student) => SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "";
-  const classOptions = useMemo(() => [...new Set(students.filter((s) => (!mySchool || schoolOfLevel(s.level) === mySchool) && (!school || schoolOfLevel(s.level) === school)).map((s) => s.class))], [students, mySchool, school]);
+  const schoolOf = (s: Student) => schoolOfStudent(s, reg.classes);
+  const schoolName = (s: Student) => reg.schools.find((x) => x.code === schoolOf(s))?.name ?? "";
+  const classOptions = useMemo(() => [...new Set(students.filter((s) => (!mySchool || schoolOf(s) === mySchool) && (!school || schoolOf(s) === school)).map((s) => s.class))], [students, mySchool, school, reg.classes]);
 
   // Memoised: DataTable resets to page 1 whenever the rows reference changes.
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return filterStudents(students, { level: "", class: cls, status }).filter((s) => (!mySchool || schoolOfLevel(s.level) === mySchool) && (!school || schoolOfLevel(s.level) === school) && (!needle || `${s.nric} ${s.name}`.toLowerCase().includes(needle)));
-  }, [students, q, mySchool, status, cls, school]);
+    return filterStudents(students, { level: "", class: cls, status }).filter((s) => (!mySchool || schoolOf(s) === mySchool) && (!school || schoolOf(s) === school) && (!needle || `${s.nric} ${s.name}`.toLowerCase().includes(needle)));
+  }, [students, q, mySchool, status, cls, school, reg.classes]);
   const reset = () => { setQ(""); setStatus(""); setCls(""); setSchool(""); };
 
   const columns: Column<Student>[] = [
@@ -81,7 +82,7 @@ export default function Students() {
             <Field label="School">
               <select className={inputClass} value={school} onChange={(e) => { setSchool(e.target.value); setCls(""); }}>
                 <option value="">All schools</option>
-                {[...new Set(students.map((s) => schoolOfLevel(s.level)))].map((c) => <option key={c} value={c}>{SCHOOLS.find((x) => x.code === c)?.name}</option>)}
+                {[...new Set(students.map(schoolOf))].map((c) => <option key={c} value={c}>{reg.schools.find((x) => x.code === c)?.name}</option>)}
               </select>
             </Field>
           )}
@@ -104,7 +105,7 @@ export default function Students() {
             columns={columns}
             rows={rows}
             rowKey={(s) => s.id}
-            rowActions={(s) => <RowAction icon={<Wallet size={16} aria-hidden />} onClick={() => navigate(`/admin/students/${s.id}/account`, { state: { student: s } })}>View account</RowAction>}
+            rowActions={(s) => <RowAction icon={<Wallet size={16} aria-hidden />} onClick={() => navigate(`/admin/students/${s.id}/account`)}>View account</RowAction>}
             pageSize={20}
             large
             empty={
@@ -120,10 +121,12 @@ export default function Students() {
 
       <AssignStudentModal
         open={adding}
+        classes={reg.classes}
+        school={mySchool}
         available={UNASSIGNED_ACCOUNTS.filter((a) => !students.some((s) => s.id === a.id))}
         onClose={() => setAdding(false)}
         onAssign={(a, p) => {
-          setStudents((all) => [assignStudent(a, p), ...all]);
+          regDispatch({ type: "assignStudent", student: assignStudent(a, p) });
           setNotice(`${a.name} was assigned to ${p.class}.`);
         }}
       />

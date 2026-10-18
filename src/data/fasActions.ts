@@ -3,7 +3,7 @@ import { withFas } from "../lib/studentFas";
 import { fasReducer, useFas, type FasAction } from "./fasStore";
 import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
-import { STUDENTS } from "./students";
+import { useRegistry } from "./registryStore";
 import type { Action, Draft } from "../features/admin/fas/review";
 
 /**
@@ -13,12 +13,13 @@ import type { Action, Draft } from "../features/admin/fas/review";
 export function useFasActions() {
   const fas = useFas();
   const fees = useFees();
+  const { state: reg } = useRegistry();
 
   const run = (action: FasAction, studentIds: string[]) => {
     const after = fasReducer(fas.state, action);
     fas.dispatch(action);
     for (const id of studentIds) {
-      const student = STUDENTS.find((s) => s.id === id);
+      const student = reg.students.find((s) => s.id === id);
       if (!student) continue;
       const was = fasOf(withFas(student, fas.state));
       const now = fasOf(withFas(student, after));

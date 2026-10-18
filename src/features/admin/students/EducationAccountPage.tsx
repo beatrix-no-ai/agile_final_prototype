@@ -9,8 +9,8 @@ import { useFees } from "../../../data/feeStore";
 import { balanceOf, chargeStatus, payableOf } from "../../../lib/fees";
 import { StatusBadge } from "../fee-types/parts";
 import { ACCOUNT_CLOSES_AT, ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledgerFor } from "../../../lib/accounts";
-import { SCHOOLS } from "../../../data/schools";
-import { schoolCodeFor } from "../../../data/users";
+import { useRegistry } from "../../../data/registryStore";
+import { schoolOfStudent } from "../../../lib/registry";
 import { formatSGD } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
 import { useSession } from "../../../session";
@@ -32,6 +32,7 @@ function Stat({ label, value, note, alert }: { label: string; value: ReactNode; 
 /** Req 1-4: one student's Education Account: summary, fees, ledger, FAS and actions. */
 export default function EducationAccountPage() {
   const student = useStudent();
+  const { state: reg } = useRegistry();
   const allCharges = useFees().state.charges;
   const navigate = useNavigate();
   const { role } = useSession();
@@ -57,7 +58,7 @@ export default function EducationAccountPage() {
   const dob = new Date(Date.UTC(2026 - ageForLevel(student.level), seq % 12, (seq % 28) + 1));
   const opened = new Date(Date.UTC(dob.getUTCFullYear() + ACCOUNT_OPENS_AT, dob.getUTCMonth(), dob.getUTCDate(), 6, 12));
   const fmt = (d: Date, o: Intl.DateTimeFormatOptions) => d.toLocaleString("en-SG", { timeZone: "Asia/Singapore", ...o });
-  const school = SCHOOLS.find((s) => s.code === schoolCodeFor(role)) ?? SCHOOLS.find((s) => s.level === (student.level.startsWith("P") ? "Primary" : "Secondary"));
+  const school = reg.schools.find((s) => s.code === schoolOfStudent(student, reg.classes));
   const active = accountStatus(student.level) === "Active" && ageForLevel(student.level) < ACCOUNT_CLOSES_AT;
   const closed = new Date(Date.UTC(dob.getUTCFullYear() + ACCOUNT_CLOSES_AT, dob.getUTCMonth(), dob.getUTCDate()));
 
