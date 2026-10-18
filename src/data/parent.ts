@@ -1,5 +1,7 @@
 // ASSUMPTION: all mock data for the parent e-Service portal. Single source of truth: Overview, Payments (Task 15) and FAS read from here.
 // Dates are ISO yyyy-mm-dd; the mock "today" is MOCK_TODAY.
+import { nextSbfasId, SBFAS_APPLICATIONS } from "./sbfasApplications";
+
 export const MOCK_TODAY = "2026-10-12";
 
 export type Invoice = { id: string; childId: string; title: string; amount: number; dueDate: string; status: "unpaid" | "overdue" | "paid" };
@@ -51,7 +53,8 @@ export const children: Child[] = [
 ];
 
 export const fasStatus = {
-  applicationId: "FAS-2026-0418",
+  // Generated with the shared SBFAS-XXXX sequence so the parent portal and the admin queue can never disagree.
+  applicationId: nextSbfasId(SBFAS_APPLICATIONS),
   scheme: "MOE Financial Assistance Scheme (MOEFAS)",
   status: "Under review" as "Under review" | "Approved" | "Not approved",
   submittedOn: "2026-09-18",

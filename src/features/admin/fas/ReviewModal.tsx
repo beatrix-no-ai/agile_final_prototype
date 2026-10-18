@@ -6,7 +6,6 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import { benefitsFor, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
@@ -73,13 +72,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
           </Dt>
           <Dt label="Account balance (top-ups)">{formatSGD(app.balance)}</Dt>
         </dl>
-        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">
-          Two different things: an <b>FAS subsidy reduces the fee</b> the family owes, while <b>MOE top-ups credit the Education Account balance</b> used to pay it. A top-up never changes the subsidy, and the subsidy is not paid into the account.
-        </p>
-        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">
-          MOE FAS is assessed first — a family just above its income criteria is routed here for SBFAS. Typical SBFAS package ({SBFAS_PACKAGE.funding}): {SBFAS_PACKAGE.items.join("; ")}. For comparison, MOE FAS grants: {benefitsFor(app.level).join("; ")}.
-        </p>
-        <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">{REIMBURSEMENT_NOTE}</p>
       </div>
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
@@ -88,10 +80,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
         </p>
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
-
-      <p className="text-[13px] rounded-control border border-line bg-surface-container-low px-3 py-2.5">
-        A student cannot receive both schemes: if MOEFAS applies, MOEFAS takes precedence and SBFAS is not granted — approve SBFAS only when the student has no MOEFAS.
-      </p>
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">

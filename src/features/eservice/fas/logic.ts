@@ -23,7 +23,7 @@ export function assess(band: Band): ChildResult {
 export type StepState = "Done" | "In progress" | "To do" | "Waiting" | "Failed";
 export type Step = { name: string; state: StepState };
 
-/** ASSUMPTION: the application is already submitted (FAS-2026-0418); tracker states follow the income sync. Disbursement starts after review. */
+/** ASSUMPTION: the application is already submitted (id comes from the shared SBFAS-XXXX generator); tracker states follow the income sync. Disbursement starts after review. */
 export function trackerSteps(sync: SyncStatus, hasBand: boolean): Step[] {
   const income: StepState = sync === "loading" ? "In progress" : sync === "error" ? "Failed" : hasBand ? "Done" : "To do";
   const review: StepState = income === "Done" ? "In progress" : "Waiting";
