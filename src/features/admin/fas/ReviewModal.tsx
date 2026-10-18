@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { isMoefasEligible } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
@@ -69,6 +70,12 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
         <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
       </dl>
+
+      {!isMoefasEligible(app.nationality) && (
+        <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">
+          {app.nationality} — not eligible for MOE FAS (Singapore Citizens only). SBFAS is the only scheme this student can be considered for.
+        </p>
+      )}
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
         <dl className="grid grid-cols-2 gap-4">

@@ -107,6 +107,10 @@ const NATIONALITY: Record<string, Nationality> = {
   "Rachel Chia Wen Hui": "Dual (Singapore + British)",
 };
 
+/** BR12: MOE FAS is for citizens only. Dual-citizen children still count as SC; PRs and foreign students are SBFAS-only. */
+export const isMoefasEligible = (n: string): boolean =>
+  n === "Singapore Citizen" || n.startsWith("Dual (Singapore") || n === "—";;
+
 // Ordered by name (a visible column), not by level/class, so the list does not look sorted by hidden fields.
 export const STUDENTS: Student[] = [...ROWS].sort((a, b) => a[0].localeCompare(b[0])).map(([name, level, c, status, balance, sbfas, moefas], i) => ({
   id: `S2026${String(i + 1).padStart(4, "0")}`,
