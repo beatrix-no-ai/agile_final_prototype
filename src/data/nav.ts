@@ -22,7 +22,7 @@ const HQ: NavItem[] = [
   { to: "/admin/budgets", label: "Budget", desc: "MOEFAS budget and statistics.", icon: Coins },
 ];
 
-// School users: the FAS and Top-up screens are modules the Principal assigns (see SCHOOL_MODULES below).
+// School users: the FAS screens are a module the Principal assigns (see SCHOOL_MODULES below).
 const SCHOOL: NavItem[] = [
   { to: "/admin/classes", label: "Class", desc: "Classes and their rosters.", icon: ChalkboardTeacher },
   { to: "/admin/students", label: "Student", desc: "Student records and Education Accounts.", icon: GraduationCap },
@@ -44,7 +44,6 @@ export type Access = { can(m: Module): boolean; canManageUsers: boolean };
 const SCHOOL_MODULES: (NavItem & { module?: Module; manage?: true })[] = [
   { to: "/admin/fas", label: "FAS", desc: "SBFAS applications and decisions.", icon: HandHeart, module: "FAS" },
   { to: "/admin/budgets", label: "Budget", desc: "Your school's SBFAS budget and statistics.", icon: Coins, module: "FAS" },
-  { to: "/admin/top-up", label: "Top-up", desc: "Top up your school's Education Accounts.", icon: Bank, module: "Top-up" },
   { to: "/admin/users", label: "User", desc: "Manage your school's users and their modules.", icon: UserGear, manage: true },
 ];
 
@@ -63,7 +62,7 @@ export function navGroupsFor(role: Role, access?: Access): NavGroup[] {
   const items = [...SCHOOL, ...extra];
   return [
     { group: "School Management", items: pick(items, ["/admin/classes", "/admin/students", "/admin/users"]) },
-    { group: "Finance", items: pick(items, ["/admin/fee-types", "/admin/fas", "/admin/budgets", "/admin/top-up"]) },
+    { group: "Finance", items: pick(items, ["/admin/fee-types", "/admin/fas", "/admin/budgets"]) },
   ].filter((g) => g.items.length);
 }
 

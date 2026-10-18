@@ -8,7 +8,7 @@ export type ParentAccount = User & {
 };
 
 /** Modules a school user can be given. MOE HQ can always use everything. */
-export const MODULES = ["FAS", "Top-up"] as const;
+export const MODULES = ["FAS"] as const;
 export type Module = (typeof MODULES)[number];
 /** One Principal per school; the Principal assigns modules to the School Admins. */
 export const POSITIONS = ["Principal", "School Admin"] as const;
@@ -37,7 +37,7 @@ export const PARENT: ParentAccount = {
 export const STAFF: StaffAccount[] = [
   { role: "school", name: "Alicia Tan", initials: "AT", title: "Principal", email: "alicia.tan@school.example", password: "Sch00l-Demo-26", schoolCode: "S001", modules: [...MODULES], active: true },
   { role: "school", name: "Marcus Ong", initials: "MO", title: "School Admin", email: "marcus.ong@school.example", password: "Sch00l-Admin-26", schoolCode: "S001", modules: ["FAS"], active: true },
-  { role: "school", name: "Priya Nair", initials: "PN", title: "School Admin", email: "priya.nair@school.example", password: "Sch00l-Top-26", schoolCode: "S001", modules: ["Top-up"], active: true },
+  { role: "school", name: "Priya Nair", initials: "PN", title: "School Admin", email: "priya.nair@school.example", password: "Sch00l-Top-26", schoolCode: "S001", modules: ["FAS"], active: true },
   // S002 (Riverbank Primary) account: each school reviews only its own students' FAS applications.
   { role: "school", name: "Geraldine Rajaratnam", initials: "GR", title: "School Admin", email: "geraldine.rajaratnam@school.example", password: "Sch00l-Demo-26", schoolCode: "S002", modules: ["FAS"], active: true },
   { role: "hq", name: "Daniel Lim", initials: "DL", title: "MOE HQ Officer", email: "daniel.lim@moe.example", password: "HqOfficer-Demo-26", modules: [...MODULES], active: true },

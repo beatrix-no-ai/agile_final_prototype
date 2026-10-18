@@ -21,10 +21,10 @@ describe("school users", () => {
   });
 
   test("admins get only the modules they were assigned; the Principal gets all", () => {
-    const admin = createSchoolUser({ schoolCode: "S002", name: "Test Admin", email: "test.admin@school.example", position: "School Admin", modules: ["Top-up"] });
-    expect(admin.modules).toEqual(["Top-up"]);
-    updateSchoolUser(admin, { name: "Test Admin", email: admin.email, position: "School Admin", modules: ["FAS", "Top-up"] });
-    expect(admin.modules).toEqual(["FAS", "Top-up"]);
+    const admin = createSchoolUser({ schoolCode: "S002", name: "Test Admin", email: "test.admin@school.example", position: "School Admin", modules: [] });
+    expect(admin.modules).toEqual([]);
+    updateSchoolUser(admin, { name: "Test Admin", email: admin.email, position: "School Admin", modules: ["FAS"] });
+    expect(admin.modules).toEqual(["FAS"]);
     STAFF.splice(STAFF.indexOf(admin), 1);
   });
 
@@ -34,7 +34,7 @@ describe("school users", () => {
     const p = assignPrincipal("S002", first.email);
     expect(p).toBe(first);
     expect(STAFF).toHaveLength(before);
-    expect(p).toMatchObject({ schoolCode: "S002", title: "Principal", modules: ["FAS", "Top-up"], active: true });
+    expect(p).toMatchObject({ schoolCode: "S002", title: "Principal", modules: ["FAS"], active: true });
     expect(unassignedStaff()).not.toContain(first);
     assignPrincipal("S002", second.email);
     expect(first.title).toBe("School Admin");
@@ -44,20 +44,21 @@ describe("school users", () => {
 });
 
 describe("navigation follows module permissions", () => {
-  const labels = (can: (m: "FAS" | "Top-up") => boolean, manage = false) => navFor("school", { can, canManageUsers: manage }).map((n) => n.label);
-  test("FAS-only admin sees FAS but not Top-up or User", () => {
+  const labels = (can: (m: "FAS") => boolean, manage = false) => navFor("school", { can, canManageUsers: manage }).map((n) => n.label);
+  test("FAS admin sees FAS but not Top-up or User", () => {
     const l = labels((m) => m === "FAS");
     expect(l).toContain("FAS");
     expect(l).not.toContain("Top-up");
     expect(l).not.toContain("User");
   });
   test("Principal sees every module and User", () => {
-    expect(labels(() => true, true)).toEqual(expect.arrayContaining(["FAS", "Top-up", "User"]));
+    expect(labels(() => true, true)).toEqual(expect.arrayContaining(["FAS", "User"]));
+    expect(labels(() => true, true)).not.toContain("Top-up");
   });
   test("Budget is shown to HQ and to school users with the FAS module only", () => {
     expect(navFor("hq").map((n) => n.label)).toContain("Budget");
     expect(labels((m) => m === "FAS")).toContain("Budget");
-    expect(labels((m) => m === "Top-up")).not.toContain("Budget");
+    expect(labels(() => false)).not.toContain("Budget");
   });
   test("HQ sees User management", () => {
     expect(navFor("hq").map((n) => n.label)).toContain("User");
