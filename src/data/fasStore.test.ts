@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT } from "./budgets";
 import { fasReducer, initialFasState, selectBudgets, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
 
-const first = (s = initialFasState()) => s.apps[0]; // SBFAS-2041, recommended Tier 1
+const first = (s = initialFasState()) => s.apps[0]; // SBFAS-2041
 const approveAt = (s: ReturnType<typeof initialFasState>, id: string, at: string) =>
   fasReducer(s, { type: "decide", id, action: "approve", draft: { justification: "", tier: "Tier 1" }, at });
 const approve = (s = initialFasState()) => approveAt(s, first(s).id, "2026-10-18T09:00:00.000Z");

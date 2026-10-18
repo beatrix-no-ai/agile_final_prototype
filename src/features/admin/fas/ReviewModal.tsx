@@ -1,7 +1,5 @@
 import { useRef, useState, type RefObject } from "react";
 import { Link } from "react-router";
-import { Sparkle } from "@phosphor-icons/react";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
@@ -11,15 +9,7 @@ import { selectSbfas, useFas } from "../../../data/fasStore";
 import { budgetAlertText } from "../../../lib/budget";
 import { benefitsFor, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import { formatSGD } from "../../../lib/format";
-import { riskLevel } from "../../../lib/fas";
 import { validateDecision, type Action, type Draft, type DecisionError } from "./review";
-
-export const riskTone = { Low: "success", Medium: "warning", High: "alert" } as const;
-
-export function RiskBadge({ score }: { score: number }) {
-  const level = riskLevel(score);
-  return <Badge tone={riskTone[level]}>{level} - {score}</Badge>;
-}
 
 /** Extra fee fields carried alongside the application (computed in the queue from real charges). */
 export type FeeContext = { payable: number; balance: number };
@@ -36,7 +26,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: SbfasApplication & FeeContext }) {
-  const [tier, setTier] = useState<SbfasTier>(app.recommendedTier);
+  const [tier, setTier] = useState<SbfasTier | "">("");
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
   const tierRef = useRef<HTMLSelectElement>(null);
@@ -48,7 +38,7 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
 
   const act = (action: Action) => {
     const draft = { justification, tier };
-    const err = validateDecision(action, draft, app.recommendedTier);
+    const err = validateDecision(action, draft);
     if (err) {
       setError(err);
       // Move focus to the offending field so keyboard and screen-reader users land on the error.
@@ -67,8 +57,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
           </Link>
         </Dt>
         <Dt label="Per-capita income band">{app.incomeBand}</Dt>
-        <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
-        <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
       </dl>
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
@@ -88,13 +76,6 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
         <p className="mt-2 text-[12.5px] leading-snug text-on-surface-variant">{REIMBURSEMENT_NOTE}</p>
       </div>
 
-      <div className="rounded-control border border-line bg-surface-container-low p-4">
-        <p className="flex items-center gap-1.5 text-[13px] font-semibold text-on-surface">
-          <Sparkle size={16} aria-hidden="true" className="text-primary" /> AI explanation
-        </p>
-        <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
-      </div>
-
       <p className="text-[13px] rounded-control border border-line bg-surface-container-low px-3 py-2.5">
         A student cannot receive both schemes: if MOEFAS applies, MOEFAS takes precedence and SBFAS is not granted — approve SBFAS only when the student has no MOEFAS.
       </p>
@@ -112,20 +93,29 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
           <p className="font-semibold text-on-surface">Decision recorded: {app.status}{app.sbfasTier ? ` - ${app.sbfasTier}` : ""}</p>
-          {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
+          {app.justification && <p className="mt-1">{app.status === "Rejected" ? "Reason" : "Note"}: {app.justification}</p>}
         </div>
       ) : (
         <>
-          <Field label="Override tier" error={error?.field === "tier" ? error.message : undefined}>
-            <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
+          <Field label="SBFAS tier (to approve)" error={error?.field === "tier" ? error.message : undefined}>
+            <select
+              ref={tierRef}
+              className={inputClass}
+              value={tier}
+              onChange={(e) => {
+                setTier(e.target.value as SbfasTier | "");
+                if (error?.field === "tier") setError(null);
+              }}
+            >
+              <option value="">Choose a tier</option>
               {SBFAS_TIERS.map((t) => (
-                <option key={t} value={t}>{t} - {formatSGD(SBFAS_TIER_AMOUNT[t])}{t === app.recommendedTier ? " (AI recommended)" : ""}</option>
+                <option key={t} value={t}>{t} - {formatSGD(SBFAS_TIER_AMOUNT[t])}</option>
               ))}
             </select>
           </Field>
           <Field
-            label="Justification (required to override)"
-            hint="Recorded in the audit log with your decision."
+            label="Reason (required to reject)"
+            hint="Recorded in the audit log and shown to the parent."
             error={error?.field === "justification" ? error.message : undefined}
           >
             <textarea
@@ -142,8 +132,7 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
           <div className="flex flex-wrap justify-end gap-3 pt-1">
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button variant="secondary" onClick={() => act("reject")}>Reject</Button>
-            <Button variant="secondary" onClick={() => act("override")}>Override</Button>
-            <Button onClick={() => act("approve")}>Approve {app.recommendedTier}</Button>
+            <Button onClick={() => act("approve")}>Approve{tier ? ` ${tier}` : ""}</Button>
           </div>
         </>
       )}

@@ -3,44 +3,38 @@ import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } fro
 import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
 import { STUDENTS } from "../../../data/students";
 
-const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
-  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
+const app = (id: string, slaDays: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
+  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", slaDays, status,
 });
 
-test("sortQueue: pending first, then risk score desc", () => {
-  const out = sortQueue([app("a", 20), app("b", 90, "Approved"), app("c", 60), app("d", 85)]);
+test("sortQueue: pending first, then the closest decision deadline first", () => {
+  const out = sortQueue([app("a", 5), app("b", 1, "Approved"), app("c", 2), app("d", 0)]);
   expect(out.map((a) => a.id)).toEqual(["d", "c", "a", "b"]);
 });
 
-test("override without justification is blocked, with field=justification", () => {
-  expect(validateDecision("override", { justification: "", tier: "Tier 3" }, "Tier 2")).toEqual({
-    field: "justification", message: expect.any(String),
+test("approving needs a tier, and nothing else", () => {
+  expect(validateDecision("approve", { justification: "", tier: "" })).toEqual({ field: "tier", message: expect.any(String) });
+  expect(validateDecision("approve", { justification: "", tier: "Tier 2" })).toBeNull();
+});
+
+test("rejecting needs a reason, a blank one does not count", () => {
+  expect(validateDecision("reject", { justification: "", tier: "" })?.field).toBe("justification");
+  expect(validateDecision("reject", { justification: "   ", tier: "" })?.field).toBe("justification");
+  expect(validateDecision("reject", { justification: "Income above the SBFAS range", tier: "" })).toBeNull();
+});
+
+test("applyDecision sets status, tier and reason on one app only", () => {
+  const list = [app("a", 3), app("b", 1)];
+  const approved = applyDecision(list, "b", "approve", { justification: " note ", tier: "Tier 1" });
+  expect(approved[1]).toMatchObject({ status: "Approved", sbfasTier: "Tier 1", justification: "note" });
+  expect(approved[0].status).toBe("Pending");
+  expect(applyDecision(list, "a", "reject", { justification: " too high ", tier: "Tier 2" })[0]).toMatchObject({
+    status: "Rejected", sbfasTier: undefined, justification: "too high",
   });
-  expect(validateDecision("override", { justification: "   ", tier: "Tier 3" }, "Tier 2")?.field).toBe("justification");
 });
 
-test("override to the recommended tier is blocked on the tier field", () => {
-  expect(validateDecision("override", { justification: "Reason", tier: "Tier 2" }, "Tier 2")?.field).toBe("tier");
-});
-
-test("valid override, approve and reject pass without justification where not required", () => {
-  expect(validateDecision("override", { justification: "Sibling in care", tier: "Tier 1" }, "Tier 2")).toBeNull();
-  expect(validateDecision("approve", { justification: "", tier: "Tier 2" }, "Tier 2")).toBeNull();
-  expect(validateDecision("reject", { justification: "", tier: "Tier 2" }, "Tier 2")).toBeNull();
-});
-
-test("applyDecision sets status, final tier and justification on one app only", () => {
-  const list = [app("a", 20), app("b", 90)];
-  const out = applyDecision(list, "b", "override", { justification: " why ", tier: "Tier 1" });
-  expect(out[1]).toMatchObject({ status: "Overridden", sbfasTier: "Tier 1", justification: "why" });
-  expect(out[0].status).toBe("Pending");
-  expect(applyDecision(list, "a", "reject", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Rejected", sbfasTier: undefined });
-  expect(applyDecision(list, "a", "approve", { justification: "", tier: "Tier 2" })[0]).toMatchObject({ status: "Approved", sbfasTier: "Tier 2" });
-});
-
-test("decision history tabs: approved and overridden are granted, rejected is declined, pending is neither", () => {
+test("decision history tabs: approved is granted, rejected is declined, pending is neither", () => {
   expect(isGranted({ status: "Approved" })).toBe(true);
-  expect(isGranted({ status: "Overridden" })).toBe(true);
   expect(isGranted({ status: "Rejected" })).toBe(false);
   expect(isGranted({ status: "Pending" })).toBe(false);
   expect(isDeclined({ status: "Rejected" })).toBe(true);
@@ -55,6 +49,10 @@ test("every seeded application links to a real student record (name, id and leve
     expect(s!.name).toBe(a.student);
     expect(s!.level).toBe(a.level);
   }
+});
+
+test("seeded applications carry no AI fields", () => {
+  for (const a of SBFAS_APPLICATIONS) expect(Object.keys(a)).not.toEqual(expect.arrayContaining(["riskScore"]));
 });
 
 test("nextSbfasId: SBFAS-XXXX format, 4-digit padded, continues from the highest sequence", () => {

@@ -30,10 +30,10 @@ test("budgetAlertText: silent when ok, names the budget and the money when not",
   expect(over).toMatch(/still recorded/);
 });
 
-test("sbfasUsage: only approved and overridden applications count, at their tier amount", () => {
+test("sbfasUsage: only approved applications count, at their tier amount", () => {
   const apps = [
     { status: "Approved", sbfasTier: "Tier 1" },
-    { status: "Overridden", sbfasTier: "Tier 3" },
+    { status: "Approved", sbfasTier: "Tier 3" },
     { status: "Rejected" },
     { status: "Pending" },
   ] as const;

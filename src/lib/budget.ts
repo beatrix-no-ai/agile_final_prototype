@@ -29,13 +29,13 @@ export function budgetAlertText(name: string, used: number, budget: number): str
   return `${name} budget exceeded by ${money(used - budget)}. Grants are still recorded; review spending.`;
 }
 
-/** What approved or overridden SBFAS applications add up to, using each one's tier amount. */
+/** What approved SBFAS applications add up to, using each one's tier amount. */
 export function sbfasUsage(apps: readonly Pick<SbfasApplication, "status" | "sbfasTier">[]) {
   const byTier = Object.fromEntries(SBFAS_TIERS.map((t) => [t, 0])) as Record<SbfasTier, number>;
   let amount = 0;
   let count = 0;
   for (const a of apps) {
-    if ((a.status !== "Approved" && a.status !== "Overridden") || !a.sbfasTier) continue;
+    if (a.status !== "Approved" || !a.sbfasTier) continue;
     amount += SBFAS_TIER_AMOUNT[a.sbfasTier];
     byTier[a.sbfasTier] += 1;
     count += 1;
