@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle } from "@phosphor-icons/react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -20,7 +19,6 @@ import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draf
 type Filter = "all" | "pending" | "granted" | "declined";
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "primary", Rejected: "alert" };
-const VERB: Record<Action, string> = { approve: "approved", override: "overridden", reject: "rejected" };
 
 function Sla({ days }: { days: number }) {
   if (days <= 0) return <Badge tone="alert">Overdue</Badge>;
@@ -36,10 +34,6 @@ export default function SbfasApplications() {
   const [apps, setApps] = useState<SbfasApplication[]>(SBFAS_APPLICATIONS);
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [message, setMessage] = useState("");
-  const msgRef = useRef<HTMLDivElement>(null);
-  // The decided row moves away, so the opener is gone: park focus on the confirmation instead of losing it to <body>.
-  useEffect(() => { if (message) msgRef.current?.focus(); }, [message]);
 
   const enriched: Row[] = useMemo(
     () => sortQueue(apps).map((a) => ({
@@ -62,12 +56,8 @@ export default function SbfasApplications() {
   const declinedCount = apps.filter(isDeclined).length;
 
   const decide = (id: string, action: Action, draft: Draft) => {
-    const a = apps.find((x) => x.id === id)!;
     setApps((prev) => applyDecision(prev, id, action, draft));
     setOpenId(null);
-    setMessage(
-      `Application ${id} for ${a.student} ${VERB[action]}${action === "override" ? ` to ${draft.tier}` : action === "approve" ? ` at ${a.recommendedTier}` : ""}.`,
-    );
   };
 
   const columns: Column<Row>[] = [
@@ -124,13 +114,6 @@ export default function SbfasApplications() {
         }
       >
         <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
-        <div ref={msgRef} tabIndex={-1} aria-live="polite" className="mb-3 outline-none empty:hidden">
-          {message && (
-            <p className="flex items-center gap-2 rounded-control border border-line bg-success-container px-3 py-2 text-sm font-medium text-success">
-              <CheckCircle size={18} weight="bold" aria-hidden="true" /> {message}
-            </p>
-          )}
-        </div>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (
