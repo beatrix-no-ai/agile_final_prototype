@@ -51,7 +51,7 @@ Hằng số liên quan (R4):
 | `sbfas` | enum | `Approved` / `Pending` / `Rejected` / `Not applied` | Trạng thái scheme cấp trường |
 | `moefas` | enum | Tương tự | Scheme cấp MOE; xem quy tắc ưu tiên BR1 |
 | `balance` | number | SGD | Số dư Education Account — là **tiền top-up**, không phải tiền FAS |
-| `nationality` | enum? | `Singapore Citizen` / `Singapore PR` / `Malaysian` / `Indian` / `Filipino` | Quốc tịch học sinh, hiển thị trong cửa sổ review (R4); mặc định Singapore Citizen, có thể bỏ trống trên hồ sơ chưa làm đầy đủ |
+| `nationality` | enum? | `Singapore Citizen` / `Singapore PR` / `Malaysian` / `Indian` / `Filipino` / `Dual (Singapore + Malaysian)` / `Dual (Singapore + British)` | Quốc tịch học sinh, hiển thị trong cửa sổ review (R4); trẻ em có thể giữ song tịch; mặc định Singapore Citizen, có thể bỏ trống trên hồ sơ chưa làm đầy đủ |
 
 ### 2.3 Charge (tích hợp phí)
 

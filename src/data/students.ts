@@ -5,8 +5,15 @@ export type Level = (typeof LEVELS)[number];
 export const STATUSES = ["Active", "Inactive"] as const;
 export type StudentStatus = (typeof STATUSES)[number];
 export type SbfasStatus = "Approved" | "Pending" | "Rejected" | "Not applied";
-/** R4: nationality is a decision input for FAS/SBFAS (citizens affect MOE funding). */
-export type Nationality = "Singapore Citizen" | "Singapore PR" | "Malaysian" | "Indian" | "Filipino";
+/** R4: nationality is a decision input for FAS/SBFAS (citizens affect MOE funding). Children may hold dual citizenship. */
+export type Nationality =
+  | "Singapore Citizen"
+  | "Singapore PR"
+  | "Malaysian"
+  | "Indian"
+  | "Filipino"
+  | "Dual (Singapore + Malaysian)"
+  | "Dual (Singapore + British)";
 
 export type Student = {
   /** Internal record key (backend choice); screens show the masked NRIC instead. */
@@ -87,6 +94,7 @@ const ROWS: Row[] = [
 ];
 
 // Nationality differs on a few records so the SBFAS decision screen shows the field working.
+// Sim Hui Min is an SBFAS applicant, so her dual citizenship is visible in the review modal (SBFAS-2052).
 const NATIONALITY: Record<string, Nationality> = {
   "Ang Li Ying": "Singapore PR",
   "Tay Jing Wen": "Singapore PR",
@@ -94,6 +102,9 @@ const NATIONALITY: Record<string, Nationality> = {
   "Kwok Yong Sheng": "Malaysian",
   "Shreya d/o Nair": "Indian",
   "Isabelle Ng Pei Shan": "Filipino",
+  "Sim Hui Min": "Dual (Singapore + Malaysian)",
+  "Daniel Koh Jun Wei": "Dual (Singapore + British)",
+  "Rachel Chia Wen Hui": "Dual (Singapore + British)",
 };
 
 // Ordered by name (a visible column), not by level/class, so the list does not look sorted by hidden fields.
