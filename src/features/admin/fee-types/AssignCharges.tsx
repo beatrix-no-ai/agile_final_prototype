@@ -6,19 +6,19 @@ import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { useFees } from "../../../data/feeStore";
-import { MASTER, TERMS, type Charge, type FeeType } from "../../../data/fees";
+import { MASTER, type Charge, type FeeType } from "../../../data/fees";
 import { SCHOOLS } from "../../../data/schools";
 import { CLASS_RECORDS } from "../../../data/schoolMgmt";
 import { formatSGD } from "../../../lib/format";
-import { alreadyCharged, feeOf, studentsOfClass } from "../../../lib/fees";
+import { addDays, alreadyCharged, chargeStatus, fasOf, feeOf, studentsOfClass, TODAY } from "../../../lib/fees";
 import { selectClass, studentOf } from "./parts";
 
-type Result = { created: number; skipped: number; level: string; term: string };
+type Result = { created: number; skipped: number; level: string; issued: string; due: string };
 type Scope = "level" | "class" | "student";
 const total = (f: FeeType) => f.components.reduce((t, c) => t + c.amount, 0);
 const scopeOf = (f: FeeType) => f.scope ?? f.level ?? "All levels";
 
-/** School user: assign MOE Bills (whole cohort) or School Bills (a level, a class or one student) and issue one unpaid charge per student for a term (US-014). The two sources are never combined in one assignment. Duplicates are skipped. */
+/** School user: assign MOE Bills (whole cohort) or School Bills (a level, a class or one student) and issue one unpaid charge per student with an issue and due date (US-014). The two sources are never combined in one assignment. Duplicates are skipped. */
 export default function AssignCharges({ school, presetFee }: { school: string; presetFee: string }) {
   const [tab, setTab] = useState<"assign" | "history">("assign");
   const tabs = [["assign", "Assign & generate charges"], ["history", "Charge history"]] as const;
@@ -42,7 +42,8 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const [scope, setScope] = useState<Scope>("level");
   const [cls, setCls] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [term, setTerm] = useState(TERMS[0]);
+  const [issued, setIssued] = useState(TODAY);
+  const [due, setDue] = useState(addDays(TODAY, 30));
   const [result, setResult] = useState<Result | null>(null);
 
   const kind = SCHOOLS.find((s) => s.code === school)?.level;
@@ -63,16 +64,18 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
     : effScope === "class" ? (cls ? studentsOfClass(school, cls) : [])
     : schoolStudents.filter((s) => s.id === studentId);
   const target = effScope === "level" ? level : effScope === "class" ? cls : students[0]?.name ?? "";
-  const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, term) })));
+  const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, issued) })));
   const todo = plan.filter((p) => !p.dup);
+  const withFas = students.map((s) => fasOf(s)).filter((f): f is NonNullable<typeof f> => f !== null);
+  const fasSummary = ["MOEFAS", "SBFAS"].map((k) => `${withFas.filter((f) => f.scheme === k).length} ${k}`).filter((x) => !x.startsWith("0")).join(" + ") || "FAS";
 
   const add = (id: string) => { if (id && !picked.includes(id)) { setPicked([...picked, id]); setResult(null); } };
   const generate = () => {
     for (const fee of chosen) {
       const s = todo.filter((p) => p.fee.id === fee.id).map((p) => p.s);
-      if (s.length) dispatch({ type: "generate", fee, term, students: s });
+      if (s.length) dispatch({ type: "generate", fee, students: s, issued, due });
     }
-    setResult({ created: todo.length, skipped: plan.length - todo.length, level: target, term });
+    setResult({ created: todo.length, skipped: plan.length - todo.length, level: target, issued, due });
   };
   const label = (f: FeeType) => `${f.name}${f.school === MASTER ? ` · ${scopeOf(f)}` : f.level ? ` · ${f.level}` : ""} (${formatSGD(total(f))})`;
 
@@ -127,7 +130,7 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
         <p className="py-8 text-center text-sm text-on-surface-variant">Add one or more MOE Bills (whole cohort) or School Bills above. The two cannot be combined in one assignment.</p>
       )}
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {source === "school" && (
           <Field required label="Assign to">
             <select className={inputClass} value={scope} onChange={(e) => { setScope(e.target.value as Scope); setResult(null); }}>
@@ -161,10 +164,11 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
             </select>
           </Field>
         )}
-        <Field label="Term">
-          <select className={inputClass} value={term} onChange={(e) => { setTerm(e.target.value); setResult(null); }}>
-            {TERMS.map((t) => <option key={t}>{t}</option>)}
-          </select>
+        <Field label="Issue date" hint="Charges for the same bill and date are skipped.">
+          <input type="date" className={inputClass} value={issued} onChange={(e) => { setIssued(e.target.value); setResult(null); }} />
+        </Field>
+        <Field label="Due date" hint="Unpaid after this date shows as overdue.">
+          <input type="date" className={inputClass} value={due} min={issued} onChange={(e) => { setDue(e.target.value); setResult(null); }} />
         </Field>
       </div>
 
@@ -176,22 +180,29 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
       ) : (
         <div className="mt-2"><EmptyState title={chosen.length ? "Choose who the charges are for." : "Nothing to generate yet"} /></div>
       )}
+      {level && chosen.length && withFas.length ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-on-surface-variant">
+          <Badge tone="primary">FAS</Badge>
+          <span>
+            {withFas.length} of {students.length} students receive {fasSummary} — for them the subsidy is deducted from the fee when the charge is generated, so their payable is lower than {formatSGD(perStudent)}. A student never receives both schemes: MOEFAS takes precedence over SBFAS.
+          </span>
+        </p>
+      ) : null}
       {result && (
         <p role="status" className="mt-4 flex items-center gap-2 rounded-card border border-line bg-success-container px-4 py-3 text-sm font-medium text-success">
           <CheckCircle size={18} weight="bold" aria-hidden="true" />
-          Created {result.created}, skipped {result.skipped}: {result.level}, {result.term}. Charges are unpaid and appear under Student fees.
+          Created {result.created}, skipped {result.skipped}: {result.level}, issued {result.issued}, due {result.due}. Charges are outstanding and appear under Student fees.
         </p>
       )}
     </Card>
   );
 }
 
-type Round = { key: string; issued: string; title: string; term: string; ftId: string; rows: Charge[] };
+type Round = { key: string; issued: string; due: string; title: string; ftId: string; rows: Charge[] };
 
 function History({ school }: { school: string }) {
   const { state } = useFees();
   const [q, setQ] = useState("");
-  const [term, setTerm] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [open, setOpen] = useState<string | null>(null);
@@ -199,13 +210,13 @@ function History({ school }: { school: string }) {
   const mine = state.charges.filter((c) => state.types.find((f) => f.id === c.ftId)?.school === school);
   const rounds = new Map<string, Round>();
   for (const c of mine) {
-    const key = `${c.issued}|${c.ftId}|${c.term}`;
-    rounds.set(key, rounds.get(key) ?? { key, issued: c.issued, title: c.title, term: c.term, ftId: c.ftId, rows: [] });
+    const key = `${c.issued}|${c.ftId}`;
+    rounds.set(key, rounds.get(key) ?? { key, issued: c.issued, due: c.due, title: c.title, ftId: c.ftId, rows: [] });
     rounds.get(key)!.rows.push(c);
   }
   const lvl = (r: Round) => [...new Set(r.rows.map((c) => studentOf(c.studentId)?.level ?? ""))].filter(Boolean);
   const list = [...rounds.values()]
-    .filter((r) => (!term || r.term === term) && (!from || r.issued >= from) && (!to || r.issued <= to) && (!q || `${r.title} ${r.term} ${lvl(r).join(" ")}`.toLowerCase().includes(q.toLowerCase())))
+    .filter((r) => (!from || r.issued >= from) && (!to || r.issued <= to) && (!q || `${r.title} ${r.issued} ${lvl(r).join(" ")}`.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => b.issued.localeCompare(a.issued));
   const all = list.flatMap((r) => r.rows);
 
@@ -213,10 +224,6 @@ function History({ school }: { school: string }) {
     <Card>
       <div className="flex flex-wrap items-center gap-3">
         <input aria-label="Search charge history" className={`${inputClass.replace("w-full", "min-w-48 flex-1")}`} placeholder="Search fee type, charge, level…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select aria-label="Filter by term" className={selectClass} value={term} onChange={(e) => setTerm(e.target.value)}>
-          <option value="">All terms</option>
-          {[...TERMS].sort().map((t) => <option key={t}>{t}</option>)}
-        </select>
         <input type="date" aria-label="Issued from" className={selectClass} value={from} onChange={(e) => setFrom(e.target.value)} />
         <span aria-hidden>→</span>
         <input type="date" aria-label="Issued to" className={selectClass} value={to} onChange={(e) => setTo(e.target.value)} />
@@ -225,7 +232,7 @@ function History({ school }: { school: string }) {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-surface-container-low text-left text-[13px] uppercase tracking-wide text-on-surface-variant">
-            <th className="w-8" /><th className="px-3 py-2 font-semibold">Issued</th><th className="font-semibold">Charge</th><th className="font-semibold">Term</th><th className="px-3 text-right font-semibold">Amount</th>
+            <th className="w-8" /><th className="px-3 py-2 font-semibold">Issued</th><th className="font-semibold">Charge</th><th className="font-semibold">Due</th><th className="px-3 text-right font-semibold">Amount</th>
           </tr>
         </thead>
         <tbody>
@@ -237,13 +244,13 @@ function History({ school }: { school: string }) {
                   <td className="py-3 pl-2"><button type="button" aria-expanded={on} aria-label={`${on ? "Hide" : "Show"} students for ${r.title}`} onClick={() => setOpen(on ? null : r.key)} className="grid size-6 place-items-center rounded focus-visible:outline-2 focus-visible:outline-primary"><CaretRight size={14} weight="fill" className={on ? "rotate-90" : ""} aria-hidden="true" /></button></td>
                   <td className="py-3 pr-3 whitespace-nowrap">{r.issued}</td>
                   <td className="py-3 pr-3"><b>{r.title}</b><div className="text-[13px] text-on-surface-variant">{lvl(r).join(", ")} · 1 fee type · {n} student{n === 1 ? "" : "s"} · {r.rows.length} charge{r.rows.length === 1 ? "" : "s"}</div></td>
-                  <td className="py-3 pr-3">{r.term}</td>
+                  <td className="py-3 pr-3">{r.due}</td>
                   <td className="px-3 py-3 text-right font-bold tabular-nums">{formatSGD(r.rows.reduce((t, c) => t + feeOf(c), 0))}</td>
                 </tr>
                 {on && r.rows.map((c) => (
                   <tr key={c.id} className="border-b border-line bg-surface-container-low text-[13px]">
                     <td /><td className="py-2 pr-3" colSpan={2}>{studentOf(c.studentId)?.name ?? c.studentId} <span className="text-on-surface-variant">({c.studentId}, {studentOf(c.studentId)?.class})</span></td>
-                    <td className="capitalize">{c.status}</td><td className="px-3 text-right tabular-nums">{formatSGD(feeOf(c))}</td>
+                    <td className="capitalize">{chargeStatus(c)}</td><td className="px-3 text-right tabular-nums">{formatSGD(feeOf(c))}</td>
                   </tr>
                 ))}
               </Fragment>

@@ -47,7 +47,10 @@ export default function Students() {
     ...(role === "hq" ? [{ key: "school", header: "School", sortable: true, render: (s: Student) => schoolName(s) } as Column<Student>] : []),
     { key: "class", header: "Level / Class", sortable: true, render: (s) => <><span className="font-medium">{s.level}</span><span className="block text-[13px] text-on-surface-variant">{s.class}</span></> },
     { key: "status", header: "Schooling status", sortable: true, render: (s) => <Badge tone={statusTone[s.status]}>{s.status}</Badge> },
-    ...(role === "school" ? [{ key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}</Badge> } as Column<Student>] : []),
+    ...(role === "school" ? [
+      { key: "moefas", header: "MOEFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.moefas]}>{s.moefas}</Badge> } as Column<Student>,
+      { key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}</Badge> } as Column<Student>,
+    ] : []),
   ];
 
   return (
