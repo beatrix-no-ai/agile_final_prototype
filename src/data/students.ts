@@ -94,7 +94,7 @@ const ROWS: Row[] = [
 ];
 
 // Nationality differs on a few records so the SBFAS decision screen shows the field working.
-// Sim Hui Min is an SBFAS applicant, so her dual citizenship is visible in the review modal (SBFAS-2052).
+// Sim Hui Min is an SBFAS applicant, so her dual citizenship is visible in the review modal (SBFAS2052).
 const NATIONALITY: Record<string, Nationality> = {
   "Ang Li Ying": "Singapore PR",
   "Tay Jing Wen": "Singapore PR",

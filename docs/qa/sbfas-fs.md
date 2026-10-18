@@ -25,7 +25,7 @@
 
 | Trường | Kiểu | Giá trị / định dạng | Ghi chú |
 |---|---|---|---|
-| `id` | string | `SBFAS-XXXX` | Số tham chiếu, sinh bởi `nextSbfasId()`: chuỗi tự tăng padding 4 chữ số tính từ số cao nhất hiện có (sàn 2000). Vượt 9999 thì chuỗi số tự dài thêm (`SBFAS-10000`) — không bao giờ so khớp bằng regex cố định độ dài; sắp xếp theo giá trị số. Hiển thị dưới tên học sinh |
+| `id` | string | `SBFASXXXX` | Số tham chiếu, sinh bởi `nextSbfasId()`: chuỗi tự tăng padding 4 chữ số tính từ số cao nhất hiện có (sàn 2000). Vượt 9999 thì chuỗi số tự dài thêm (`SBFAS10000`) — không bao giờ so khớp bằng regex cố định độ dài; sắp xếp theo giá trị số. Hiển thị dưới tên học sinh |
 | `student` | string | Họ tên đầy đủ | Phải khớp chính xác hồ sơ học sinh |
 | `studentId` | string | `S2026xxxx` | Liên kết đơn với tài khoản, charge và subsidy của học sinh |
 | `level` | string | vd `P5`, `Sec 2` | Lấy từ hồ sơ học sinh |
@@ -98,7 +98,7 @@ Hằng số liên quan (R4):
 3. Approve một đơn High-risk → tab **Granted** +1, badge dòng là `Approved - Tier n`; Pending −1.
 4. Override không có lý do → bị chặn, focus nhảy sang ô lý do. Override trùng tier khuyến nghị → bị chặn. Override hợp lệ → `Overridden - Tier n`.
 5. Reject một đơn → tab **Declined** +1, badge `Rejected`.
-6. Tìm một học sinh đã được SBFAS-approved trong Fee → Student fees: cột FAS hiển thị `SBFAS − S$x`; modal charge hiển thị khối subsidy và ghi chú subsidy ≠ top-up.
+6. Tìm một học sinh đã được SBFASapproved trong Fee → Student fees: cột FAS hiển thị `SBFAS − S$x`; modal charge hiển thị khối subsidy và ghi chú subsidy ≠ top-up.
 7. Ghi nhận thanh toán cho charge đó (thử số tiền vượt phần còn nợ → bị từ chối; đúng bằng phần còn nợ → trạng thái thành *paid*, tham chiếu `CH-…-P1` xuất hiện).
 8. Tải lại trang — mọi thứ reset (mock trong bộ nhớ): hàng đợi về 12 Pending.
 

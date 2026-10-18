@@ -53,7 +53,7 @@ export const children: Child[] = [
 ];
 
 export const fasStatus = {
-  // Generated with the shared SBFAS-XXXX sequence so the parent portal and the admin queue can never disagree.
+  // Generated with the shared SBFASXXXX sequence so the parent portal and the admin queue can never disagree.
   applicationId: nextSbfasId(SBFAS_APPLICATIONS),
   scheme: "MOE Financial Assistance Scheme (MOEFAS)",
   status: "Under review" as "Under review" | "Approved" | "Not approved",
