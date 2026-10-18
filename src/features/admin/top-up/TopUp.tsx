@@ -6,7 +6,7 @@ import { schoolOfLevel } from "../../../data/schoolMgmt";
 import { SCHOOLS } from "../../../data/schools";
 import { ACCOUNT_CLOSES_AT, ageForLevel } from "../../../lib/accounts";
 import { ACCOUNTS, FUND_RULES, PAST_TRANSACTIONS, type Account, type FundRule, type Target, type Transaction } from "../../../data/topup";
-import { ledgerIds, topUpReportRows } from "../../../lib/topup";
+import { ledgerIds, topUpReport } from "../../../lib/topup";
 import { formatDate } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
 import { Tiles } from "../fee-types/parts";
@@ -100,7 +100,8 @@ function Details({ t, id, items, accounts, onBack }: { t: Transaction; id: strin
   const count = (s: string) => items.filter((a) => a.status === s).length;
   const credited = count("Success");
   const failed = count("Failed");
-  const download = () => downloadXlsx(`${id}-topped-up-students.xlsx`, "Topped-up students", topUpReportRows(t, id, items, accounts));
+  const hasReport = credited + failed > 0;
+  const download = () => { const r = topUpReport(t, id, items, accounts); downloadXlsx(`${id}-top-up-report.xlsx`, "Top-up report", r.rows, r.opts); };
   const shown = items.filter((a) => (!st || a.status === st) && (!q.trim() || `${a.txid ?? ""} ${a.student} ${a.account} ${maskNric(a.account)} ${a.reason ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
   return (
     <div className="grid gap-5">
@@ -112,7 +113,7 @@ function Details({ t, id, items, accounts, onBack }: { t: Transaction; id: strin
         </div>
         <div className="flex items-center gap-3">
           <span className={`badge ${statusClass(t.status)}`}>{t.status}</span>
-          <button type="button" className="btn primary" disabled={!credited} onClick={download} title={credited ? "Lists the accounts topped up. Failed accounts are not included." : "Available once accounts have been topped up."}>Download Excel report</button>
+          <button type="button" className="btn primary" disabled={!hasReport} onClick={download} title={hasReport ? "Successful and failed records, in the Student Finance System format." : "Available once the top-up has run."}>Download Excel report</button>
         </div>
       </div>
       <Tiles items={[
