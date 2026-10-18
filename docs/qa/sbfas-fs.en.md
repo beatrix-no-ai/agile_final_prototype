@@ -12,7 +12,7 @@
 
 | # | Feature | Where |
 |---|---|---|
-| F1 | SBFAS review queue with AI risk rating and SLA countdown | FAS → *SBFAS review queue* table |
+| F1 | SBFAS review queue with AI risk rating and decision-deadline countdown | FAS → *SBFAS review queue* table |
 | F2 | Decision workflow: Approve / Override / Reject with validation | Review window |
 | F3 | Decision history: Granted and Declined tabs | Filter buttons above the table |
 | F4 | Fee context per application: Fee payable and Account balance (top-up) | Two columns + an info block in the Review window |
@@ -69,7 +69,7 @@
 - **BR4 — Reject.** Set `status = Rejected` and clear `sbfasTier`. A reason is not required.
 - **BR5 — History tabs.** Granted = `Approved ∪ Overridden`. Declined = `Rejected`. Pending is in neither. The count on each tab label must match the table contents.
 - **BR6 — Queue order.** Pending first, then the highest `riskScore`. Decided rows keep the risk order after the Pending block.
-- **BR7 — SLA.** `slaDays ≤ 0` shows a red **Overdue** badge; `slaDays ≤ 2` highlights the remaining days in amber. Decided rows show *Closed* (the SLA no longer applies).
+- **BR7 — Decision deadline (Deadline column).** `slaDays ≤ 0` shows a red **Overdue** badge; `slaDays ≤ 2` highlights the remaining days in amber. Decided rows show *Closed* (the SLA no longer applies).
 
 ### AI
 

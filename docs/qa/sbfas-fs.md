@@ -10,7 +10,7 @@
 
 | # | Chức năng | Vị trí |
 |---|---|---|
-| F1 | Hàng đợi duyệt SBFAS kèm xếp hạng rủi ro AI và đếm ngược SLA | FAS → bảng *SBFAS review queue* |
+| F1 | Hàng đợi duyệt SBFAS kèm xếp hạng rủi ro AI và đếm ngược hạn quyết định | FAS → bảng *SBFAS review queue* |
 | F2 | Quy trình quyết định: Approve / Override / Reject kèm kiểm tra hợp lệ | Cửa sổ Review |
 | F3 | Lịch sử quyết định: tab Granted và Declined | Các nút lọc phía trên bảng |
 | F4 | Ngữ cảnh phí theo từng đơn: Fee payable và Account balance (top-up) | Hai cột + khối thông tin trong cửa sổ Review |
@@ -74,7 +74,7 @@ Hằng số liên quan (R4):
 - **BR4 — Reject.** Set `status = Rejected` và xóa `sbfasTier`. Lý do không bắt buộc.
 - **BR5 — Tab lịch sử.** Granted = `Approved ∪ Overridden`. Declined = `Rejected`. Pending không nằm trong cả hai. Số đếm trên nhãn tab phải khớp nội dung bảng.
 - **BR6 — Thứ tự hàng đợi.** Pending trước, sau đó đến đơn có `riskScore` cao nhất. Các dòng đã quyết giữ thứ tự rủi ro sau khối Pending.
-- **BR7 — SLA.** `slaDays ≤ 0` hiển thị badge đỏ **Overdue**; `slaDays ≤ 2` tô vàng số ngày còn lại. Dòng đã quyết hiển thị *Closed* (SLA hết áp dụng).
+- **BR7 — Hạn quyết định (cột Deadline).** `slaDays ≤ 0` hiển thị badge đỏ **Overdue**; `slaDays ≤ 2` tô vàng số ngày còn lại. Dòng đã quyết hiển thị *Closed* (SLA hết áp dụng).
 
 ### AI
 
