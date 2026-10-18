@@ -9,7 +9,6 @@ import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../
 import { useFees } from "../../../data/feeStore";
 import { useSbfas } from "../../../data/sbfasStore";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
-import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
@@ -38,8 +37,9 @@ export default function SbfasApplications() {
   // Decisions live in the app-level store, so they survive navigating between features.
   const { state: sbfas, dispatch: dispatchSbfas } = useSbfas();
   const apps = sbfas.apps;
-  const { role } = useSession();
-  const mySchool = schoolCodeFor(role); // null for MOE HQ, who sees every school
+  const { role, staff } = useSession();
+  // The signed-in account's school (BR15); MOE HQ has none and sees every school.
+  const mySchool = role === "school" ? staff?.schoolCode ?? null : null;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
