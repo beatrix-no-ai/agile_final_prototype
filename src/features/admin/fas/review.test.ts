@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } from "./review";
+import { applyDecision, isDeclined, isGranted, sortQueue, statusLabel, validateDecision } from "./review";
 import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
 import { STUDENTS } from "../../../data/students";
 
@@ -55,9 +55,16 @@ test("seeded applications carry no AI fields", () => {
   for (const a of SBFAS_APPLICATIONS) expect(Object.keys(a)).not.toEqual(expect.arrayContaining(["riskScore"]));
 });
 
-test("nextSbfasId: SBFAS-XXXX format, 4-digit padded, continues from the highest sequence", () => {
-  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS-2059");    // highest seed is SBFAS-2058
-  expect(nextSbfasId([])).toBe("SBFAS-2001");                     // empty queue starts above the 20xx seed series
-  expect(nextSbfasId([{ id: "SBFAS-0999" }])).toBe("SBFAS-2001"); // floor 2000 keeps new ids clear of old seeds
-  expect(nextSbfasId([{ id: "SBFAS-9999" }])).toBe("SBFAS-10000"); // past 9999 the digits grow, nothing breaks
+test("nextSbfasId: SBFASXXXX format, 4-digit padded, continues from the highest sequence", () => {
+  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS0019");    // highest seed is SBFAS0018
+  expect(nextSbfasId([])).toBe("SBFAS0001");                     // empty queue starts the 0001 series
+  expect(nextSbfasId([{ id: "SBFAS0999" }])).toBe("SBFAS1000"); // continues from the highest, no artificial floor
+  expect(nextSbfasId([{ id: "SBFAS9999" }])).toBe("SBFAS10000"); // past 9999 the digits grow, nothing breaks
+});
+
+test("statusLabel: Approved reads Granted, Rejected reads Declined, the rest stay", () => {
+  expect(statusLabel("Approved")).toBe("Granted");
+  expect(statusLabel("Rejected")).toBe("Declined");
+  expect(statusLabel("Pending")).toBe("Pending");
+  expect(statusLabel("Not applied")).toBe("Not applied");
 });

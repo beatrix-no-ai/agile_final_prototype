@@ -6,6 +6,15 @@ export type Level = (typeof LEVELS)[number];
 export const STATUSES = ["Active", "Inactive"] as const;
 export type StudentStatus = (typeof STATUSES)[number];
 export type SbfasStatus = "Approved" | "Pending" | "Rejected" | "Not applied";
+/** Nationality is a decision input for FAS/SBFAS (citizenship drives MOE funding). Children may hold dual citizenship. */
+export type Nationality =
+  | "Singapore Citizen"
+  | "Singapore PR"
+  | "Malaysian"
+  | "Indian"
+  | "Filipino"
+  | "Dual (Singapore + Malaysian)"
+  | "Dual (Singapore + British)";
 
 export type Student = {
   /** Internal record key (backend choice); screens show the masked NRIC instead. */
@@ -25,6 +34,8 @@ export type Student = {
   sbfasTier?: SbfasTier;
   /** MOE-level FAS status. A student never receives both schemes: MOEFAS takes precedence over SBFAS (see lib/fees.fasOf). */
   moefas: SbfasStatus;
+  /** Treated as Singapore Citizen when unset (records added after the seed). */
+  nationality?: Nationality;
 };
 
 /** Classes offered by this (mock) school, two per level. */
@@ -63,7 +74,7 @@ const ROWS: Row[] = [
   ["Chloe Wong Shu Ting", "P4", 1, "Inactive", 1604.1, "Not applied", "Not applied"],
   ["Haziq bin Abdullah", "P4", 1, "Active", 1431.6, "Not applied", "Approved"],
   ["Sim Hui Min", "P5", 0, "Active", 2036.55, "Not applied", "Not applied"],
-  ["Daniel Koh Jun Wei", "P5", 0, "Active", 1978.2, "Not applied", "Not applied"],
+  ["Daniel Koh Jun Wei", "P5", 0, "Active", 1978.2, "Pending", "Not applied"],
   ["Kavitha d/o Raman", "P5", 1, "Active", 2112.8, "Pending", "Not applied"],
   ["Aqil Zafran bin Salleh", "P5", 1, "Inactive", 1895.35, "Pending", "Not applied"],
   ["Yeo Rui En", "P6", 0, "Active", 2587.9, "Not applied", "Not applied"],
@@ -89,6 +100,25 @@ const ROWS: Row[] = [
   ["Joel Soh Wen Jie", "Sec 4", 1, "Inactive", 4418.95, "Not applied", "Not applied"],
 ];
 
+// Nationality differs on a few records so the SBFAS review screen shows the field working.
+const NATIONALITY: Record<string, Nationality> = {
+  "Ang Li Ying": "Singapore PR",
+  "Tay Jing Wen": "Singapore PR",
+  "Chua Jia Hui": "Malaysian",
+  "Kwok Yong Sheng": "Malaysian",
+  "Shreya d/o Nair": "Indian",
+  "Isabelle Ng Pei Shan": "Filipino",
+  "Sim Hui Min": "Dual (Singapore + Malaysian)",
+  "Daniel Koh Jun Wei": "Dual (Singapore + British)",
+  "Rachel Chia Wen Hui": "Dual (Singapore + British)",
+};
+
+/** BR12: MOE FAS is for citizens only. Dual-citizen children still count as SC; PRs and foreign students are SBFAS-only. */
+export const isMoefasEligible = (n: string): boolean => n === "Singapore Citizen" || n.startsWith("Dual (Singapore");
+
+/** BR12: SBFAS covers SC, dual citizens and PRs. Foreign-national students are not eligible for either scheme. */
+export const isSbfasEligible = (n: string): boolean => isMoefasEligible(n) || n === "Singapore PR";
+
 // Ordered by name (a visible column), not by level/class, so the list does not look sorted by hidden fields.
 export const STUDENTS: Student[] = [...ROWS].sort((a, b) => a[0].localeCompare(b[0])).map(([name, level, c, status, balance, sbfas, moefas], i) => ({
   id: `S2026${String(i + 1).padStart(4, "0")}`,
@@ -100,6 +130,7 @@ export const STUDENTS: Student[] = [...ROWS].sort((a, b) => a[0].localeCompare(b
   balance,
   sbfas,
   moefas,
+  nationality: NATIONALITY[name] ?? "Singapore Citizen",
 }));
 
 /** Existing Education Accounts (created by MOE at age 7) that are not yet assigned to this school. */

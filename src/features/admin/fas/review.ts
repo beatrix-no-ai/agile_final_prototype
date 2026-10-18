@@ -17,6 +17,10 @@ export function sortQueue(apps: SbfasApplication[]): SbfasApplication[] {
 export const isGranted = (a: Pick<SbfasApplication, "status">) => a.status === "Approved";
 export const isDeclined = (a: Pick<SbfasApplication, "status">) => a.status === "Rejected";
 
+/** Status chip vocabulary, kept in sync with the queue tabs: Pending / Granted / Declined ("Not applied" stays). */
+export const statusLabel = (s: "Pending" | "Approved" | "Rejected" | "Not applied"): "Pending" | "Granted" | "Declined" | "Not applied" =>
+  s === "Approved" ? "Granted" : s === "Rejected" ? "Declined" : s;
+
 /** Approving needs a tier; rejecting needs a reason the parent can be told. */
 export function validateDecision(action: Action, draft: Draft): DecisionError | null {
   if (action === "approve" && !draft.tier) return { field: "tier", message: "Choose a tier to approve this application." };

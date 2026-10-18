@@ -4,7 +4,7 @@ import { FAMILY_STUDENT_NAMES } from "./parent";
 import { STUDENTS } from "./students";
 import { fasReducer, initialFasState, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
 
-const first = (s = initialFasState()) => s.apps[0]; // SBFAS-2041
+const first = (s = initialFasState()) => s.apps[0]; // SBFAS0001
 const approveAt = (s: ReturnType<typeof initialFasState>, id: string, at: string) =>
   fasReducer(s, { type: "decide", id, action: "approve", draft: { justification: "", tier: "Tier 1" }, at });
 const approve = (s = initialFasState()) => approveAt(s, first(s).id, "2026-10-18T09:00:00.000Z");

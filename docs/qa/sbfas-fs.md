@@ -25,7 +25,7 @@
 
 | Trường | Kiểu | Giá trị / định dạng | Ghi chú |
 |---|---|---|---|
-| `id` | string | `SBFAS-XXXX` | Số tham chiếu, sinh bởi `nextSbfasId()`: chuỗi tự tăng padding 4 chữ số tính từ số cao nhất hiện có (sàn 2000). Vượt 9999 thì chuỗi số tự dài thêm (`SBFAS-10000`) — không bao giờ so khớp bằng regex cố định độ dài; sắp xếp theo giá trị số. Hiển thị dưới tên học sinh |
+| `id` | string | `SBFASXXXX` | Số tham chiếu, sinh bởi `nextSbfasId()`: chuỗi tự tăng padding 4 chữ số tính từ số cao nhất hiện có (sàn 2000). Vượt 9999 thì chuỗi số tự dài thêm (`SBFAS10000`) — không bao giờ so khớp bằng regex cố định độ dài; sắp xếp theo giá trị số. Hiển thị dưới tên học sinh |
 | `student` | string | Họ tên đầy đủ | Phải khớp chính xác hồ sơ học sinh |
 | `studentId` | string | `S2026xxxx` | Liên kết đơn với tài khoản, charge và subsidy của học sinh |
 | `level` | string | vd `P5`, `Sec 2` | Lấy từ hồ sơ học sinh |

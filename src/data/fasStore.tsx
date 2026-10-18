@@ -33,7 +33,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       if (!student || moefas[id] || apps.some((x) => x.studentId === id)) continue; // one application and one grant per student
       if (a.band.tier === "MOEFAS Tier 1" || a.band.tier === "MOEFAS Tier 2") moefas[id] = { tier: a.band.tier.replace("MOEFAS ", "") as SbfasTier, at: a.at };
       // ASSUMPTION: the school has 10 working days to decide a new application.
-      else if (a.band.tier === "SBFAS") apps = [...apps, { id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, incomeBand: a.band.label, slaDays: 10, status: "Pending" }];
+      else if (a.band.tier === "SBFAS") apps = [...apps, { id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), slaDays: 10, status: "Pending" }];
     }
     return { ...state, apps, moefas };
   }

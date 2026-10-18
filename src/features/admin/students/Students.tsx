@@ -18,6 +18,7 @@ import { schoolOfStudent } from "../../../lib/registry";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import AssignStudentModal from "./AddStudentModal";
+import { statusLabel } from "../fas/review";
 import { assignStudent, filterStudents, statusTone } from "./logic";
 
 const sbfasTone: Record<SbfasStatus, BadgeTone> = { Approved: "success", Pending: "warning", Rejected: "alert", "Not applied": "neutral" };
@@ -53,8 +54,8 @@ export default function Students() {
     ...(role === "hq" ? [{ key: "school", header: "School", sortable: true, render: (s: Student) => schoolName(s) } as Column<Student>] : []),
     { key: "class", header: "Class", sortable: true, render: (s) => s.class },    { key: "status", header: "Schooling status", sortable: true, render: (s) => <Badge tone={statusTone[s.status]}>{s.status}</Badge> },
     ...(role === "school" ? [
-      { key: "moefas", header: "MOEFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.moefas]}>{s.moefas}</Badge> } as Column<Student>,
-      { key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}{s.sbfasTier ? ` · ${s.sbfasTier}` : ""}</Badge> } as Column<Student>,
+      { key: "moefas", header: "MOEFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.moefas]}>{statusLabel(s.moefas)}</Badge> } as Column<Student>,
+      { key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{statusLabel(s.sbfas)}{s.sbfasTier ? ` · ${s.sbfasTier}` : ""}</Badge> } as Column<Student>,
     ] : []),
   ];
 

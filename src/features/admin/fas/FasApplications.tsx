@@ -12,14 +12,16 @@ import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
 import { useMovements } from "../../../data/movements";
 import { useRegistry } from "../../../data/registryStore";
+import { useSession } from "../../../session";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus } from "../../../lib/fees";
+import { schoolOfStudent } from "../../../lib/registry";
 import { withBalance } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal } from "./ReviewModal";
-import { isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
+import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
@@ -32,7 +34,7 @@ function Sla({ days }: { days: number }) {
 }
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
-type Row = SbfasApplication & { payable: number; balance: number };
+type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
 
 export default function SbfasApplications() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
@@ -41,7 +43,19 @@ export default function SbfasApplications() {
   const { state: reg } = useRegistry();
   const movements = useMovements();
   const { decide: decideApp } = useFasActions();
-  const apps = fas.apps; // shared with the Budgets pages, so a decision moves the school's statistics
+  const { role, staff } = useSession();
+  // Each school reviews only its own students' applications; MOE HQ has no school and sees every one.
+  // The signed-in account's school; a school account without one sees nothing rather than everything.
+  const mySchool = role === "school" ? staff?.schoolCode ?? "" : null;
+  // Shared with the Budgets pages, so a decision moves the school's statistics.
+  const apps = useMemo(
+    () => fas.apps.filter((a) => {
+      if (mySchool === null) return true;
+      const s = reg.students.find((x) => x.id === a.studentId);
+      return s ? schoolOfStudent(s, reg.classes) === mySchool : false;
+    }),
+    [fas.apps, mySchool, reg.students, reg.classes],
+  );
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [message, setMessage] = useState("");
@@ -52,6 +66,7 @@ export default function SbfasApplications() {
   const enriched: Row[] = useMemo(
     () => sortQueue(apps).map((a) => ({
       ...a,
+      nationality: reg.students.find((s) => s.id === a.studentId)?.nationality ?? "Singapore Citizen",
       // What the family still owes (after any FAS subsidy and payments) — separate from the account's top-up balance.
       payable: fees.state.charges.filter((c) => c.studentId === a.studentId && chargeStatus(c) !== "paid").reduce((t, c) => t + balanceOf(c), 0),
       balance: withBalance(reg.students.find((s) => s.id === a.studentId)!, movements).balance,
@@ -92,8 +107,8 @@ export default function SbfasApplications() {
         <span className="block text-[13px] text-on-surface-variant" title="Education Account balance from MOE top-ups, separate from the FAS subsidy">Balance {formatSGD(a.balance)}</span>
       </Link>
     ) },
-    { key: "slaDays", header: "Decide within", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
-    { key: "status", header: "Status", render: (a) => (a.status === "Pending" ? <Badge tone="neutral">Awaiting review</Badge> : <Badge tone={statusTone[a.status]}>{a.status}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge>) },
+    { key: "slaDays", header: "Deadline", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
+    { key: "status", header: "Status", render: (a) => (a.status === "Pending" ? <Badge tone="neutral">Awaiting review</Badge> : <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge>) },
   ];
   const tabs: [Filter, string][] = [
     ["all", `All (${apps.length})`],

@@ -3,16 +3,17 @@ import { Link } from "react-router";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { ACADEMIC_YEAR, SBFAS_TIER_AMOUNT } from "../../../data/budgets";
 import { selectSbfas, useFas } from "../../../data/fasStore";
 import { budgetAlertText } from "../../../lib/budget";
 import { benefitsFor, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
-import { formatSGD } from "../../../lib/format";
-import { validateDecision, type Action, type Draft, type DecisionError } from "./review";
+import { isMoefasEligible, isSbfasEligible } from "../../../data/students";
+import { formatDate, formatSGD } from "../../../lib/format";
+import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
 /** Extra fee fields carried alongside the application (computed in the queue from real charges). */
-export type FeeContext = { payable: number; balance: number };
+export type FeeContext = { payable: number; balance: number; nationality: string };
 
 type Props = { app: (SbfasApplication & FeeContext) | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
 
@@ -56,8 +57,23 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
             {app.student} ({app.level})
           </Link>
         </Dt>
-        <Dt label="Per-capita income band">{app.incomeBand}</Dt>
+        <Dt label="Nationality">{app.nationality}</Dt>
+        <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
+        <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
       </dl>
+      {app.incomeSyncedOn && (
+        <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
+      )}
+
+      {!isSbfasEligible(app.nationality) ? (
+        <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">
+          {app.nationality} — not eligible for MOE FAS or SBFAS (Singapore Citizens and PRs only). Reject this application.
+        </p>
+      ) : !isMoefasEligible(app.nationality) && (
+        <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-warning">
+          {app.nationality} — not eligible for MOE FAS (Singapore Citizens only). SBFAS is the only scheme this student can be considered for.
+        </p>
+      )}
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
         <dl className="grid grid-cols-2 gap-4">
@@ -92,7 +108,7 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
-          <p className="font-semibold text-on-surface">Decision recorded: {app.status}{app.sbfasTier ? ` - ${app.sbfasTier}` : ""}</p>
+          <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${app.sbfasTier}` : ""}</p>
           {app.justification && <p className="mt-1">{app.status === "Rejected" ? "Reason" : "Note"}: {app.justification}</p>}
         </div>
       ) : (
