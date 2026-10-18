@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { homeFor, navFor } from "../../data/nav";
 import { useSession, type Role } from "../../session";
@@ -31,6 +31,7 @@ export function RequireAccess({ module, manage, children }: { module?: Module; m
 export default function AppShell() {
   const { role, simulating, can, canManageUsers } = useSession();
   const { pathname } = useLocation();
+  const [pinned, setPinned] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const { key, state } = useLocation() as { key: string; state: { focusMain?: boolean } | null };
   // A navigation can ask for focus on the content (e.g. after the Exit simulation button unmounts).
@@ -60,7 +61,7 @@ export default function AppShell() {
       >
         Skip to content
       </a>
-      <Sidebar />
+      <Sidebar pinned={pinned} onTogglePin={() => setPinned((p) => !p)} />
       <div className="min-w-0 flex-1 p-6">
         <SimulationBanner />
         <Header
