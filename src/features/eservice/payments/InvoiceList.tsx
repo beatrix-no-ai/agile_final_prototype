@@ -23,6 +23,10 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
   const all = payable.length > 0 && payable.every((i) => selected.has(i.id));
   const some = payable.some((i) => selected.has(i.id));
   useEffect(() => { if (allRef.current) allRef.current.indeterminate = some && !all; }, [some, all]);
+  // Unpaid first (overdue, then by due date), paid invoices below (most recent first).
+  const rank = { overdue: 0, unpaid: 1, paid: 2 } as const;
+  const sorted = [...invoices].sort((a, b) => rank[a.status] - rank[b.status] || (a.status === "paid" ? b.dueDate.localeCompare(a.dueDate) : a.dueDate.localeCompare(b.dueDate)));
+  const firstPaid = sorted.findIndex((i) => i.status === "paid");
   const nameOf = (id: string) => kids.find((c) => c.id === id)?.name ?? id;
 
   return (
@@ -32,10 +36,11 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
         Select all unpaid and overdue ({payable.length})
       </label>
       <ul className="divide-y divide-line">
-        {invoices.map((i) => {
+        {sorted.map((i, idx) => {
           const paid = i.status === "paid";
           return (
             <li key={i.id}>
+              {paid && idx === firstPaid && firstPaid > 0 && <p className="border-t border-line pb-1 pt-4 text-[13px] font-semibold text-on-surface-variant">Already paid</p>}
               <label className={`flex min-h-14 items-center gap-3 py-2 ${paid ? "opacity-60" : "cursor-pointer"}`}>
                 <input type="checkbox" className={box} checked={selected.has(i.id)} disabled={paid} onChange={() => onToggle(i.id)} />
                 <span className="min-w-0 flex-1">
