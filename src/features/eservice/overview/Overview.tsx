@@ -6,8 +6,7 @@ import { useParent } from "../../../data/parentStore";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { FasCard } from "./FasCard";
 import { RecentTransactions, UpcomingInvoices } from "./Lists";
-import { ProfileCard } from "./ProfileCard";
-import { ChildCards, Stats } from "./Cards";
+import { ChildCards, Summary } from "./Cards";
 
 const pulse = "motion-safe:animate-pulse rounded-card bg-track";
 
@@ -16,14 +15,14 @@ function Skeleton() {
     <div role="status" aria-busy="true" aria-label="Loading overview" className="space-y-4">
       <div className={`${pulse} h-28`} />
       <div className="grid gap-4 lg:grid-cols-2"><div className={`${pulse} h-48`} /><div className={`${pulse} h-48`} /></div>
-      <div className="grid gap-4 xl:grid-cols-3"><div className={`${pulse} h-72 xl:col-span-2`} /><div className={`${pulse} h-72`} /></div>
+      <div className="grid gap-4 xl:grid-cols-[1fr_24rem]"><div className={`${pulse} h-72`} /><div className={`${pulse} h-72`} /></div>
     </div>
   );
 }
 
 export default function Overview() {
   const query = useMockQuery(parentData);
-  const { state, dispatch } = useParent();
+  const { state } = useParent();
 
   if (query.status === "loading") return <Skeleton />;
   if (query.status === "error" || !query.data) {
@@ -33,21 +32,18 @@ export default function Overview() {
       </Card>
     );
   }
-  const { children, invoices, transactions, profile } = state;
+  const { children, invoices, transactions } = state;
   const { fasStatus } = query.data;
   return (
-    <div className="space-y-4">
-      <Stats invoices={invoices} />
-      <section aria-label="Children"><ChildCards children={children} invoices={invoices} /></section>
-      <div className="grid items-start gap-4 xl:grid-cols-3">
-        <div className="space-y-4 xl:col-span-2">
-          <UpcomingInvoices invoices={invoices} children={children} />
-          <RecentTransactions transactions={transactions} children={children} />
-        </div>
-        <div className="space-y-4">
-          <FasCard fas={fasStatus} />
-          <ProfileCard profile={profile} onSave={(form) => dispatch({ type: "saveProfile", form })} />
-        </div>
+    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="space-y-4">
+        <Summary invoices={invoices} />
+        <UpcomingInvoices invoices={invoices} children={children} />
+        <section aria-label="Children"><ChildCards children={children} invoices={invoices} /></section>
+      </div>
+      <div className="space-y-4">
+        <FasCard fas={fasStatus} />
+        <RecentTransactions transactions={transactions} children={children} />
       </div>
     </div>
   );

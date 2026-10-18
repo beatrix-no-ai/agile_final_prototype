@@ -4,30 +4,30 @@ import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import type { Child, Invoice, Transaction } from "../../../data/parent";
 import { formatSGD } from "../../../lib/format";
-import { PayLink, fmtDate } from "./shared";
+import { Link } from "react-router";
+import { fmtDate, linkClass } from "./shared";
 
 const firstName = (children: Child[], id: string) => children.find((c) => c.id === id)?.name.split(" ")[0] ?? "";
 
 export function UpcomingInvoices({ invoices, children }: { invoices: Invoice[]; children: Child[] }) {
-  const open = invoices.filter((i) => i.status !== "paid").sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  // The latest three paid invoices follow the open ones, so a payment made on the Payments screen is visible here.
-  const paid = invoices.filter((i) => i.status === "paid").sort((a, b) => b.dueDate.localeCompare(a.dueDate)).slice(0, 3);
-  const rows = [...open, ...paid];
+  // Only what still needs paying: overdue first, then by due date. Paid invoices live on the Payments and Transactions pages.
+  const open = invoices.filter((i) => i.status !== "paid").sort((a, b) => Number(b.status === "overdue") - Number(a.status === "overdue") || a.dueDate.localeCompare(b.dueDate));
+  const shown = open.slice(0, 5);
   return (
-    <Card title="Invoices" action={open.length ? <PayLink label="Pay now for all open invoices" /> : undefined}>
-      {rows.length === 0 ? (
-        <EmptyState title="No invoices" hint="New school invoices will appear here." />
+    <Card title="Invoices to pay" action={open.length > shown.length ? <Link to="/parent/payments" className={linkClass}>View all {open.length}</Link> : undefined}>
+      {open.length === 0 ? (
+        <EmptyState title="Nothing to pay" hint="New school invoices will appear here." />
       ) : (
         <ul className="divide-y divide-line">
-          {rows.map((i) => (
-            <li key={i.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 first:pt-0 last:pb-0">
+          {shown.map((i) => (
+            <li key={i.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3.5 first:pt-0 last:pb-0">
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{i.title}</p>
-                <p className="text-[13px] text-on-surface-variant">{firstName(children, i.childId)} - {i.id} - due {fmtDate(i.dueDate)}</p>
+                <p className="text-[15px] font-semibold">{i.title}</p>
+                <p className="text-[13px] text-on-surface-variant">{firstName(children, i.childId)} · due {fmtDate(i.dueDate)}</p>
               </div>
               <div className="flex items-center gap-3">
-                <Badge tone={i.status === "overdue" ? "alert" : i.status === "paid" ? "success" : "neutral"}>{i.status === "overdue" ? "Overdue" : i.status === "paid" ? "Paid" : "Unpaid"}</Badge>
-                <span className="w-24 text-right text-sm font-semibold tabular-nums">{formatSGD(i.amount)}</span>
+                <Badge tone={i.status === "overdue" ? "alert" : "neutral"}>{i.status === "overdue" ? "Overdue" : "Unpaid"}</Badge>
+                <span className="w-24 text-right text-[15px] font-semibold tabular-nums">{formatSGD(i.amount)}</span>
               </div>
             </li>
           ))}
@@ -36,11 +36,10 @@ export function UpcomingInvoices({ invoices, children }: { invoices: Invoice[]; 
     </Card>
   );
 }
-
 export function RecentTransactions({ transactions, children }: { transactions: Transaction[]; children: Child[] }) {
-  const recent = transactions.slice(0, 6);
+  const recent = transactions.slice(0, 5);
   return (
-    <Card title="Recent transactions">
+    <Card title="Recent transactions" action={<Link to="/parent/transactions" className={linkClass}>View all</Link>}>
       {recent.length === 0 ? (
         <EmptyState title="No transactions yet" hint="Payments and top-ups on your children's education accounts will be listed here." />
       ) : (
