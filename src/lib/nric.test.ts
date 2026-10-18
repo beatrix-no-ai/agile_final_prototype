@@ -20,7 +20,7 @@ describe("nric", () => {
 });
 
 describe("stacked top-up rules", () => {
-  const rules = [...FUND_RULES].map((r) => ({ ...r, status: "Active" as const, schools: [], ageMin: 7, ageMax: 16, minBalance: 0, maxBalance: 99999 }));
+  const rules = [...FUND_RULES].map((r) => ({ ...r, status: "Active" as const, schools: [], conditions: [{ type: "range" as const, min: 7, max: 16 }], minBalance: 0, maxBalance: 99999 }));
   test("overlapping rules both apply to the same account, in creation order", () => {
     const ordered = activeRulesInOrder([rules[1], rules[0]]);
     expect(ordered.map((r) => r.id)).toEqual(["TUR01001", "TUR01002"]);

@@ -171,3 +171,35 @@
 .tu .data-table.roomy .badge{font-size:13px;padding:5px 12px}
 .tu .data-table.roomy .actiongroup button{font-size:14px;padding:9px 15px}
 .tu .data-table.roomy td:nth-child(2){min-width:240px}
+
+/* Rule form: targeting conditions */
+.tu .band-list{display:grid;gap:10px;margin-bottom:10px}
+.tu .band-list>.btn{justify-self:start}
+.tu .band-line{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(120px,1fr);align-items:end;gap:11px;border:1px solid var(--border);padding:12px;border-radius:9px}
+.tu .band-line>.btn{height:40px}
+.tu .band-line .field{margin:0}
+.tu .band-pair{display:flex;gap:8px}
+
+/* Specific Accounts multi-select and failed follow-up */
+.tu .account-check{cursor:pointer}
+.tu .check-name{display:flex;align-items:center;gap:10px}
+.tu .check-name input,.tu .failed-pick{accent-color:var(--maroon);width:16px;height:16px;vertical-align:middle;margin-right:8px;cursor:pointer}
+.tu .check-name input{margin-right:0}
+.tu .failed-pick:disabled{cursor:not-allowed;opacity:.4}
+.tu .selected-accounts-multi{border:1px solid var(--border);border-radius:9px;margin-bottom:16px;background:#fcf9f9}
+.tu .selected-accounts-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border)}
+.tu .single-account-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.tu .single-account-row:last-child{border-bottom:0}
+.tu .single-account-row small{display:block;color:var(--sub);margin-top:3px}
+.tu .account-right{display:flex;align-items:center;gap:14px}
+.tu .followup-note{padding:18px 20px;margin-bottom:15px}
+.tu .followup-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.tu .metric{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.tu .metric strong{display:block;margin-top:4px;color:var(--maroon)}
+.tu .followup-list{list-style:none;padding:0;margin:10px 0 0}
+.tu .followup-list li{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 0;border-bottom:1px solid var(--border)}
+.tu .followup-list li:last-child{border-bottom:0}
+.tu .inline-link{border:0;background:none;color:var(--maroon-text);font-weight:600;padding:0;text-decoration:underline}
+@media(max-width:900px){.tu .followup-metrics{grid-template-columns:1fr}}
+.tu .field label.studentitem{display:flex;font-weight:400;margin:0;font-size:14px;align-items:center}
+.tu .field label.studentitem strong{font-weight:600}

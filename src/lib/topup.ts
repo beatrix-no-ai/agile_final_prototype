@@ -1,4 +1,4 @@
-import type { Account, FundRule, Target, Transaction } from "../data/topup";
+import type { Account, Condition, FundRule, Target, Transaction } from "../data/topup";
 import { LEVELS } from "../data/students";
 import type { Cell, SheetOptions } from "./xlsx";
 
@@ -32,14 +32,20 @@ export function eligibleAccounts(rule: TopUpRule, accounts: Account[]): Account[
 /** Restricted view of a balance (HQ never sees the exact figure on this screen). */
 export const balanceBand = (n: number) => (n < 100 ? "Below S$100" : n < 300 ? "S$100 to under S$300" : n < 500 ? "S$300 to under S$500" : "S$500 and above");
 
-export type RuleCriteria = Pick<FundRule, "ageMin" | "ageMax" | "minBalance" | "maxBalance" | "schooling" | "schools">;
+/** "P5 Respect" -> "P5", "Sec 2 Aspire" -> "Sec 2". */
+export const levelOfClass = (cls: string) => LEVELS.find((l) => cls === l || cls.startsWith(`${l} `)) ?? "";
 
-/** Active accounts matching every criterion: age inclusive, balance in [min, max), schooling status, school (empty = all). */
+/** Does one recipient condition match this account? Range ends are inclusive. */
+export const matchesCondition = (c: Condition, a: Account) => (c.type === "range" ? a.age >= c.min && a.age <= c.max : c.type === "age" ? a.age === c.age : levelOfClass(a.class) === c.level);
+
+export type RuleCriteria = Pick<FundRule, "conditions" | "minBalance" | "maxBalance" | "schooling" | "schools">;
+
+/** Active accounts matching ANY condition (age range / specific age / level) and balance in [min, max), schooling status, school (empty = all). */
 export function eligibleForRule(rule: RuleCriteria, accounts: Account[]): Account[] {
   return accounts.filter(
     (a) =>
       a.status === "Active" &&
-      a.age >= rule.ageMin && a.age <= rule.ageMax &&
+      rule.conditions.some((c) => matchesCondition(c, a)) &&
       a.balance >= rule.minBalance && a.balance < rule.maxBalance &&
       rule.schooling === a.schooling &&
       (!rule.schools.length || rule.schools.includes(a.school)),
@@ -98,8 +104,22 @@ export function overlapCount(stack: { accounts: Account[] }[]): number {
   return [...seen.values()].filter((n) => n > 1).length;
 }
 
-/** "P5 Respect" -> "P5", "Sec 2 Aspire" -> "Sec 2". */
-const levelOfClass = (cls: string) => LEVELS.find((l) => cls === l || cls.startsWith(`${l} `)) ?? "";
+/** Short text for one condition: "Age 7–12", "Age 9", "P1". */
+export const conditionText = (c: Condition) => (c.type === "range" ? `Age ${c.min}–${c.max}` : c.type === "age" ? `Age ${c.age}` : c.level);
+
+/** Label for a rule's targeting method. */
+export const targetLabel = (r: Pick<FundRule, "mode" | "conditions">) =>
+  r.mode === "mixed" ? [...new Set(r.conditions.map((c) => (c.type === "range" ? "Age Range" : c.type === "age" ? "Specific Age" : "Level")))].join(" + ") : r.mode === "ages" ? "Specific Ages" : r.mode === "levels" ? "Level" : "Age Range";
+
+/**
+ * Accounts of a failed / partly failed top-up that can still be retried: the account failed in `origin`, is Active now,
+ * and no follow-up of `originId` (a row with `followupOf` = that ID) has already credited it.
+ */
+export function retryableAccounts(origin: Transaction, originId: string, rows: Transaction[], accounts: Account[]): Account[] {
+  const done = new Set(rows.filter((t) => t.followupOf === originId).flatMap((t) => (t.targets ?? []).filter((x) => x.status === "Success").map((x) => x.account)));
+  const failed = new Set(allocationsOf(origin, accounts).filter((x) => x.status === "Failed").map((x) => x.account));
+  return accounts.filter((a) => a.status === "Active" && failed.has(a.nric) && !done.has(a.nric));
+}
 
 const REPORT_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
@@ -113,7 +133,7 @@ export function topUpReport(t: Transaction, topUpId: string, targets: Target[], 
   const ok = targets.filter((x) => x.status === "Success");
   const bad = targets.filter((x) => x.status === "Failed");
   const title = t.type === "Single" && t.detail.includes(" · ") ? t.detail.slice(t.detail.lastIndexOf(" · ") + 3) : t.detail;
-  const rule = t.type === "Batch" ? t.recipient : "Single top-up (no rule)";
+  const rule = t.type === "Batch" ? t.recipient : "Specific Accounts (no rule)";
   const bold = (v: string): Cell => ({ v, s: "bold" });
   const money = (v: number): Cell => ({ v, s: "money" });
   const rows: Cell[][] = [
