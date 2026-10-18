@@ -1,6 +1,6 @@
 import type { SbfasTier } from "./sbfasApplications";
 
-export const ACADEMIC_YEAR = "AY 2026";
+export const ACADEMIC_YEAR = "Academic Year 2026";
 
 export type Level = "Primary" | "Secondary";
 export type LevelBudget = { id: Level; budget: number; used: number; beneficiaries: number };
