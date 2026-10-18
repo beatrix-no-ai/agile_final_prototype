@@ -59,4 +59,10 @@ export const SBFAS_APPLICATIONS: SbfasApplication[] = [
   p("SBFAS-2050", "Lim Xin Yi", B4, 8),
   p("SBFAS-2051", "Adrian Pereira", B4, 9),
   p("SBFAS-2052", "Sim Hui Min", B2, 2),
+  p("SBFAS-2053", "Arjun s/o Krishnan", B2, 4),
+  p("SBFAS-2054", "Meera d/o Ramasamy", B1, 3),
+  p("SBFAS-2055", "Siti Nurhaliza binte Osman", B3, 6),
+  p("SBFAS-2056", "Aqil Zafran bin Salleh", B2, 1),
+  p("SBFAS-2057", "Mohamed Danish bin Yusof", B3, 7),
+  p("SBFAS-2058", "Deepa d/o Govindasamy", B2, 5),
 ];

@@ -153,3 +153,55 @@ test("seed charges: unique ids, no term, aggregate splits collected and outstand
   expect(a.fromAccount).toBeGreaterThan(0);
   expect(nextChargeId(rows)).toBe(`CH-${1000 + rows.length + 1}`);
 });
+
+describe("SBFAS tier sets the fee waiver", () => {
+  const stu = (sbfasTier?: Student["sbfasTier"], moefas: Student["moefas"] = "Not applied"): Student => ({
+    id: "S1", nric: "T1800001A", name: "Test", level: "P1", class: "P1 Courage", status: "Active", balance: 0, moefas, sbfas: "Approved", sbfasTier,
+  });
+  test("Tier 1 waives everything, then 75%, 50%, 25%", () => {
+    expect(fasOf(stu("Tier 1"))).toEqual({ scheme: "SBFAS", rate: 1 });
+    expect(fasOf(stu("Tier 2"))?.rate).toBe(0.75);
+    expect(fasOf(stu("Tier 3"))?.rate).toBe(0.5);
+    expect(fasOf(stu("Tier 4"))?.rate).toBe(0.25);
+  });
+  test("an approved student with no tier on record keeps the school default", () => {
+    expect(fasOf(stu())?.rate).toBe(SBFAS_RATE);
+  });
+  test("MOEFAS still wins over any SBFAS tier", () => {
+    expect(fasOf(stu("Tier 1", "Approved"))).toEqual({ scheme: "MOEFAS", rate: MOEFAS_RATE });
+  });
+});
+
+describe("applyFas re-prices a student's unpaid charges only", () => {
+  const ft = FEE_TYPES[0]; // components total 141
+  const base = initialFeeState();
+  const mk = (id: string, studentId: string) => ({ ...makeCharge(id, ft, { ...STUDENTS[0], id: studentId, sbfas: "Not applied", moefas: "Not applied" }), });
+  const unpaid = mk("CH-1", "A");
+  const partly = { ...mk("CH-2", "A"), payments: [{ id: "CH-2-P1", on: "2026-10-10", amount: 20, method: "Card / PayNow" as const }] };
+  const paid = { ...mk("CH-3", "A"), payments: [{ id: "CH-3-P1", on: "2026-10-10", amount: 141, method: "Card / PayNow" as const }] };
+  const other = mk("CH-4", "B");
+  const state = { ...base, charges: [unpaid, partly, paid, other] };
+  const out = feeReducer(state, { type: "applyFas", studentId: "A", fas: { scheme: "SBFAS", rate: 0.5 }, on: "2026-10-18" });
+  const get = (id: string) => out.charges.find((c) => c.id === id)!;
+
+  test("unpaid and part-paid charges get the subsidy and the scheme", () => {
+    expect(subsidyOf(get("CH-1"))).toBe(70.5);
+    expect(get("CH-1").fas).toBe("SBFAS");
+    expect(subsidyOf(get("CH-2"))).toBe(70.5);
+  });
+  test("the change is recorded on the charge, not made silently", () => {
+    expect(get("CH-1").fasAdjusted).toEqual({ on: "2026-10-18", amount: 70.5 });
+  });
+  test("a settled charge and other students' charges are untouched", () => {
+    expect(get("CH-3")).toEqual(paid);
+    expect(get("CH-4")).toEqual(other);
+  });
+  test("clearing FAS (null) removes the subsidy again", () => {
+    const back = feeReducer(out, { type: "applyFas", studentId: "A", fas: null, on: "2026-10-19" });
+    expect(subsidyOf(back.charges.find((c) => c.id === "CH-1")!)).toBe(0);
+    expect(back.charges.find((c) => c.id === "CH-1")!.fas).toBeUndefined();
+  });
+  test("applying the same FAS twice changes nothing", () => {
+    expect(feeReducer(out, { type: "applyFas", studentId: "A", fas: { scheme: "SBFAS", rate: 0.5 }, on: "2026-10-20" })).toEqual(out);
+  });
+});

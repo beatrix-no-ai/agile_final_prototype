@@ -11,12 +11,13 @@ import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
-import { balanceOf, chargeStatus } from "../../../lib/fees";
+import { balanceOf, chargeStatus, fasOf } from "../../../lib/fees";
+import { withFas } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal } from "./ReviewModal";
-import { isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
+import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
@@ -65,7 +66,11 @@ export default function SbfasApplications() {
 
   const decide = (id: string, action: Action, draft: Draft) => {
     const a = apps.find((x) => x.id === id)!;
-    dispatch({ type: "decide", id, action, draft, at: new Date().toISOString() });
+    const at = new Date().toISOString();
+    dispatch({ type: "decide", id, action, draft, at });
+    // The decision reaches the student's fees too: their unpaid charges are re-priced for the new scheme.
+    const student = STUDENTS.find((s) => s.id === a.studentId);
+    if (student) fees.dispatch({ type: "applyFas", studentId: a.studentId, fas: fasOf(withFas(student, applyDecision(apps, id, action, draft))), on: at.slice(0, 10) });
     setOpenId(null);
     setMessage(
       `Application ${id} for ${a.student} ${VERB[action]}${action === "approve" ? ` at ${draft.tier}` : ""}.`,

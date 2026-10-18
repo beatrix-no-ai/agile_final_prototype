@@ -1,3 +1,6 @@
+import { useFas } from "../../../data/fasStore";
+import type { Student } from "../../../data/students";
+import { withFas as overlayFas } from "../../../lib/studentFas";
 import { Fragment, useState } from "react";
 import { CaretRight, CheckCircle, X } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
@@ -37,6 +40,8 @@ export default function AssignCharges({ school, presetFee }: { school: string; p
 
 function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const { state, dispatch } = useFees();
+  const { state: fasState } = useFas();
+  const live = (xs: Student[]) => xs.map((s) => overlayFas(s, fasState.apps)); // a new charge is priced on the student's current FAS
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
   const [level, setLevel] = useState("");
   const [scope, setScope] = useState<Scope>("level");
@@ -52,7 +57,7 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const chosen = [...master, ...own].filter((f) => picked.includes(f.id));
   const levels = [...new Set(CLASS_RECORDS.filter((c) => c.school === school).map((c) => c.level))];
   const classes = CLASS_RECORDS.filter((c) => c.school === school);
-  const schoolStudents = classes.flatMap((c) => studentsOfClass(school, c.name));
+  const schoolStudents = live(classes.flatMap((c) => studentsOfClass(school, c.name)));
   // MOE Bills and School Bills stay separate: picking one source locks the other.
   const source = chosen.length ? (chosen[0].school === MASTER ? "moe" : "school") : null;
   // A MOE Bill always goes to the whole level (cohort); only a School Bill can be narrowed to a class or one student.
@@ -60,8 +65,8 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const perStudent = chosen.reduce((t, f) => t + total(f), 0);
 
   // Each fee applies to a student only when its own level (if any) matches that student's level.
-  const students = effScope === "level" ? (level ? classes.filter((c) => c.level === level).flatMap((c) => studentsOfClass(school, c.name)) : [])
-    : effScope === "class" ? (cls ? studentsOfClass(school, cls) : [])
+  const students = effScope === "level" ? (level ? live(classes.filter((c) => c.level === level).flatMap((c) => studentsOfClass(school, c.name))) : [])
+    : effScope === "class" ? (cls ? live(studentsOfClass(school, cls)) : [])
     : schoolStudents.filter((s) => s.id === studentId);
   const target = effScope === "level" ? level : effScope === "class" ? cls : students[0]?.name ?? "";
   const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, issued) })));

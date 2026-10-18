@@ -1,4 +1,5 @@
 import { makeNric } from "../lib/nric";
+import type { SbfasTier } from "./sbfasApplications";
 
 export const LEVELS = ["P1", "P2", "P3", "P4", "P5", "P6", "Sec 1", "Sec 2", "Sec 3", "Sec 4"] as const;
 export type Level = (typeof LEVELS)[number];
@@ -18,6 +19,8 @@ export type Student = {
   /** Education Account balance in SGD. */
   balance: number;
   sbfas: SbfasStatus;
+  /** Tier the school approved SBFAS at; it sets how much of each fee is waived (see lib/fees.fasOf). */
+  sbfasTier?: SbfasTier;
   /** MOE-level FAS status. A student never receives both schemes: MOEFAS takes precedence over SBFAS (see lib/fees.fasOf). */
   moefas: SbfasStatus;
 };
@@ -57,7 +60,7 @@ const ROWS: Row[] = [
   ["Haziq bin Abdullah", "P4", 1, "Active", 1431.6, "Not applied", "Approved"],
   ["Sim Hui Min", "P5", 0, "Active", 2036.55, "Not applied", "Not applied"],
   ["Daniel Koh Jun Wei", "P5", 0, "Active", 1978.2, "Not applied", "Not applied"],
-  ["Kavitha d/o Raman", "P5", 1, "Active", 2112.8, "Approved", "Not applied"],
+  ["Kavitha d/o Raman", "P5", 1, "Active", 2112.8, "Pending", "Not applied"],
   ["Aqil Zafran bin Salleh", "P5", 1, "Inactive", 1895.35, "Pending", "Not applied"],
   ["Yeo Rui En", "P6", 0, "Active", 2587.9, "Not applied", "Not applied"],
   ["Isabelle Ng Pei Shan", "P6", 0, "Active", 2641.15, "Not applied", "Not applied"],

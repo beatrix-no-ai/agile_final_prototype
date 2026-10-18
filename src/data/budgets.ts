@@ -18,6 +18,7 @@ export const SBFAS_BY_TIER = [
 
 export const SBFAS_GOVERNANCE = [
   "SBFAS only applies where MOEFAS is not granted; the school decides tier and amount.",
+  "Granted counts the yearly package value of each approved tier; the fee waiver (Tier 1 full, then 75%, 50%, 25%) is one part of it.",
   "Absorbed cost is reported to MOE HQ every quarter.",
   "Unused SBFAS budget does not roll over to the next financial year.",
 ];

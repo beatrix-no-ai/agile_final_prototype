@@ -1,3 +1,5 @@
+import { useFas } from "../../../data/fasStore";
+import { withFas } from "../../../lib/studentFas";
 import { useMemo, useState } from "react";
 import { HeaderActions } from "../../../components/layout/HeaderActions";
 import { Plus, Wallet } from "@phosphor-icons/react";
@@ -20,7 +22,9 @@ import { assignStudent, filterStudents, statusTone } from "./logic";
 const sbfasTone: Record<SbfasStatus, BadgeTone> = { Approved: "success", Pending: "warning", Rejected: "alert", "Not applied": "neutral" };
 
 export default function Students() {
-  const [students, setStudents] = useState(STUDENTS);
+  const [stored, setStudents] = useState(STUDENTS);
+  const { state: fas } = useFas();
+  const students = useMemo(() => stored.map((s) => withFas(s, fas.apps)), [stored, fas.apps]); // SBFAS status follows the FAS queue
   const [params] = useSearchParams(); // "View students" on the Classes page arrives as ?class=<name>
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -47,7 +51,7 @@ export default function Students() {
     { key: "class", header: "Class", sortable: true, render: (s) => s.class },    { key: "status", header: "Schooling status", sortable: true, render: (s) => <Badge tone={statusTone[s.status]}>{s.status}</Badge> },
     ...(role === "school" ? [
       { key: "moefas", header: "MOEFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.moefas]}>{s.moefas}</Badge> } as Column<Student>,
-      { key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}</Badge> } as Column<Student>,
+      { key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}{s.sbfasTier ? ` · ${s.sbfasTier}` : ""}</Badge> } as Column<Student>,
     ] : []),
   ];
 

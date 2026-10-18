@@ -21,6 +21,8 @@ export type Payment = { id: string; on: string; amount: number; method: PayMetho
 export type Charge = {
   id: string; studentId: string; ftId: string; title: string;
   issued: string; due: string; components: ChargeComponent[]; fas?: FasScheme; payments: Payment[];
+  /** Set when a FAS decision re-priced this charge after it was issued: the subsidy added (negative if removed) and the date. */
+  fasAdjusted?: { on: string; amount: number };
 };
 
 /** Default payment window when a charge is generated (no term to derive it from). */
