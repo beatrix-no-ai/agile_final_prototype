@@ -1,7 +1,7 @@
 # SBFAS — Đặc tả chức năng (dành cho QA)
 
 **Phạm vi:** SBFAS (School-Based FAS — hỗ trợ tài chính cấp trường) như đã triển khai trong Admin Portal (`/admin/fas`, vai trò: School user), bao gồm cả tích hợp với phần phí.
-**Nguồn sự thật:** tài liệu mô tả *bản build hiện tại* — mọi quy tắc dưới đây đều kiểm thử được ngay trên ứng dụng đã triển khai. Dữ liệu là mock, không lưu trữ (tải lại trang sẽ reset toàn bộ trạng thái).
+**Nguồn sự thật:** tài liệu mô tả *bản build hiện tại* — mọi quy tắc dưới đây đều kiểm thử được ngay trên ứng dụng đã triển khai. Dữ liệu là mock, không lưu trữ (tải lại trang sẽ reset toàn bộ trạng thái). Quyết định SBFAS nằm trong store của phiên làm việc: **chuyển sang feature khác rồi quay lại thì quyết định vẫn còn**; chỉ tải lại trang (reload) mới reset về seed.
 **Liên quan:** MOEFAS dùng chung các quy tắc màn hình; xem quy tắc ưu tiên ở BR1. Tài liệu này tập trung vào SBFAS.
 
 ---

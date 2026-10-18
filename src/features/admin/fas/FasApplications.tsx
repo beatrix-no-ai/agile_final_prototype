@@ -7,6 +7,7 @@ import { DataTable, RowAction, type Column } from "../../../components/ui/DataTa
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
 import { useFees } from "../../../data/feeStore";
+import { useSbfas } from "../../../data/sbfasStore";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus } from "../../../lib/fees";
@@ -14,7 +15,7 @@ import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal, RiskBadge } from "./ReviewModal";
-import { applyDecision, isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
+import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
@@ -31,7 +32,9 @@ type Row = SbfasApplication & { payable: number; balance: number; nationality: s
 export default function SbfasApplications() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
   const fees = useFees();
-  const [apps, setApps] = useState<SbfasApplication[]>(SBFAS_APPLICATIONS);
+  // Decisions live in the app-level store, so they survive navigating to another feature.
+  const { state: sbfas, dispatch: dispatchSbfas } = useSbfas();
+  const apps = sbfas.apps;
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -60,7 +63,7 @@ export default function SbfasApplications() {
   const declinedCount = apps.filter(isDeclined).length;
 
   const decide = (id: string, action: Action, draft: Draft) => {
-    setApps((prev) => applyDecision(prev, id, action, draft));
+    dispatchSbfas({ type: "decide", id, action, draft });
     setOpenId(null);
   };
 

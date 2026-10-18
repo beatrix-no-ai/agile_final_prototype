@@ -32,6 +32,24 @@ export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"]
 /** R4: subsidy rate per tier. Real SBFAS is school-managed within 50–75%; Tier 1 is the strongest package. */
 export const SBFAS_TIER_RATES: Record<SbfasTier, number> = { "Tier 1": 0.75, "Tier 2": 0.65, "Tier 3": 0.55, "Tier 4": 0.5 };
 
+export type Action = "approve" | "override" | "reject";
+export type Draft = { justification: string; tier: SbfasTier };
+const STATUS: Record<Action, SbfasStatus> = { approve: "Approved", override: "Overridden", reject: "Rejected" };
+
+/** Pure. Records an approve/override/reject on one application (validation happens in the review modal). */
+export function applyDecision(apps: SbfasApplication[], id: string, action: Action, draft: Draft): SbfasApplication[] {
+  return apps.map((a) =>
+    a.id !== id
+      ? a
+      : {
+          ...a,
+          status: STATUS[action],
+          sbfasTier: action === "reject" ? undefined : action === "override" ? draft.tier : a.recommendedTier,
+          justification: draft.justification.trim() || undefined,
+        },
+  );
+}
+
 /** R4: income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
 export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 
