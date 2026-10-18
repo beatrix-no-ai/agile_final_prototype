@@ -1,3 +1,4 @@
+import { makeNric } from "../../../lib/nric";
 import { CLASSES, LEVELS, type Level, type Student, type StudentStatus, type UnassignedAccount } from "../../../data/students";
 
 export type Filters = { level: string; class: string; status: string };
@@ -20,12 +21,13 @@ export function nextId(rows: Student[]): string {
 
 /** Assign an existing Education Account to this school: keeps the account's id and balance. */
 export function assignStudent(a: UnassignedAccount, p: { level: Level; class: string }): Student {
-  return { id: a.id, name: a.name, level: p.level, class: p.class, status: "Enrolled", balance: a.balance, sbfas: "Not applied" };
+  return { id: a.id, nric: a.nric, name: a.name, level: p.level, class: p.class, status: "Active", balance: a.balance, sbfas: "Not applied" };
 }
 
 export function newStudent(rows: Student[], p: { name: string; level: Level; class: string }): Student {
   // ASSUMPTION: a newly added student starts Active, with an empty Education Account and no SBFAS application.
-  return { id: nextId(rows), name: p.name.trim(), level: p.level, class: p.class, status: "Enrolled", balance: 0, sbfas: "Not applied" };
+  const id = nextId(rows);
+  return { id, nric: makeNric(2026 - 7 - LEVELS.indexOf(p.level), Number(id.slice(1)) % 100000), name: p.name.trim(), level: p.level, class: p.class, status: "Active", balance: 0, sbfas: "Not applied" };
 }
 
 /** Shared by the Add form and CSV import. Returns an error message or "" when valid. */
@@ -141,6 +143,6 @@ export function parseStudentCsv(fileName: string, text: string): CsvResult {
 }
 
 export const statusTone: Record<StudentStatus, "success" | "warning" | "neutral"> = {
-  "Enrolled": "success",
-  "Not Enrolled": "neutral",
+  "Active": "success",
+  "Inactive": "neutral",
 };

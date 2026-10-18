@@ -3,9 +3,11 @@ import { useLocation } from "react-router";
 import type { Student } from "../../../data/students";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
 import { SCHOOLS } from "../../../data/schools";
-import { ageForLevel } from "../../../lib/accounts";
+import { ACCOUNT_CLOSES_AT, ageForLevel } from "../../../lib/accounts";
 import { ACCOUNTS, FUND_RULES, PAST_TRANSACTIONS, type Account, type FundRule, type Target, type Transaction } from "../../../data/topup";
-import { ledgerIds } from "../../../lib/topup";
+import { ledgerIds, topUpReportRows } from "../../../lib/topup";
+import { maskNric } from "../../../lib/nric";
+import { downloadXlsx } from "../../../lib/xlsx";
 import Execute from "./Execute";
 import Rules from "./Rules";
 import { Dialog, cash, useToast, type DialogSpec } from "./tuUi";
@@ -30,7 +32,7 @@ function History({ rows, accounts, onCreate }: { rows: Transaction[]; accounts: 
   const ledger = useMemo(() => ledgerIds(rows, accounts), [rows, accounts]);
   const reset = () => { setQ(""); setStatus(""); setType(""); setFrom(""); setTo(""); };
   const list = rows.map((t, i) => ({ t, i })).filter(({ t, i }) => (!status || t.status === status) && (!type || t.type === type) && (!from || t.date >= from) && (!to || t.date <= to) && (!q.trim() || `${ledger[i].id} ${t.recipient} ${t.type}`.toLowerCase().includes(q.trim().toLowerCase())));
-  if (viewing !== null && rows[viewing]) return <Details t={rows[viewing]} id={ledger[viewing].id} items={ledger[viewing].targets} onBack={() => setViewing(null)} />;
+  if (viewing !== null && rows[viewing]) return <Details t={rows[viewing]} id={ledger[viewing].id} items={ledger[viewing].targets} accounts={accounts} onBack={() => setViewing(null)} />;
   return (
     <div className="card tablecard">
       <div className="toolbar filters-toolbar">
@@ -58,18 +60,24 @@ function History({ rows, accounts, onCreate }: { rows: Transaction[]; accounts: 
   );
 }
 
-function Details({ t, id, items, onBack }: { t: Transaction; id: string; items: Target[]; onBack: () => void }) {
+function Details({ t, id, items, accounts, onBack }: { t: Transaction; id: string; items: Target[]; accounts: Account[]; onBack: () => void }) {
   const [q, setQ] = useState("");
   const [st, setSt] = useState("");
   const pending = t.status === "Pending", batch = t.type === "Batch";
   const count = (s: string) => items.filter((a) => a.status === s).length;
   const row = (k: string, v: string) => <div className="summaryrow"><span>{k}</span><strong>{v}</strong></div>;
-  const shown = items.filter((a) => (!st || a.status === st) && (!q.trim() || `${a.txid ?? ""} ${a.student} ${a.account} ${a.reason ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
+  const credited = count("Success");
+  const download = () => downloadXlsx(`${id}-topped-up-students.xlsx`, "Topped-up students", topUpReportRows(t, id, items, accounts));
+  const shown = items.filter((a) => (!st || a.status === st) && (!q.trim() || `${a.txid ?? ""} ${a.student} ${a.account} ${maskNric(a.account)} ${a.reason ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
   return (
     <div>
       <button type="button" className="backline" onClick={onBack}>← Back to Top-up History</button>
       <div className="card tablecard">
         <div className="tabletop"><h2>Top-up Details · {id}</h2><span className={`badge ${statusClass(t.status)}`}>{t.status}</span></div>
+        <div className="toolbar" style={{ marginBottom: 12 }}>
+          <button type="button" className="btn primary" disabled={!credited} onClick={download}>Download Excel report</button>
+          <span className="small">{credited ? `Lists the ${credited} account(s) topped up. Failed accounts are not included.` : "Available once accounts have been topped up."}</span>
+        </div>
         {row("Type", t.type)}{row("Recipient / rule", t.recipient)}{row(pending ? "Scheduled date" : "Execution date", t.date)}{row("Schedule", t.schedule)}
         {batch && row("Eligible account(s)", String(t.accounts))}
         {row(batch ? "Amount per account" : "Amount", cash(t.amount))}
@@ -88,9 +96,9 @@ function Details({ t, id, items, onBack }: { t: Transaction; id: string; items: 
           </div>
         )}
         <div className={`tablewrap${batch ? " transaction-scroll" : ""}`} {...(batch ? { role: "region", "aria-label": "Account transaction list", tabIndex: 0 } : {})}>
-          <table className="data-table" style={{ minWidth: 850 }}><thead><tr><th>Transaction ID</th><th>Student</th><th>Education Account</th><th>Amount</th><th>Status</th><th>Failure Reason</th></tr></thead>
+          <table className="data-table" style={{ minWidth: 850 }}><thead><tr><th>Transaction ID</th><th>Student</th><th>Education Account ID (NRIC)</th><th>Amount</th><th>Status</th><th>Failure Reason</th></tr></thead>
             <tbody>{shown.length ? shown.map((a) => (
-              <tr key={a.account + (a.txid ?? "")}><td>{a.txid ?? "—"}</td><td>{a.student}</td><td>{a.account}</td><td>{cash(t.amount)}</td><td><span className={`badge ${targetClass(a.status)}`}>{a.status}</span></td><td>{a.reason ?? "—"}</td></tr>
+              <tr key={a.account + (a.txid ?? "")}><td>{a.txid ?? "—"}</td><td>{a.student}</td><td>{maskNric(a.account)}</td><td>{cash(t.amount)}</td><td><span className={`badge ${targetClass(a.status)}`}>{a.status}</span></td><td>{a.reason ?? "—"}</td></tr>
             )) : <tr><td colSpan={6} className="empty">No account transactions found.</td></tr>}</tbody></table>
         </div>
       </div>
@@ -100,8 +108,8 @@ function Details({ t, id, items, onBack }: { t: Transaction; id: string; items: 
 
 /** Student opened from an Education Account page; the top-up form is preset to them. */
 const accountOf = (s: Student): Account => ({
-  id: s.id, name: s.name, school: SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "", class: s.class, age: ageForLevel(s.level),
-  citizen: true, enrolled: s.status === "Enrolled", schooling: s.status, status: "Active", balance: s.balance,
+  id: s.id, nric: s.nric, name: s.name, school: SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "", class: s.class, age: ageForLevel(s.level),
+  citizen: true, enrolled: s.status === "Active", schooling: s.status, status: ageForLevel(s.level) >= ACCOUNT_CLOSES_AT ? "Closed" : "Active", balance: s.balance,
 });
 
 export default function TopUp() {

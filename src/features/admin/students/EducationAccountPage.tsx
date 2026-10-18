@@ -12,6 +12,7 @@ import { ACCOUNT_CLOSES_AT, ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledger
 import { SCHOOLS } from "../../../data/schools";
 import { schoolCodeFor } from "../../../data/users";
 import { formatSGD } from "../../../lib/format";
+import { maskNric } from "../../../lib/nric";
 import { useSession } from "../../../session";
 import { statusTone } from "./logic";
 import { useStudent } from "./useStudent";
@@ -62,9 +63,9 @@ export default function EducationAccountPage() {
 
   const details: [string, ReactNode][] = [
     ["Account status", <Badge key="a" tone={active ? "success" : "neutral"}>{active ? "Active" : "Not active"}</Badge>],
-    ["Current enrolment", <Badge key="s" tone={statusTone[student.status]}>{student.status}</Badge>],
+    ["Schooling status", <Badge key="s" tone={statusTone[student.status]}>{student.status}</Badge>],
     ["Date of birth", fmt(dob, { day: "2-digit", month: "2-digit", year: "numeric" })],
-    ["Education account ID", student.id],
+    ["Education account ID (NRIC)", maskNric(student.nric)],
     ["Current school", school?.name ?? "—"],
     ["Current level", student.level],
     ["Current class", student.class],

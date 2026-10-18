@@ -9,6 +9,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
 import type { Charge } from "../../../data/fees";
 import { formatSGD } from "../../../lib/format";
+import { maskNric } from "../../../lib/nric";
 import { feeOf, payableOf, subsidyOf } from "../../../lib/fees";
 import { ChargeModal, StatusBadge } from "../fee-types/parts";
 import { useStudent } from "./useStudent";
@@ -48,7 +49,7 @@ export default function StudentFees() {
       </Link>
       <Card title={`Fees for ${student.name}`}>
         <p className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span>{student.id}</span>
+          <span>{maskNric(student.nric)}</span>
           <span>{student.level}, {student.class}</span>
           <span>Account balance <strong className="text-on-surface">{formatSGD(student.balance)}</strong></span>
           <span>SBFAS <Badge tone="neutral">{student.sbfas}</Badge></span>

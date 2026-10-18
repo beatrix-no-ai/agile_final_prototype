@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { HeaderActions } from "../../../components/layout/HeaderActions";
 import { Plus, Wallet } from "@phosphor-icons/react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
+import { SCHOOLS } from "../../../data/schools";
+import { maskNric } from "../../../lib/nric";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -19,24 +21,31 @@ const sbfasTone: Record<SbfasStatus, BadgeTone> = { Approved: "success", Pending
 
 export default function Students() {
   const [students, setStudents] = useState(STUDENTS);
+  const [params] = useSearchParams(); // "View students" on the Classes page arrives as ?class=<name>
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
+  const [cls, setCls] = useState(params.get("class") ?? "");
+  const [school, setSchool] = useState("");
   const { role } = useSession();
   const mySchool = schoolCodeFor(role);
   const [adding, setAdding] = useState(false);
   const navigate = useNavigate();
   const [notice, setNotice] = useState("");
+  const schoolName = (s: Student) => SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "";
+  const classOptions = useMemo(() => [...new Set(students.filter((s) => (!mySchool || schoolOfLevel(s.level) === mySchool) && (!school || schoolOfLevel(s.level) === school)).map((s) => s.class))], [students, mySchool, school]);
 
   // Memoised: DataTable resets to page 1 whenever the rows reference changes.
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return filterStudents(students, { level: "", class: "", status }).filter((s) => (!mySchool || schoolOfLevel(s.level) === mySchool) && (!needle || `${s.id} ${s.name}`.toLowerCase().includes(needle)));
-  }, [students, q, mySchool, status]);
-  const reset = () => { setQ(""); setStatus(""); };
+    return filterStudents(students, { level: "", class: cls, status }).filter((s) => (!mySchool || schoolOfLevel(s.level) === mySchool) && (!school || schoolOfLevel(s.level) === school) && (!needle || `${s.nric} ${s.name}`.toLowerCase().includes(needle)));
+  }, [students, q, mySchool, status, cls, school]);
+  const reset = () => { setQ(""); setStatus(""); setCls(""); setSchool(""); };
 
   const columns: Column<Student>[] = [
-    { key: "id", header: "Education Account ID", sortable: true },
+    { key: "nric", header: "Education Account ID (NRIC)", sortable: true, render: (s) => maskNric(s.nric) },
     { key: "name", header: "Name", sortable: true, render: (s) => <span className="font-medium">{s.name}</span> },
+    ...(role === "hq" ? [{ key: "school", header: "School", sortable: true, render: (s: Student) => schoolName(s) } as Column<Student>] : []),
+    { key: "class", header: "Level / Class", sortable: true, render: (s) => <><span className="font-medium">{s.level}</span><span className="block text-[13px] text-on-surface-variant">{s.class}</span></> },
     { key: "status", header: "Schooling status", sortable: true, render: (s) => <Badge tone={statusTone[s.status]}>{s.status}</Badge> },
     ...(role === "school" ? [{ key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}</Badge> } as Column<Student>] : []),
   ];
@@ -57,17 +66,31 @@ export default function Students() {
       </div>
 
       <Card>
-        <div role="group" aria-label="Filters" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_auto] lg:items-end">
-          <Field label="Search by Education Account ID or name">
+        <div role="group" aria-label="Filters" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)_auto] lg:items-end">
+          <Field label="Search by NRIC or name">
             <input type="search" className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} />
           </Field>
-          <Field label="Status">
+          {role === "hq" && (
+            <Field label="School">
+              <select className={inputClass} value={school} onChange={(e) => { setSchool(e.target.value); setCls(""); }}>
+                <option value="">All schools</option>
+                {[...new Set(students.map((s) => schoolOfLevel(s.level)))].map((c) => <option key={c} value={c}>{SCHOOLS.find((x) => x.code === c)?.name}</option>)}
+              </select>
+            </Field>
+          )}
+          <Field label="Class">
+            <select className={inputClass} value={cls} onChange={(e) => setCls(e.target.value)}>
+              <option value="">All classes</option>
+              {classOptions.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </Field>
+          <Field label="Schooling status">
             <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All statuses</option>
               {STATUSES.map((x) => <option key={x}>{x}</option>)}
             </select>
           </Field>
-          <Button variant="secondary" disabled={!q && !status} onClick={reset}>Reset filters</Button>
+          <Button variant="secondary" disabled={!q && !status && !cls && !school} onClick={reset}>Reset filters</Button>
         </div>
         <div className="mt-2">
           <DataTable

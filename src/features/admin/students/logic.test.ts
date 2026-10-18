@@ -12,12 +12,12 @@ describe("filterStudents", () => {
     expect(filterStudents(STUDENTS, NO_FILTERS)).toHaveLength(STUDENTS.length);
   });
   it("combines filters with AND", () => {
-    const r = filterStudents(STUDENTS, { level: "P1", class: "", status: "Enrolled" });
+    const r = filterStudents(STUDENTS, { level: "P1", class: "", status: "Active" });
     expect(r.length).toBeGreaterThan(0);
-    expect(r.every((s) => s.level === "P1" && s.status === "Enrolled")).toBe(true);
+    expect(r.every((s) => s.level === "P1" && s.status === "Active")).toBe(true);
   });
   it("a combination that matches nothing gives 0 rows", () => {
-    expect(filterStudents(STUDENTS, { level: "P1", class: "", status: "Not Enrolled" })).toHaveLength(0);
+    expect(filterStudents(STUDENTS, { level: "P1", class: "", status: "Inactive" })).toHaveLength(0);
   });
 });
 
@@ -101,7 +101,7 @@ describe("ids", () => {
   });
   it("newStudent gets a fresh id and defaults", () => {
     const s = newStudent(STUDENTS, { name: " Zed ", level: "P1", class: "P1 Courage" });
-    expect(s).toMatchObject({ name: "Zed", balance: 0, status: "Enrolled", sbfas: "Not applied" });
+    expect(s).toMatchObject({ name: "Zed", balance: 0, status: "Active", sbfas: "Not applied" });
     expect(STUDENTS.some((x) => x.id === s.id)).toBe(false);
   });
 });

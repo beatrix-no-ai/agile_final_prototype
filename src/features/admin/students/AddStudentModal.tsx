@@ -4,6 +4,7 @@ import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { CLASSES, LEVELS, type Level, type UnassignedAccount } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
+import { maskNric } from "../../../lib/nric";
 
 const EMPTY = { id: "", level: "", class: "" };
 const FORM_ID = "assign-student-form";
@@ -54,7 +55,7 @@ export default function AssignStudentModal({ open, available, onClose, onAssign 
         <Field required label="Education Account" error={errors.id} hint="Accounts already exist; this only assigns one to your school.">
           <select className={inputClass} value={v.id} onChange={(e) => setV({ ...v, id: e.target.value })}>
             <option value="">{available.length ? "Select account" : "No unassigned accounts"}</option>
-            {available.map((a) => <option key={a.id} value={a.id}>{a.id} - {a.name} ({formatSGD(a.balance)})</option>)}
+            {available.map((a) => <option key={a.id} value={a.id}>{maskNric(a.nric)} - {a.name} ({formatSGD(a.balance)})</option>)}
           </select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">

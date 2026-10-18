@@ -1,4 +1,6 @@
 import type { Account, FundRule, Target, Transaction } from "../data/topup";
+import { maskNric } from "./nric";
+import type { Cell } from "./xlsx";
 
 export type TopUpRule = {
   ageMin: number;
@@ -63,7 +65,7 @@ export function allocationsOf(t: Transaction, accounts: Account[]): Target[] {
   return Array.from({ length: t.accounts }, (_, n) => {
     const a = accounts[(n + t.ref.length * 3) % accounts.length];
     const failed = t.status === "Failed" || (t.status === "Partial Success" && n % 5 === 0);
-    return { student: a.name, account: a.id, status: t.status === "Pending" ? "Pending" : failed ? "Failed" : "Success", ...(failed ? { reason: "Education Account inactive at execution" } : {}) } as Target;
+    return { student: a.name, account: a.nric, status: t.status === "Pending" ? "Pending" : failed ? "Failed" : "Success", ...(failed ? { reason: "Education Account inactive at execution" } : {}) } as Target;
   });
 }
 
@@ -79,4 +81,33 @@ export function ledgerIds(rows: Transaction[], accounts: Account[]) {
     out[i].targets = allocationsOf(t, accounts).map((a) => (a.status === "Pending" ? a : { ...a, txid: a.txid ?? next("TUT", t.date, 5) }));
   }
   return out;
+}
+
+/** Active rules in creation order (rule ids are issued in sequence, so id order = creation order). Overlaps are allowed and stack. */
+export const activeRulesInOrder = (rules: FundRule[]): FundRule[] => rules.filter((r) => r.status === "Active").sort((a, b) => a.id.localeCompare(b.id));
+
+/** Per-rule eligible accounts, in rule order. An account matching several rules appears under each and is topped up by each. */
+export function stackRules(rules: FundRule[], accounts: Account[]) {
+  return rules.map((rule) => ({ rule, accounts: eligibleForRule(rule, accounts) }));
+}
+
+/** Accounts that match more than one of the given rules. */
+export function overlapCount(stack: { accounts: Account[] }[]): number {
+  const seen = new Map<string, number>();
+  for (const s of stack) for (const a of s.accounts) seen.set(a.id, (seen.get(a.id) ?? 0) + 1);
+  return [...seen.values()].filter((n) => n > 1).length;
+}
+
+export const REPORT_HEADER: Cell[] = ["Top-up ID", "Transaction ID", "Education Account ID (NRIC)", "Student", "School", "Class", "Amount (S$)", "Execution date", "Reason"];
+
+/** Excel report: only the accounts actually topped up (Success); failed and pending accounts are left out. */
+export function topUpReportRows(t: Transaction, topUpId: string, targets: Target[], accounts: Account[]): Cell[][] {
+  const byNric = new Map(accounts.map((a) => [a.nric, a]));
+  const rows = targets
+    .filter((x) => x.status === "Success")
+    .map((x): Cell[] => {
+      const a = byNric.get(x.account);
+      return [topUpId, x.txid ?? "", maskNric(x.account), x.student, a?.school ?? "", a?.class ?? "", t.amount, t.date, t.detail];
+    });
+  return [REPORT_HEADER, ...rows];
 }
