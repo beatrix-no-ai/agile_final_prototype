@@ -6,6 +6,9 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { ACADEMIC_YEAR, SBFAS_TIER_AMOUNT } from "../../../data/budgets";
+import { selectSbfas, useFas } from "../../../data/fasStore";
+import { budgetAlertText } from "../../../lib/budget";
 import { benefitsFor, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
@@ -39,6 +42,9 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
   const tierRef = useRef<HTMLSelectElement>(null);
   const justRef = useRef<HTMLTextAreaElement>(null);
   const decided = app.status !== "Pending";
+  const { state } = useFas();
+  const sb = selectSbfas(state);
+  const budgetAlert = budgetAlertText("SBFAS", sb.used, sb.budget);
 
   const act = (action: Action) => {
     const draft = { justification, tier };
@@ -93,6 +99,16 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
         A student cannot receive both schemes: if MOEFAS applies, MOEFAS takes precedence and SBFAS is not granted — approve SBFAS only when the student has no MOEFAS.
       </p>
 
+      {!decided && (
+        <div className="rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-[13px]">
+          <p>
+            Remaining SBFAS budget ({ACADEMIC_YEAR}): <b>{formatSGD(Math.max(0, sb.remaining))}</b> of {formatSGD(sb.budget)}.{" "}
+            <Link to="/admin/budgets" className="text-primary underline-offset-2 hover:underline">Open budget</Link>
+          </p>
+          {budgetAlert && <p className="mt-1 font-medium text-alert">{budgetAlert}</p>}
+        </div>
+      )}
+
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
           <p className="font-semibold text-on-surface">Decision recorded: {app.status}{app.sbfasTier ? ` - ${app.sbfasTier}` : ""}</p>
@@ -103,7 +119,7 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
           <Field label="Override tier" error={error?.field === "tier" ? error.message : undefined}>
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {SBFAS_TIERS.map((t) => (
-                <option key={t} value={t}>{t}{t === app.recommendedTier ? " (AI recommended)" : ""}</option>
+                <option key={t} value={t}>{t} - {formatSGD(SBFAS_TIER_AMOUNT[t])}{t === app.recommendedTier ? " (AI recommended)" : ""}</option>
               ))}
             </select>
           </Field>

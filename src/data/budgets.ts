@@ -1,3 +1,7 @@
+import type { SbfasTier } from "./sbfasApplications";
+
+export const ACADEMIC_YEAR = "AY 2026";
+
 export type Level = "Primary" | "Secondary" | "Post-secondary";
 export type LevelBudget = { id: Level; budget: number; used: number; beneficiaries: number };
 
@@ -28,3 +32,6 @@ export const MOEFAS_BY_LEVEL: LevelBudget[] = [
 // ASSUMPTION: what happens when spend exceeds budget is an open question. The UI only displays it
 // (capped bar + "Over budget" badge); nothing blocks payouts or triggers an approval step.
 export const OVER_BUDGET_NOTE = "When spend exceeds budget it is shown for review only; payouts are not blocked.";
+
+// ASSUMPTION: the SBFAS amount for a tier is a fixed annual mock value (Tier 1 = most support); confirm with MOE.
+export const SBFAS_TIER_AMOUNT: Record<SbfasTier, number> = { "Tier 1": 3000, "Tier 2": 2200, "Tier 3": 1500, "Tier 4": 800 };

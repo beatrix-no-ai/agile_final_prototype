@@ -44,6 +44,11 @@ describe("navigation follows module permissions", () => {
   test("Principal sees every module and User", () => {
     expect(labels(() => true, true)).toEqual(expect.arrayContaining(["FAS", "Top-up", "User"]));
   });
+  test("Budget is shown to HQ and to school users with the FAS module only", () => {
+    expect(navFor("hq").map((n) => n.label)).toContain("Budget");
+    expect(labels((m) => m === "FAS")).toContain("Budget");
+    expect(labels((m) => m === "Top-up")).not.toContain("Budget");
+  });
   test("HQ sees User management", () => {
     expect(navFor("hq").map((n) => n.label)).toContain("User");
   });

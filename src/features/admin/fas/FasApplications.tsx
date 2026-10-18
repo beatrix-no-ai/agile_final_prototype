@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
+import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
@@ -15,7 +16,7 @@ import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal, RiskBadge } from "./ReviewModal";
-import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
+import { isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
@@ -33,7 +34,8 @@ type Row = SbfasApplication & { payable: number; balance: number };
 export default function SbfasApplications() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
   const fees = useFees();
-  const [apps, setApps] = useState<SbfasApplication[]>(SBFAS_APPLICATIONS);
+  const { state: fas, dispatch } = useFas();
+  const apps = fas.apps; // shared with the Budgets pages, so a decision moves the school's statistics
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [message, setMessage] = useState("");
@@ -63,7 +65,7 @@ export default function SbfasApplications() {
 
   const decide = (id: string, action: Action, draft: Draft) => {
     const a = apps.find((x) => x.id === id)!;
-    setApps((prev) => applyDecision(prev, id, action, draft));
+    dispatch({ type: "decide", id, action, draft });
     setOpenId(null);
     setMessage(
       `Application ${id} for ${a.student} ${VERB[action]}${action === "override" ? ` to ${draft.tier}` : action === "approve" ? ` at ${a.recommendedTier}` : ""}.`,

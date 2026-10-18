@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
+import { ACADEMIC_YEAR } from "../../../data/budgets";
 import { parseAmount } from "../../../lib/amount";
 import { formatSGD } from "../../../lib/format";
 
 export type Target = { id: string; label: string; budget: number };
-type Props = { open: boolean; onClose: () => void; targets: Target[]; onSave: (id: string, amount: number) => void };
+type Props = { open: boolean; onClose: () => void; targets: Target[]; label?: string; onSave: (id: string, amount: number) => void };
 
-function Form({ onClose, targets, onSave }: Omit<Props, "open">) {
+function Form({ onClose, targets, label = "Level", onSave }: Omit<Props, "open">) {
   const [id, setId] = useState(targets[0].id);
   const [raw, setRaw] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +38,7 @@ function Form({ onClose, targets, onSave }: Omit<Props, "open">) {
       className="space-y-4"
     >
       {targets.length > 1 && (
-        <Field label="Level">
+        <Field label={label}>
           <select
             className={inputClass}
             value={id}
@@ -52,7 +53,7 @@ function Form({ onClose, targets, onSave }: Omit<Props, "open">) {
           </select>
         </Field>
       )}
-      <Field required label="New budget (S$)" hint={`Current: ${formatSGD(current.budget)}`} error={error}>
+      <Field required label={`New budget for ${ACADEMIC_YEAR} (S$)`} hint={`Current: ${formatSGD(current.budget)}. The change is added to the budget history.`} error={error}>
         <input
           className={inputClass}
           inputMode="decimal"
@@ -65,7 +66,7 @@ function Form({ onClose, targets, onSave }: Omit<Props, "open">) {
           }}
         />
       </Field>
-      <p className="text-[13px] text-on-surface-variant">Prototype only: the change is kept on this page and is not saved.</p>
+      <p className="text-[13px] text-on-surface-variant">Prototype: changes are kept for this session and reset when the page is reloaded.</p>
       <div className="flex flex-wrap justify-end gap-3 pt-2">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
         <Button type="submit">Save budget</Button>
@@ -74,11 +75,11 @@ function Form({ onClose, targets, onSave }: Omit<Props, "open">) {
   );
 }
 
-export function SetBudgetModal({ open, onClose, targets, onSave }: Props) {
+export function SetBudgetModal({ open, onClose, targets, label, onSave }: Props) {
   return (
     <Modal open={open} onClose={onClose} title="Set budget">
       {/* Mounted only while open so the form state resets on every open. */}
-      {open && <Form onClose={onClose} targets={targets} onSave={onSave} />}
+      {open && <Form onClose={onClose} targets={targets} label={label} onSave={onSave} />}
     </Modal>
   );
 }

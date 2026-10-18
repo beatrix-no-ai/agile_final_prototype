@@ -1,5 +1,5 @@
 import {
-  Bank, Buildings, ChalkboardTeacher, CreditCard, FileText, Gear,
+  Bank, Buildings, ChalkboardTeacher, Coins, CreditCard, FileText, Gear,
   GraduationCap, HandHeart, House, Receipt, Tag, UserGear, type Icon,
 } from "@phosphor-icons/react";
 import type { Role } from "../session";
@@ -19,6 +19,7 @@ const HQ: NavItem[] = [
   { to: "/admin/students", label: "Student", desc: "Student records and Education Accounts.", icon: GraduationCap },
   { to: "/admin/top-up", label: "Top-up", desc: "Credit accounts one by one or in batches by rule.", icon: Bank },
   { to: "/admin/fee-types", label: "Fee", desc: "Fee rates against the national ceilings.", icon: Tag },
+  { to: "/admin/budgets", label: "Budget", desc: "MOEFAS budget and statistics.", icon: Coins },
 ];
 
 // School users: the FAS and Top-up screens are modules the Principal assigns (see SCHOOL_MODULES below).
@@ -42,6 +43,7 @@ export type Access = { can(m: Module): boolean; canManageUsers: boolean };
 
 const SCHOOL_MODULES: (NavItem & { module?: Module; manage?: true })[] = [
   { to: "/admin/fas", label: "FAS", desc: "SBFAS applications and decisions.", icon: HandHeart, module: "FAS" },
+  { to: "/admin/budgets", label: "Budget", desc: "Your school's SBFAS budget and statistics.", icon: Coins, module: "FAS" },
   { to: "/admin/top-up", label: "Top-up", desc: "Top up your school's Education Accounts.", icon: Bank, module: "Top-up" },
   { to: "/admin/users", label: "User", desc: "Manage your school's users and their modules.", icon: UserGear, manage: true },
 ];
@@ -54,14 +56,14 @@ export function navGroupsFor(role: Role, access?: Access): NavGroup[] {
   if (role === "hq") {
     return [
       { group: "School Management", items: pick(HQ, ["/admin/school-maintenance", "/admin/users", "/admin/classes", "/admin/students"]) },
-      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types"]) },
+      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types", "/admin/budgets"]) },
     ];
   }
   const extra = SCHOOL_MODULES.filter((i) => (i.module ? access?.can(i.module) : access?.canManageUsers)).map(({ module: _m, manage: _g, ...item }) => item);
   const items = [...SCHOOL, ...extra];
   return [
     { group: "School Management", items: pick(items, ["/admin/classes", "/admin/students", "/admin/users"]) },
-    { group: "Finance", items: pick(items, ["/admin/fee-types", "/admin/fas", "/admin/top-up"]) },
+    { group: "Finance", items: pick(items, ["/admin/fee-types", "/admin/fas", "/admin/budgets", "/admin/top-up"]) },
   ].filter((g) => g.items.length);
 }
 
