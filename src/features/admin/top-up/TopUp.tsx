@@ -74,7 +74,7 @@ function History({ rows, accounts, onCreate }: { rows: Transaction[]; accounts: 
           <button type="button" className="btn" onClick={reset}>Reset Filter</button>
           <button type="button" className="btn primary create-action" onClick={onCreate}>＋ Create top-up</button>
         </div>
-        <div className="tablewrap"><table className="data-table"><thead><tr><th>Top-up ID</th><th>Recipient / rule</th><th>Date</th><th style={{ textAlign: "right" }}>Per account</th><th style={{ textAlign: "right" }}>Total</th><th>Status</th><th>Action</th></tr></thead>
+        <div className="tablewrap"><table className="data-table roomy"><thead><tr><th>Top-up ID</th><th>Recipient / rule</th><th>Date</th><th style={{ textAlign: "right" }}>Per account</th><th style={{ textAlign: "right" }}>Total</th><th>Status</th><th>Action</th></tr></thead>
           <tbody>
             {list.length ? list.map(({ t, i }) => (
               <tr key={`${t.ref}-${i}`}>
@@ -140,7 +140,7 @@ function Details({ t, id, items, accounts, onBack }: { t: Transaction; id: strin
           </div>
         )}
         <div className={`tablewrap${batch ? " transaction-scroll" : ""}`} {...(batch ? { role: "region", "aria-label": "Account transaction list", tabIndex: 0 } : {})}>
-          <table className="data-table" style={{ minWidth: 700 }}><thead><tr><th>Student</th><th>Education Account ID (NRIC)</th><th style={{ textAlign: "right" }}>Amount</th><th>Status</th><th>Transaction ID</th><th>Failure reason</th></tr></thead>
+          <table className="data-table roomy" style={{ minWidth: 760 }}><thead><tr><th>Student</th><th>Education Account ID (NRIC)</th><th style={{ textAlign: "right" }}>Amount</th><th>Status</th><th>Transaction ID</th><th>Failure reason</th></tr></thead>
             <tbody>{shown.length ? shown.map((a) => (
               <tr key={a.account + (a.txid ?? "")}><td><strong>{a.student}</strong></td><td>{maskNric(a.account)}</td><td style={{ textAlign: "right" }}>{cash(t.amount)}</td><td><span className={`badge ${targetClass(a.status)}`}>{a.status}</span></td><td>{a.txid ?? "—"}</td><td>{a.reason ?? "—"}</td></tr>
             )) : <tr><td colSpan={6} className="empty">No account transactions found.</td></tr>}</tbody></table>
