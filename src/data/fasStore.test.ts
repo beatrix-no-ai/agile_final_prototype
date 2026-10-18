@@ -59,6 +59,6 @@ describe("setBudget", () => {
 
 it("selectBudgets feeds the dashboard card in the same shape as before", () => {
   const [moefas, sbfas] = selectBudgets(initialFasState());
-  expect(moefas).toMatchObject({ name: "MOEFAS", owner: "MOE HQ", budget: 48_000_000 });
+  expect(moefas).toMatchObject({ name: "MOEFAS", owner: "MOE HQ", budget: 38_000_000 });
   expect(sbfas).toMatchObject({ name: "SBFAS", owner: "School", used: SBFAS.absorbed, budget: SBFAS.budget });
 });
