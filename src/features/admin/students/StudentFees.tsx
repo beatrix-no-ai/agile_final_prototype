@@ -13,6 +13,7 @@ import { formatDate, formatSGD } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
 import { balanceOf, chargeStatus, feeOf, fasOf, paidOf, payableOf, subsidyOf } from "../../../lib/fees";
 import { ChargeModal, StatusBadge, Tiles } from "../fee-types/parts";
+import { statusLabel } from "../fas/review";
 import { useStudent } from "./useStudent";
 
 type Row = { id: string; charge: Charge; title: string; issued: string; due: string; fee: number; subsidy: number; payable: number; paid: number; balance: number; status: string };
@@ -60,7 +61,7 @@ export default function StudentFees() {
         { label: "Still to pay", value: formatSGD(total), note: `${rows.filter((r) => r.status !== "paid").length} unpaid ${rows.filter((r) => r.status !== "paid").length === 1 ? "charge" : "charges"}`, alert: rows.some((r) => r.status === "overdue") },
         { label: "Paid so far", value: formatSGD(rows.reduce((t, r) => t + r.paid, 0)), note: `${rows.filter((r) => r.status === "paid").length} ${rows.filter((r) => r.status === "paid").length === 1 ? "charge" : "charges"} settled`, good: true },
         { label: "Education Account balance", value: formatSGD(student.balance), note: total > student.balance ? "Not enough to cover what is due" : "Covers what is due" },
-        { label: "Financial assistance", value: fas ? fas.scheme : "None", note: fas ? `${Math.round(fas.rate * 100)}% off each new charge` : `MOEFAS ${student.moefas.toLowerCase()} · SBFAS ${student.sbfas.toLowerCase()}` },
+        { label: "Financial assistance", value: fas ? fas.scheme : "None", note: fas ? `${Math.round(fas.rate * 100)}% off each new charge` : `MOEFAS ${statusLabel(student.moefas).toLowerCase()} · SBFAS ${statusLabel(student.sbfas).toLowerCase()}` },
       ]} />
       <Card title="Charges">
         {fas && (

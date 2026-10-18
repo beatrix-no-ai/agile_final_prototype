@@ -16,6 +16,10 @@ export function sortQueue(apps: SbfasApplication[]): SbfasApplication[] {
 export const isGranted = (a: Pick<SbfasApplication, "status">) => a.status === "Approved" || a.status === "Overridden";
 export const isDeclined = (a: Pick<SbfasApplication, "status">) => a.status === "Rejected";
 
+/** Status chip vocabulary, kept in sync with the queue tabs: Pending / Granted / Declined ("Not applied" stays). */
+export const statusLabel = (s: "Pending" | "Approved" | "Overridden" | "Rejected" | "Not applied"): "Pending" | "Granted" | "Declined" | "Not applied" =>
+  s === "Approved" || s === "Overridden" ? "Granted" : s === "Rejected" ? "Declined" : s;
+
 /** Review Focus 3: an override needs a non-blank justification and a tier different from the recommendation. */
 export function validateDecision(action: Action, draft: Draft, recommended: SbfasTier): DecisionError | null {
   if (action !== "override") return null;

@@ -9,7 +9,7 @@ import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../dat
 import { benefitsFor, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
-import { validateDecision, type Action, type Draft, type DecisionError } from "./review";
+import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
 export const riskTone = { Low: "success", Medium: "warning", High: "alert" } as const;
 
@@ -95,7 +95,7 @@ function ReviewBody({ app, onClose, onDecide }: Omit<Props, "app"> & { app: Sbfa
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
-          <p className="font-semibold text-on-surface">Decision recorded: {app.status}{app.sbfasTier ? ` - ${app.sbfasTier}` : ""}</p>
+          <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${app.sbfasTier}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
         </div>
       ) : (

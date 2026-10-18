@@ -15,6 +15,7 @@ import { formatSGD } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
 import { useSession } from "../../../session";
 import { statusTone } from "./logic";
+import { statusLabel } from "../fas/review";
 import { useStudent } from "./useStudent";
 
 const SBFAS_TONE = { Approved: "success", Pending: "warning", Rejected: "alert", "Not applied": "neutral" } as const;
@@ -73,8 +74,8 @@ export default function EducationAccountPage() {
     ["Opened", `${fmt(opened, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })} SGT`],
     ["Closed", ageForLevel(student.level) >= ACCOUNT_CLOSES_AT ? fmt(closed, { day: "numeric", month: "short", year: "numeric" }) : "—"],
     ...(role === "school" ? ([
-      ["MOEFAS", <Badge key="m" tone={SBFAS_TONE[student.moefas]}>{student.moefas}</Badge>],
-      ["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{student.sbfas}</Badge>],
+      ["MOEFAS", <Badge key="m" tone={SBFAS_TONE[student.moefas]}>{statusLabel(student.moefas)}</Badge>],
+      ["SBFAS", <Badge key="f" tone={SBFAS_TONE[student.sbfas]}>{statusLabel(student.sbfas)}</Badge>],
     ] as [string, ReactNode][]) : []),
   ];
 

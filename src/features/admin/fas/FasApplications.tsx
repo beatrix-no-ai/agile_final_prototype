@@ -14,11 +14,11 @@ import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal, RiskBadge } from "./ReviewModal";
-import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
+import { applyDecision, isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
-const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "primary", Rejected: "alert" };
+const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
 
 function Sla({ days }: { days: number }) {
   if (days <= 0) return <Badge tone="alert">Overdue</Badge>;
@@ -81,7 +81,7 @@ export default function SbfasApplications() {
       </Link>
     ) },
     { key: "slaDays", header: "Decide within", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
-    { key: "status", header: "Status", render: (a) => (a.status === "Pending" ? <Badge tone="neutral">Awaiting review</Badge> : <Badge tone={statusTone[a.status]}>{a.status}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge>) },
+    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge> },
   ];
   const tabs: [Filter, string][] = [
     ["all", `All (${apps.length})`],
