@@ -1,10 +1,9 @@
 import {
   Bank, Buildings, ChalkboardTeacher, CreditCard, FileText, Gear,
-  GraduationCap, HandHeart, House, Receipt, Tag, UserGear, UsersThree, type Icon,
+  GraduationCap, HandHeart, House, Receipt, Tag, UserGear, type Icon,
 } from "@phosphor-icons/react";
 import type { Role } from "../session";
 import type { Module } from "./users";
-import { children } from "./parent";
 
 export type NavItem = { to: string; label: string; icon: Icon; badge?: number; title?: string; desc?: string };
 /** Sidebar sections, mirroring the reference portal (School Management / Finance / …). */
@@ -31,7 +30,6 @@ const SCHOOL: NavItem[] = [
 
 const PARENT: NavItem[] = [
   { to: "/parent", label: "Overview", icon: House },
-  { to: "/parent/students", label: "Students", icon: UsersThree, badge: children.length },
   { to: "/parent/payments", label: "Payments", icon: CreditCard },
   { to: "/parent/transactions", label: "Transactions", icon: Receipt },
   { to: "/parent/fas", label: "Financial Assistance Scheme", icon: HandHeart },
