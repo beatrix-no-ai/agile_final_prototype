@@ -42,11 +42,9 @@ export default function Students() {
   const reset = () => { setQ(""); setStatus(""); setCls(""); setSchool(""); };
 
   const columns: Column<Student>[] = [
-    { key: "nric", header: "Education Account ID (NRIC)", sortable: true, render: (s) => maskNric(s.nric) },
-    { key: "name", header: "Name", sortable: true, render: (s) => <span className="font-medium">{s.name}</span> },
+    { key: "name", header: "Student", sortable: true, render: (s) => (<><span className="font-medium">{s.name}</span><span className="block text-[13px] text-on-surface-variant">{maskNric(s.nric)}</span></>) },
     ...(role === "hq" ? [{ key: "school", header: "School", sortable: true, render: (s: Student) => schoolName(s) } as Column<Student>] : []),
-    { key: "class", header: "Level / Class", sortable: true, render: (s) => <><span className="font-medium">{s.level}</span><span className="block text-[13px] text-on-surface-variant">{s.class}</span></> },
-    { key: "status", header: "Schooling status", sortable: true, render: (s) => <Badge tone={statusTone[s.status]}>{s.status}</Badge> },
+    { key: "class", header: "Class", sortable: true, render: (s) => s.class },    { key: "status", header: "Schooling status", sortable: true, render: (s) => <Badge tone={statusTone[s.status]}>{s.status}</Badge> },
     ...(role === "school" ? [
       { key: "moefas", header: "MOEFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.moefas]}>{s.moefas}</Badge> } as Column<Student>,
       { key: "sbfas", header: "SBFAS", sortable: true, render: (s: Student) => <Badge tone={sbfasTone[s.sbfas]}>{s.sbfas}</Badge> } as Column<Student>,
@@ -100,7 +98,7 @@ export default function Students() {
             columns={columns}
             rows={rows}
             rowKey={(s) => s.id}
-            rowActions={(s) => <RowAction icon={<Wallet size={16} aria-hidden />} onClick={() => navigate(`/admin/students/${s.id}/account`, { state: { student: s } })}>View Education Account</RowAction>}
+            rowActions={(s) => <RowAction icon={<Wallet size={16} aria-hidden />} onClick={() => navigate(`/admin/students/${s.id}/account`, { state: { student: s } })}>View account</RowAction>}
             pageSize={20}
             large
             empty={
