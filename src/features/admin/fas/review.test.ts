@@ -58,8 +58,8 @@ test("every seeded application links to a real student record (name, id and leve
 });
 
 test("nextSbfasId: SBFASXXXX format, 4-digit padded, continues from the highest sequence", () => {
-  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS2054");    // highest seed is SBFAS2053
-  expect(nextSbfasId([])).toBe("SBFAS2001");                     // empty queue starts above the 20xx seed series
-  expect(nextSbfasId([{ id: "SBFAS0999" }])).toBe("SBFAS2001"); // floor 2000 keeps new ids clear of old seeds
+  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS0014");    // highest seed is SBFAS0013
+  expect(nextSbfasId([])).toBe("SBFAS0001");                     // empty queue starts the 0001 series
+  expect(nextSbfasId([{ id: "SBFAS0999" }])).toBe("SBFAS1000"); // continues from the highest, no artificial floor
   expect(nextSbfasId([{ id: "SBFAS9999" }])).toBe("SBFAS10000"); // past 9999 the digits grow, nothing breaks
 });

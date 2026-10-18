@@ -37,11 +37,12 @@ export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 
 /**
  * Next application reference in the SBFASXXXX format: 4-digit zero-padded sequence continuing from the
- * highest existing one (seeds start at 2000). Past 9999 the digits simply grow (SBFAS10000) — never
- * validate or parse the reference with a fixed-length pattern, and sort by the numeric sequence, not the string.
+ * highest existing one (seeds start at 0001, so an empty queue starts at SBFAS0001). Past 9999 the digits
+ * simply grow (SBFAS10000) — never validate or parse the reference with a fixed-length pattern, and sort
+ * by the numeric sequence, not the string.
  */
 export const nextSbfasId = (apps: Pick<SbfasApplication, "id">[]) =>
-  `SBFAS${String(apps.reduce((m, a) => Math.max(m, Number(a.id.replace(/\D/g, "")) || 0), 2000) + 1).padStart(4, "0")}`;
+  `SBFAS${String(apps.reduce((m, a) => Math.max(m, Number(a.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(4, "0")}`;
 
 // ASSUMPTION: per-capita monthly income bands (S$) are mock values.
 const B1 = "Up to S$450";
@@ -69,31 +70,31 @@ const p = (
 
 // Handoff examples: High 89 / Medium 54 / Low 18.
 export const SBFAS_APPLICATIONS: SbfasApplication[] = [
-  p("SBFAS2041", "Kavitha d/o Raman", B1, H2, "2026-10-05", 89, "Tier 1", 1,
+  p("SBFAS0001", "Kavitha d/o Raman", B1, H2, "2026-10-05", 89, "Tier 1", 1,
     "Per-capita income is in the lowest band and the household has 3 school-going children. Two fee payments were late in the last 12 months and the Education Account balance would not cover this term. Predicted difficulty meeting fees without support is high."),
-  p("SBFAS2042", "Foo Mei Ling", B1, H1, "2026-10-05", 82, "Tier 1", 2,
+  p("SBFAS0002", "Foo Mei Ling", B1, H1, "2026-10-05", 82, "Tier 1", 2,
     "Single-income household in the lowest band. Account balance covers under one month of fees. No arrears, but the model weighs the income band and household size heavily."),
-  p("SBFAS2043", "Ethan Teo Kai Ming", B2, H2, "2026-10-08", 76, "Tier 2", 0,
+  p("SBFAS0003", "Ethan Teo Kai Ming", B2, H2, "2026-10-08", 76, "Tier 2", 0,
     "Income band is low and a recent change in employment is flagged. Balance is low but stable. The model recommends Tier 2; Tier 1 would apply if the income change is confirmed."),
-  p("SBFAS2044", "Ang Li Ying", B2, H3, "2026-10-08", 71, "Tier 2", 3,
+  p("SBFAS0004", "Ang Li Ying", B2, H3, "2026-10-08", 71, "Tier 2", 3,
     "Income band is low with 2 dependants. Exam fees are due this term and the Education Account balance is below the expected total."),
-  p("SBFAS2045", "Yeo Rui En", B3, H3, "2026-10-10", 54, "Tier 3", 4,
+  p("SBFAS0005", "Yeo Rui En", B3, H3, "2026-10-10", 54, "Tier 3", 4,
     "Income band is moderate. Fee history is on time, but the household has one non-citizen dependant and a thin account balance. Predicted difficulty is moderate."),
-  p("SBFAS2046", "Tay Jing Wen", B3, H3, "2026-10-10", 49, "Tier 3", 5,
+  p("SBFAS0006", "Tay Jing Wen", B3, H3, "2026-10-10", 49, "Tier 3", 5,
     "Moderate income band with stable fee history. Balance covers about two months of fees. Recommended tier reflects partial support only."),
-  p("SBFAS2047", "Chua Jia Hui", B3, H4, "2026-10-10", 41, "Tier 3", 6,
+  p("SBFAS0007", "Chua Jia Hui", B3, H4, "2026-10-10", 41, "Tier 3", 6,
     "Income band is on the edge of the moderate range. No arrears. The model sees a small risk because the balance is trending down."),
-  p("SBFAS2048", "Marcus Heng Zhe Yu", B4, H4, "2026-10-12", 36, "Tier 4", 7,
+  p("SBFAS0008", "Marcus Heng Zhe Yu", B4, H4, "2026-10-12", 36, "Tier 4", 7,
     "Income band is above the main support range. Fees have been paid on time every term. Low-moderate risk; Tier 4 gives a small top-up on fee components."),
-  p("SBFAS2049", "Goh Yu Xuan", B4, H4, "2026-10-12", 28, "Tier 4", 5,
+  p("SBFAS0009", "Goh Yu Xuan", B4, H4, "2026-10-12", 28, "Tier 4", 5,
     "Income band is higher and the Education Account covers the full year of fees. Risk is low; the application may be better suited to a school-level discretionary decision."),
-  p("SBFAS2050", "Lim Xin Yi", B4, H4, "2026-10-12", 18, "Tier 4", 8,
+  p("SBFAS0010", "Lim Xin Yi", B4, H4, "2026-10-12", 18, "Tier 4", 8,
     "Income band is the highest in this queue and the account balance exceeds this year's fees. Predicted difficulty meeting fees is low."),
-  p("SBFAS2051", "Adrian Pereira", B4, H4, "2026-10-11", 12, "Tier 4", 9,
+  p("SBFAS0011", "Adrian Pereira", B4, H4, "2026-10-11", 12, "Tier 4", 9,
     "No arrears, healthy balance, and a recent top-up. Very low predicted difficulty; kept in the queue only because the family applied."),
-  p("SBFAS2052", "Sim Hui Min", B2, H3, "2026-10-11", 63, "Tier 2", 2,
+  p("SBFAS0012", "Sim Hui Min", B2, H3, "2026-10-11", 63, "Tier 2", 2,
     "Low income band with a recent medical expense flagged by the family. Balance is low. The model is less confident because the income band was updated this month."),
   // Dual-citizen test case (Singapore + British) for the R4 nationality field on the review screen.
-  p("SBFAS2053", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 58, "Tier 3", 3,
+  p("SBFAS0013", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 58, "Tier 3", 3,
     "Dual citizen (Singapore + British) in a moderate income band. Both parents moved to part-time work after a recent relocation back to Singapore. No arrears and the balance covers about one month of fees. The model recommends partial support while the household settles."),
 ];
