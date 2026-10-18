@@ -5,6 +5,8 @@ export type Level = (typeof LEVELS)[number];
 export const STATUSES = ["Active", "Inactive"] as const;
 export type StudentStatus = (typeof STATUSES)[number];
 export type SbfasStatus = "Approved" | "Pending" | "Rejected" | "Not applied";
+/** R4: nationality is a decision input for FAS/SBFAS (citizens affect MOE funding). */
+export type Nationality = "Singapore Citizen" | "Singapore PR" | "Malaysian" | "Indian" | "Filipino";
 
 export type Student = {
   /** Internal record key (backend choice); screens show the masked NRIC instead. */
@@ -20,6 +22,8 @@ export type Student = {
   sbfas: SbfasStatus;
   /** MOE-level FAS status. A student never receives both schemes: MOEFAS takes precedence over SBFAS (see lib/fees.fasOf). */
   moefas: SbfasStatus;
+  /** Defaults to Singapore Citizen; unset only on records not yet enriched. */
+  nationality?: Nationality;
 };
 
 /** Classes offered by this (mock) school, two per level. */
@@ -82,6 +86,16 @@ const ROWS: Row[] = [
   ["Joel Soh Wen Jie", "Sec 4", 1, "Inactive", 4418.95, "Not applied", "Not applied"],
 ];
 
+// Nationality differs on a few records so the SBFAS decision screen shows the field working.
+const NATIONALITY: Record<string, Nationality> = {
+  "Ang Li Ying": "Singapore PR",
+  "Tay Jing Wen": "Singapore PR",
+  "Chua Jia Hui": "Malaysian",
+  "Kwok Yong Sheng": "Malaysian",
+  "Shreya d/o Nair": "Indian",
+  "Isabelle Ng Pei Shan": "Filipino",
+};
+
 // Ordered by name (a visible column), not by level/class, so the list does not look sorted by hidden fields.
 export const STUDENTS: Student[] = [...ROWS].sort((a, b) => a[0].localeCompare(b[0])).map(([name, level, c, status, balance, sbfas, moefas], i) => ({
   id: `S2026${String(i + 1).padStart(4, "0")}`,
@@ -93,6 +107,7 @@ export const STUDENTS: Student[] = [...ROWS].sort((a, b) => a[0].localeCompare(b
   balance,
   sbfas,
   moefas,
+  nationality: NATIONALITY[name] ?? "Singapore Citizen",
 }));
 
 /** Existing Education Accounts (created by MOE at age 7) that are not yet assigned to this school. */

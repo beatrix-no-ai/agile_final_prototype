@@ -30,6 +30,8 @@
 | `studentId` | string | `S2026xxxx` | Liên kết đơn với tài khoản, charge và subsidy của học sinh |
 | `level` | string | vd `P5`, `Sec 2` | Lấy từ hồ sơ học sinh |
 | `incomeBand` | string | `Up to S$450` / `S$451 - S$700` / `S$701 - S$1,000` / `S$1,001 - S$1,500` | Chỉ hiển thị **dải** thu nhập bình quân đầu người — số thu nhập chính xác không bao giờ xuất hiện |
+| `householdBand` | string | `Up to S$1,500` / `S$1,501 - S$2,500` / `S$2,501 - S$4,000` / `Above S$4,000` | Dải thu nhập **tổng hộ gia đình** (tháng). Hộ đông người có thể nằm dải hộ cao nhưng dải bình quân thấp — reviewer thấy cả hai cạnh nhau (R4) |
+| `incomeSyncedOn` | date | `yyyy-mm-dd` | Lần đồng bộ dải thu nhập gần nhất từ API bên thứ ba |
 | `riskScore` | number | 0–100 | Càng cao càng khó khả năng đóng phí |
 | `recommendedTier` | enum | `Tier 1..4` | Tier 1 = trợ cấp cao nhất; do AI khuyến nghị |
 | `slaDays` | number | Số nguyên | Số ngày làm việc **còn lại** để quyết định |
@@ -38,6 +40,10 @@
 | `sbfasTier` | enum? | `Tier 1..4` hoặc bỏ trống | Tier SBFAS được cấp; bỏ trống khi Rejected hoặc còn Pending |
 | `justification` | string? | Tự do | Bắt buộc khi Override; lưu kèm quyết định |
 
+Hằng số liên quan (R4):
+- `INCOME_API_SOURCE = "MyInfo (SingPass) API"` — nguồn duy nhất của `incomeBand` / `householdBand` / `incomeSyncedOn`; trường đọc-only, school user không tự nhập.
+- `SBFAS_TIER_RATES` — tỉ lệ subsidy theo tier: Tier 1 = 75%, Tier 2 = 65%, Tier 3 = 55%, Tier 4 = 50% (thực tế SBFAS do trường quản trong khoảng 50–75%). Cửa sổ review hiển thị bảng "mỗi tier trừ bao nhiêu trên từng fee component" của charge chưa trả của học sinh.
+
 ### 2.2 Hồ sơ học sinh (các trường liên quan SBFAS)
 
 | Trường | Kiểu | Giá trị | Ghi chú |
@@ -45,6 +51,7 @@
 | `sbfas` | enum | `Approved` / `Pending` / `Rejected` / `Not applied` | Trạng thái scheme cấp trường |
 | `moefas` | enum | Tương tự | Scheme cấp MOE; xem quy tắc ưu tiên BR1 |
 | `balance` | number | SGD | Số dư Education Account — là **tiền top-up**, không phải tiền FAS |
+| `nationality` | enum? | `Singapore Citizen` / `Singapore PR` / `Malaysian` / `Indian` / `Filipino` | Quốc tịch học sinh, hiển thị trong cửa sổ review (R4); mặc định Singapore Citizen, có thể bỏ trống trên hồ sơ chưa làm đầy đủ |
 
 ### 2.3 Charge (tích hợp phí)
 

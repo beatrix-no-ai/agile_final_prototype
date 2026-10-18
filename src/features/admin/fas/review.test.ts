@@ -4,7 +4,7 @@ import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../..
 import { STUDENTS } from "../../../data/students";
 
 const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
-  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
+  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", householdBand: "hb", incomeSyncedOn: "2026-10-05", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
 });
 
 test("sortQueue: pending first, then risk score desc", () => {
