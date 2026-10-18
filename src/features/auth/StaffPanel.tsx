@@ -25,7 +25,7 @@ export default function StaffPanel() {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     const account = findStaff(String(f.get("email")), String(f.get("password")));
-    if (account) signIn(account.role); // /signin redirects a signed-in visitor to their home
+    if (account) signIn(account.role, account.email); // /signin redirects a signed-in visitor to their home
     else setError("Email or password is incorrect. Check the details and try again.");
   };
 

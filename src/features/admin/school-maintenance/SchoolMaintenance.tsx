@@ -10,7 +10,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { SCHOOL_RECORDS, type SchoolRecord } from "../../../data/schoolMgmt";
-import { saveSchoolUser } from "../../../data/users";
+import { saveSchoolUser, usersOfSchool } from "../../../data/users";
 import SchoolFormModal, { SCHOOL_TYPES } from "./SchoolFormModal";
 
 export default function SchoolMaintenance() {
@@ -32,7 +32,7 @@ export default function SchoolMaintenance() {
     setSchools((all) => (exists ? all.map((x) => (x.code === s.code ? s : x)) : [s, ...all]));
     const acct = saveSchoolUser(s.code, u.name, u.email, u.resetPassword);
     const showPassword = !exists || u.resetPassword;
-    setNotice(`${s.name} was ${exists ? "updated" : "added"}. School user login: ${acct.email}.`);
+    setNotice(`${s.name} was ${exists ? "updated" : "added"}. Principal login: ${acct.email}.`);
     if (showPassword) setCreds({ school: s.name, email: acct.email, password: acct.password });
   };
 
@@ -41,7 +41,7 @@ export default function SchoolMaintenance() {
     { key: "name", header: "School", sortable: true, render: (s) => <span className="font-medium">{s.name}</span> },
     { key: "level", header: "Type", sortable: true },
     { key: "principal", header: "Principal", sortable: true },
-    { key: "user", header: "School user", sortable: true, render: (s) => s.user ?? "Not assigned" },
+    { key: "users", header: "Users", render: (s) => { const u = usersOfSchool(s.code); return u.length ? u.map((x) => x.title === "Principal" ? `${x.name} (Principal)` : x.name).join(", ") : "Not assigned"; } },
     { key: "email", header: "Email", sortable: true },
     { key: "phone", header: "Phone", sortable: true },
     { key: "students", header: "Students", sortable: true, align: "right", render: (s) => s.students.toLocaleString("en-SG") },
@@ -80,10 +80,10 @@ export default function SchoolMaintenance() {
           />
         </div>
       </Card>
-      <Modal open={!!creds} onClose={() => setCreds(null)} title="School user login" footer={<Button onClick={() => setCreds(null)}>I have noted it</Button>}>
+      <Modal open={!!creds} onClose={() => setCreds(null)} title="Principal login" footer={<Button onClick={() => setCreds(null)}>I have noted it</Button>}>
         {creds && (
           <div className="grid gap-3 text-sm">
-            <p>Give these details to the school user of <strong>{creds.school}</strong>. The password is shown only once.</p>
+            <p>Give these details to the Principal of <strong>{creds.school}</strong>. The password is shown only once.</p>
             <dl className="grid gap-2 rounded-control border border-line bg-surface-container-low p-4">
               <div><dt className="text-[13px] text-on-surface-variant">Login email</dt><dd className="font-semibold">{creds.email}</dd></div>
               <div><dt className="text-[13px] text-on-surface-variant">One-time password</dt><dd className="font-mono text-lg font-bold">{creds.password}</dd></div>

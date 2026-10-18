@@ -3,7 +3,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import type { SchoolRecord } from "../../../data/schoolMgmt";
-import { STAFF } from "../../../data/users";
+import { principalOf } from "../../../data/users";
 import { nextSchoolId, validateSchool, type SchoolInput } from "../../../lib/schoolMgmt";
 
 const EMPTY: SchoolInput = { code: "", name: "", level: "", address: "", principal: "", email: "", phone: "", userName: "", userEmail: "" };
@@ -11,7 +11,7 @@ export const SCHOOL_TYPES = ["Primary", "Secondary"] as const;
 type Props = { open: boolean; editing: SchoolRecord | null; all: SchoolRecord[]; onClose: () => void; onSave: (s: SchoolRecord, user: { name: string; email: string; resetPassword: boolean }) => void };
 
 export default function SchoolFormModal({ open, editing, all, onClose, onSave }: Props) {
-  const account = editing && STAFF.find((u) => u.role === "school" && u.schoolCode === editing.code);
+  const account = editing && principalOf(editing.code);
   const [v, setV] = useState<SchoolInput>(editing ? { ...editing, userName: account?.name ?? "", userEmail: account?.email ?? "" } : EMPTY);
   const [reset, setReset] = useState(false);
   const [active, setActive] = useState(editing?.active ?? true);
@@ -35,7 +35,6 @@ export default function SchoolFormModal({ open, editing, all, onClose, onSave }:
       phone: v.phone.replace(/\s/g, ""),
       students: editing?.students ?? 0,
       active,
-      user: v.userName!.trim(),
     }, { name: v.userName!.trim(), email: v.userEmail!.trim(), resetPassword: reset });
     onClose();
   };
@@ -82,13 +81,14 @@ export default function SchoolFormModal({ open, editing, all, onClose, onSave }:
           </Field>
         </div>
         <fieldset className="grid gap-4 rounded-control border border-line p-4 sm:grid-cols-2">
-            <legend className="px-1 text-[13px] font-semibold">School user (responsible for this school)</legend>
+            <legend className="px-1 text-[13px] font-semibold">Principal account (one per school)</legend>
             <Field required label="Name" error={errors.userName}>
               <input className={inputClass} value={v.userName} onChange={set("userName")} />
             </Field>
             <Field required label="Email (login)" error={errors.userEmail} hint={editing ? "Changing this changes the login." : "A one-time password is generated after saving."}>
               <input type="email" className={inputClass} value={v.userEmail} onChange={set("userEmail")} />
             </Field>
+            <p className="text-[13px] text-on-surface-variant sm:col-span-2">Other School Admins and their modules are managed on the User page.</p>
             {editing && (
               <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm sm:col-span-2">
                 <input type="checkbox" className="size-5 accent-primary" checked={reset} onChange={(e) => setReset(e.target.checked)} />

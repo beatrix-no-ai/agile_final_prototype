@@ -1,9 +1,8 @@
 import { SCHOOLS, type School } from "./schools";
-import { STAFF } from "./users";
 import { CLASSES, LEVELS, type Level } from "./students";
 
 // ASSUMPTION: invented principals, addresses, teachers, rooms (mock data).
-export type SchoolRecord = School & { address: string; principal: string; email: string; phone: string; active: boolean; user?: string };
+export type SchoolRecord = School & { address: string; principal: string; email: string; phone: string; active: boolean };
 const PRINCIPALS = ["Mrs Angela Koh", "Mr Faizal Rahim", "Ms Janet Lau", "Dr Ramesh Nair", "Mrs Wong Mei Ling", "Mr Daniel Ng"];
 export const SCHOOL_RECORDS: SchoolRecord[] = SCHOOLS.map((s, i) => ({
   ...s,
@@ -12,7 +11,6 @@ export const SCHOOL_RECORDS: SchoolRecord[] = SCHOOLS.map((s, i) => ({
   email: `${s.code.toLowerCase()}@school.example.sg`,
   phone: `6${String(5000000 + i * 91357).padStart(7, "0")}`,
   active: true,
-  user: STAFF.find((u) => u.schoolCode === s.code)?.name,
 }));
 
 // ASSUMPTION: the mock students and classes belong to two schools: P1-P6 to Riverbank Primary (S002), Sec 1-4 to Greenfield Secondary (S001).

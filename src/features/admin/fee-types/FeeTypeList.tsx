@@ -31,7 +31,7 @@ export default function FeeTypeList({ school, onAssign }: { school: string; onAs
   const schoolName = SCHOOLS.find((s) => s.code === school)?.name ?? school;
   const scopes = master ? ["Primary", "Secondary"] : [...new Set(mine.map((f) => f.level).filter(Boolean))] as string[];
   const shown = mine.filter((f) => !filter || (master ? !f.scope || f.scope === filter : !f.level || f.level === filter));
-  const noun = master ? "master fee type" : "school fee";
+  const noun = master ? "MOE Bill" : "School Bill";
   const openNew = () => setEditing({ id: "", draft: BLANK });
   const openEdit = (f: FeeType) => setEditing({ id: f.id, draft: { name: f.name, level: (master ? f.scope : f.level) ?? "", components: f.components.map((c) => ({ name: c.name, amount: String(c.amount), on: true })) } });
 
@@ -56,7 +56,7 @@ export default function FeeTypeList({ school, onAssign }: { school: string; onAs
               </h2>
               {!master && (
                 <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-on-surface-variant">
-                  <b>School fee</b> · <code>{f.id}</code> · updated {f.updated} · <Badge tone="neutral">{scopeOf(f)}</Badge>
+                  <b>School Bill</b> · <code>{f.id}</code> · updated {f.updated} · <Badge tone="neutral">{scopeOf(f)}</Badge>
                 </p>
               )}
             </div>

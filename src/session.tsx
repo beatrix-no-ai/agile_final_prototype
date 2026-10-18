@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { userFor, type User } from "./data/users";
+import { STAFF, staffByEmail, userFor, type Module, type StaffAccount, type User } from "./data/users";
 import { effectiveRole, newSessionId, parseSimulating, simulationFor, type Simulating } from "./features/admin/simulation/logic";
 
 export type Role = "hq" | "school" | "parent";
@@ -10,15 +10,22 @@ type Session = {
   realRole: Role | null;
   /** The person actually signed in (the HQ user while simulating, never the simulated one). */
   user: User;
+  /** The staff account acting right now (the first school account while an HQ user simulates a School user); null for parents and guests. */
+  staff: StaffAccount | null;
+  /** Whether the acting user may use a module. HQ always can; parents never. */
+  can(m: Module): boolean;
+  /** True for the school Principal (and HQ). */
+  canManageUsers: boolean;
   simulating: Simulating | null;
   startSimulation(as: "school" | "parent", schoolName?: string): void;
   stopSimulation(): void;
-  signIn(role: Role): void;
+  signIn(role: Role, email?: string): void;
   signOut(): void;
 };
 
 const GUEST: User = { name: "Guest", initials: "G" };
 const KEY = "moe-ui-role";
+const EMAIL_KEY = "moe-ui-email";
 const isRole = (v: unknown): v is Role => v === "hq" || v === "school" || v === "parent";
 
 function initialRole(): Role | null {
@@ -30,6 +37,14 @@ function initialRole(): Role | null {
     }
     const saved = sessionStorage.getItem(KEY);
     return isRole(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function initialEmail(): string | null {
+  try {
+    return sessionStorage.getItem(EMAIL_KEY);
   } catch {
     return null;
   }
@@ -50,6 +65,7 @@ const Ctx = createContext<Session | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [realRole, setRole] = useState<Role | null>(initialRole);
   const [sim, setSim] = useState<Simulating | null>(initialSim);
+  const [email, setEmail] = useState<string | null>(initialEmail);
   const [note, setNote] = useState("");
   const simulating = simulationFor(realRole, sim);
   const role = effectiveRole(realRole, simulating);
@@ -62,18 +78,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       /* storage unavailable: simulation lives in memory only */
     }
   };
-  const set = (r: Role | null) => {
+  const set = (r: Role | null, who?: string) => {
     setSimulating(null);
     setRole(r);
+    setEmail(r && who ? who : null);
     try {
       if (r) sessionStorage.setItem(KEY, r);
       else sessionStorage.removeItem(KEY);
+      if (r && who) sessionStorage.setItem(EMAIL_KEY, who);
+      else sessionStorage.removeItem(EMAIL_KEY);
     } catch {
       /* storage unavailable: session lives in memory only */
     }
   };
+  const signed = realRole === "hq" || realRole === "school" ? staffByEmail(email) ?? STAFF.find((s) => s.role === realRole) ?? null : null;
+  const staff = role === "school" && realRole === "hq" ? STAFF.find((s) => s.role === "school") ?? null : role === "hq" || role === "school" ? signed : null;
   const value: Session = {
     role,
+    staff,
+    can: (m) => role === "hq" || (role === "school" && !!staff?.modules.includes(m)),
+    canManageUsers: role === "hq" || (role === "school" && staff?.title === "Principal"),
     realRole,
     simulating,
     startSimulation: (as, schoolName) => {
@@ -86,8 +110,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSimulating(null);
       setNote("Simulation ended");
     },
-    user: realRole ? userFor(realRole) : GUEST,
-    signIn: set,
+    user: realRole ? (signed ?? userFor(realRole)) : GUEST,
+    signIn: (r, who) => set(r, who),
     signOut: () => set(null),
   };
   return (

@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
-import AppShell, { RequireRole } from "./components/layout/AppShell";
+import AppShell, { RequireAccess, RequireRole } from "./components/layout/AppShell";
+import type { Module } from "./data/users";
 import { ComingSoon } from "./components/layout/PagePlaceholder";
 import { homeFor } from "./data/nav";
 import { useSession } from "./session";
@@ -13,7 +14,7 @@ function RedirectIfSignedIn({ children }: { children: ReactNode }) {
 }
 
 /** Lazy route from a default-export module. `hqOnly` sends School users back to /admin; `guestOnly` sends a signed-in visitor home. */
-const page = (load: Loader, hqOnly = false, guestOnly = false): Pick<RouteObject, "lazy"> => ({
+const page = (load: Loader, hqOnly = false, guestOnly = false, need?: Module | "users"): Pick<RouteObject, "lazy"> => ({
   lazy: async () => {
     const C = (await load()).default;
     if (guestOnly) return { Component: () => <RedirectIfSignedIn><C /></RedirectIfSignedIn> };
@@ -24,7 +25,13 @@ const page = (load: Loader, hqOnly = false, guestOnly = false): Pick<RouteObject
               <C />
             </RequireRole>
           )
-        : C,
+        : need
+          ? () => (
+              <RequireAccess {...(need === "users" ? { manage: true } : { module: need })}>
+                <C />
+              </RequireAccess>
+            )
+          : C,
     };
   },
 });
@@ -67,9 +74,10 @@ export const router = createBrowserRouter([
           { path: "students/:id/account", ...page(() => import("./features/admin/students/EducationAccountPage")) },
           { path: "students/:id/fees", ...page(() => import("./features/admin/students/StudentFees")) },
           { path: "fee-types", ...page(() => import("./features/admin/fee-types/FeeTypes")) },
-          { path: "fas", ...page(() => import("./features/admin/fas/FasApplications")) },
+          { path: "fas", ...page(() => import("./features/admin/fas/FasApplications"), false, false, "FAS") },
+          { path: "users", ...page(() => import("./features/admin/users/Users"), false, false, "users") },
           { path: "budgets", ...page(() => import("./features/admin/budgets/Budgets"), true) },
-          { path: "top-up", ...page(() => import("./features/admin/top-up/TopUp"), true) },
+          { path: "top-up", ...page(() => import("./features/admin/top-up/TopUp"), false, false, "Top-up") },
           { path: "schools", ...page(() => import("./features/admin/simulation/SchoolRegistry"), true) },
           { path: "*", Component: ComingSoon },
         ],

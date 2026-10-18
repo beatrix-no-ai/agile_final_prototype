@@ -5,7 +5,7 @@ import { maskNric } from "../../../lib/nric";
 import { cash, sgToday, type DialogSpec } from "./tuUi";
 
 type Props = {
-  rules: FundRule[]; accounts: Account[]; presetAccountId?: string;
+  rules: FundRule[]; accounts: Account[]; presetAccountId?: string; singleOnly?: boolean;
   onBack: () => void; onDone: (row: Transaction, creditedIds: string[]) => void;
   notify: (m: string) => void; ask: (d: DialogSpec) => void; closeAsk: () => void;
 };
@@ -18,7 +18,7 @@ const ALL = "ALL";
 /** Input sanity only, not a business limit (the customer does not want limits on top-up rules). */
 const MAX_AMOUNT = 99_999_999;
 
-export default function Execute({ rules, accounts, presetAccountId, onBack, onDone, notify, ask, closeAsk }: Props) {
+export default function Execute({ rules, accounts, presetAccountId, singleOnly, onBack, onDone, notify, ask, closeAsk }: Props) {
   const [mode, setMode] = useState<"single" | "batch">("single");
   const [accountId, setAccountId] = useState(presetAccountId ?? "");
   const [query, setQuery] = useState(() => { const a = accounts.find((x) => x.id === presetAccountId); return a ? `${a.name} (${maskNric(a.nric)})` : ""; });
@@ -94,9 +94,9 @@ export default function Execute({ rules, accounts, presetAccountId, onBack, onDo
       <button type="button" className="backline" onClick={onBack}>← Back to Top-up History</button>
       <div className="two">
         <div className="card leftcard"><h2>Create top-up</h2>
-          <div className="field"><label>Top-up Type</label><div className="switch">
+          {!singleOnly && <div className="field"><label>Top-up Type</label><div className="switch">
             <button type="button" className={single ? "selected" : ""} onClick={() => changeMode("single")}>Single</button>
-            <button type="button" className={!single ? "selected" : ""} onClick={() => changeMode("batch")}>Batch</button></div></div>
+            <button type="button" className={!single ? "selected" : ""} onClick={() => changeMode("batch")}>Batch</button></div></div>}
 
           {single ? (
             <div>

@@ -10,14 +10,14 @@ import StudentCharges from "./StudentCharges";
 const TABS = [
   { id: "dash", label: "Student fees & dashboard", hint: "Collected vs outstanding" },
   { id: "assign", label: "Assign fees", hint: "Issue charges to a class" },
-  { id: "types", label: "School fee catalogue", hint: "Set up what the school charges" },
+  { id: "types", label: "School Bill catalogue", hint: "Set up what the school charges" },
   { id: "stu", label: "Student fees", hint: "Review every charge" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
 const HQ_TABS = [
   { id: "dash", label: "Fee dashboard", hint: "All schools, read-only" },
-  { id: "master", label: "Master catalogue", hint: "MOE-wide fee types" },
+  { id: "master", label: "MOE Bill catalogue", hint: "Mandatory, whole-cohort bills" },
 ] as const;
 
 /** Fee (Req 3): schools set up fee types, assign them to classes and review charges; HQ reviews every school read-only. */

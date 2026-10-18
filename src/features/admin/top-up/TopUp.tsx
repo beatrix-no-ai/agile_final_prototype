@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "react-router";
+import { useSession } from "../../../session";
 import type { Student } from "../../../data/students";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
 import { SCHOOLS } from "../../../data/schools";
@@ -114,11 +115,16 @@ const accountOf = (s: Student): Account => ({
 
 export default function TopUp() {
   const preset = (useLocation().state as { student?: Student } | null)?.student;
+  // A School user with the Top-up module sees only their own school's accounts, single top-ups, and no rule tab.
+  const { role, staff } = useSession();
+  const ownSchool = role === "school" ? SCHOOLS.find((s) => s.code === staff?.schoolCode)?.name ?? "" : undefined;
+  const tabs = ownSchool === undefined ? TABS : TABS.filter((t) => t.id === "transactions");
+  const base = ownSchool === undefined ? ACCOUNTS : ACCOUNTS.filter((a) => a.school === ownSchool);
   const [tab, setTab] = useState<TabId>("transactions");
   const [creating, setCreating] = useState(Boolean(preset)); // a preset student opens the create form directly
   const [rules, setRules] = useState<FundRule[]>(FUND_RULES);
-  const [accounts, setAccounts] = useState<Account[]>(() => (preset && !ACCOUNTS.some((a) => a.id === preset.id) ? [accountOf(preset), ...ACCOUNTS] : ACCOUNTS));
-  const [history, setHistory] = useState<Transaction[]>(PAST_TRANSACTIONS);
+  const [accounts, setAccounts] = useState<Account[]>(() => (preset && !base.some((a) => a.id === preset.id) ? [accountOf(preset), ...base] : base));
+  const [history, setHistory] = useState<Transaction[]>(ownSchool === undefined ? PAST_TRANSACTIONS : []);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const { notify, toast } = useToast();
 
@@ -134,12 +140,12 @@ export default function TopUp() {
   return (
     <div className="tu">
       <nav className="tabs" role="tablist" aria-label="Top-up workspace">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "active" : ""} onClick={() => { setTab(t.id); setCreating(false); }}>{t.label}</button>
         ))}
       </nav>
       {tab === "transactions" && (creating
-        ? <Execute rules={rules} accounts={accounts} presetAccountId={preset?.id} onBack={() => setCreating(false)} onDone={done} notify={notify} ask={setDialog} closeAsk={closeAsk} />
+        ? <Execute rules={rules} accounts={accounts} presetAccountId={preset?.id} singleOnly={ownSchool !== undefined} onBack={() => setCreating(false)} onDone={done} notify={notify} ask={setDialog} closeAsk={closeAsk} />
         : <History rows={history} accounts={accounts} onCreate={() => setCreating(true)} />)}
       {tab === "rules" && <Rules rules={rules} onChange={setRules} notify={notify} ask={setDialog} closeAsk={closeAsk} />}
       <Dialog spec={dialog} onClose={closeAsk} />

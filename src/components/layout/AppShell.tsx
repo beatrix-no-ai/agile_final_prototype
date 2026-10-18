@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { homeFor, navFor } from "../../data/nav";
 import { useSession, type Role } from "../../session";
+import type { Module } from "../../data/users";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { guardRedirect } from "../../features/admin/simulation/logic";
@@ -20,8 +21,15 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   return children;
 }
 
+/** Route wrapper for School users: needs the module (or user management); HQ always passes. */
+export function RequireAccess({ module, manage, children }: { module?: Module; manage?: boolean; children: ReactNode }) {
+  const { role, can, canManageUsers } = useSession();
+  if (role === "school" && (module ? !can(module) : manage && !canManageUsers)) return <Navigate to={homeFor(role)} replace />;
+  return children;
+}
+
 export default function AppShell() {
-  const { role, simulating } = useSession();
+  const { role, simulating, can, canManageUsers } = useSession();
   const { pathname } = useLocation();
   const [pinned, setPinned] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
@@ -31,7 +39,7 @@ export default function AppShell() {
     if (state?.focusMain) mainRef.current?.focus();
   }, [key, state]);
 
-  const current = role ? navFor(role).find((n) => n.to === pathname) : undefined;
+  const current = role ? navFor(role, { can, canManageUsers }).find((n) => n.to === pathname) : undefined;
   const pageTitle = current?.title ?? current?.label ?? (pathname.endsWith("/account") ? "Education Account" : pathname.endsWith("/fees") ? "Student fees" : "MOE");
   useEffect(() => {
     if (!role) return;

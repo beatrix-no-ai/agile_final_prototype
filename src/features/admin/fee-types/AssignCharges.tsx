@@ -14,10 +14,11 @@ import { alreadyCharged, feeOf, studentsOfClass } from "../../../lib/fees";
 import { selectClass, studentOf } from "./parts";
 
 type Result = { created: number; skipped: number; level: string; term: string };
+type Scope = "level" | "class" | "student";
 const total = (f: FeeType) => f.components.reduce((t, c) => t + c.amount, 0);
 const scopeOf = (f: FeeType) => f.scope ?? f.level ?? "All levels";
 
-/** School user: assign one or more MOE / school fee types to a whole level and issue one unpaid charge per student for a term (US-014). Duplicates are skipped. */
+/** School user: assign MOE Bills (whole cohort) or School Bills (a level, a class or one student) and issue one unpaid charge per student for a term (US-014). The two sources are never combined in one assignment. Duplicates are skipped. */
 export default function AssignCharges({ school, presetFee }: { school: string; presetFee: string }) {
   const [tab, setTab] = useState<"assign" | "history">("assign");
   const tabs = [["assign", "Assign & generate charges"], ["history", "Charge history"]] as const;
@@ -38,6 +39,9 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const { state, dispatch } = useFees();
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
   const [level, setLevel] = useState("");
+  const [scope, setScope] = useState<Scope>("level");
+  const [cls, setCls] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [term, setTerm] = useState(TERMS[0]);
   const [result, setResult] = useState<Result | null>(null);
 
@@ -46,11 +50,20 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const own = state.types.filter((f) => f.school === school);
   const chosen = [...master, ...own].filter((f) => picked.includes(f.id));
   const levels = [...new Set(CLASS_RECORDS.filter((c) => c.school === school).map((c) => c.level))];
+  const classes = CLASS_RECORDS.filter((c) => c.school === school);
+  const schoolStudents = classes.flatMap((c) => studentsOfClass(school, c.name));
+  // MOE Bills and School Bills stay separate: picking one source locks the other.
+  const source = chosen.length ? (chosen[0].school === MASTER ? "moe" : "school") : null;
+  // A MOE Bill always goes to the whole level (cohort); only a School Bill can be narrowed to a class or one student.
+  const effScope: Scope = source === "school" ? scope : "level";
   const perStudent = chosen.reduce((t, f) => t + total(f), 0);
 
-  // Each fee applies to the chosen level only when its own level (if any) matches.
-  const students = level ? CLASS_RECORDS.filter((c) => c.school === school && c.level === level).flatMap((c) => studentsOfClass(school, c.name)) : [];
-  const plan = chosen.filter((f) => !f.level || f.level === level).flatMap((fee) => students.map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, term) })));
+  // Each fee applies to a student only when its own level (if any) matches that student's level.
+  const students = effScope === "level" ? (level ? classes.filter((c) => c.level === level).flatMap((c) => studentsOfClass(school, c.name)) : [])
+    : effScope === "class" ? (cls ? studentsOfClass(school, cls) : [])
+    : schoolStudents.filter((s) => s.id === studentId);
+  const target = effScope === "level" ? level : effScope === "class" ? cls : students[0]?.name ?? "";
+  const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, term) })));
   const todo = plan.filter((p) => !p.dup);
 
   const add = (id: string) => { if (id && !picked.includes(id)) { setPicked([...picked, id]); setResult(null); } };
@@ -59,28 +72,28 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
       const s = todo.filter((p) => p.fee.id === fee.id).map((p) => p.s);
       if (s.length) dispatch({ type: "generate", fee, term, students: s });
     }
-    setResult({ created: todo.length, skipped: plan.length - todo.length, level, term });
+    setResult({ created: todo.length, skipped: plan.length - todo.length, level: target, term });
   };
   const label = (f: FeeType) => `${f.name}${f.school === MASTER ? ` · ${scopeOf(f)}` : f.level ? ` · ${f.level}` : ""} (${formatSGD(total(f))})`;
 
   return (
     <Card>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="MOE fee type">
-          <select className={inputClass} value="" onChange={(e) => add(e.target.value)}>
-            <option value="">＋ Add MOE fee type…</option>
+        <Field label="MOE Bill" hint={source === "school" ? "Remove the School Bill to assign a MOE Bill." : "Mandatory, whole cohort. Created by MOE HQ."}>
+          <select className={inputClass} value="" disabled={source === "school"} onChange={(e) => add(e.target.value)}>
+            <option value="">＋ Add MOE Bill…</option>
             {master.filter((f) => !picked.includes(f.id)).map((f) => <option key={f.id} value={f.id}>{label(f)}</option>)}
           </select>
         </Field>
-        <Field label="School fee">
-          <select className={inputClass} value="" onChange={(e) => add(e.target.value)}>
-            <option value="">＋ Add school fee…</option>
+        <Field label="School Bill" hint={source === "moe" ? "Remove the MOE Bill to assign a School Bill." : "Created by your school. Target a level, a class or one student."}>
+          <select className={inputClass} value="" disabled={source === "moe"} onChange={(e) => add(e.target.value)}>
+            <option value="">＋ Add School Bill…</option>
             {own.filter((f) => !picked.includes(f.id)).map((f) => <option key={f.id} value={f.id}>{label(f)}</option>)}
           </select>
         </Field>
       </div>
 
-      <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Selected fee types &amp; total</h3>
+      <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Selected bills &amp; total</h3>
       {chosen.length ? (
         <table className="mt-3 w-full text-sm">
           <thead>
@@ -94,7 +107,7 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
           <tbody>
             {chosen.map((f) => (
               <tr key={f.id} className="border-b border-line align-top">
-                <td className="px-3 py-3"><Badge tone={f.school === MASTER ? "primary" : "neutral"}>{f.school === MASTER ? "MOE" : "School"}</Badge></td>
+                <td className="px-3 py-3"><Badge tone={f.school === MASTER ? "primary" : "neutral"}>{f.school === MASTER ? "MOE Bill" : "School Bill"}</Badge></td>
                 <td className="px-3 py-3">
                   <b>{f.name}</b> <code className="text-[13px] text-on-surface-variant">{f.id}</code> · {f.level ?? "all levels of this school"}
                   <div className="mt-0.5 text-[13px] text-on-surface-variant">{f.components.map((c) => `${c.name} (${formatSGD(c.amount)})`).join(" · ")}</div>
@@ -111,16 +124,43 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
           </tbody>
         </table>
       ) : (
-        <p className="py-8 text-center text-sm text-on-surface-variant">Add one or more MOE fee types (assigned whole) and/or school fees above.</p>
+        <p className="py-8 text-center text-sm text-on-surface-variant">Add one or more MOE Bills (whole cohort) or School Bills above. The two cannot be combined in one assignment.</p>
       )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field required label="Level / cohort">
-          <select className={inputClass} value={level} onChange={(e) => { setLevel(e.target.value); setResult(null); }}>
-            <option value="">— select level —</option>
-            {levels.map((l) => <option key={l}>{l}</option>)}
-          </select>
-        </Field>
+        {source === "school" && (
+          <Field required label="Assign to">
+            <select className={inputClass} value={scope} onChange={(e) => { setScope(e.target.value as Scope); setResult(null); }}>
+              <option value="level">A level</option>
+              <option value="class">A class</option>
+              <option value="student">One student</option>
+            </select>
+          </Field>
+        )}
+        {effScope === "level" && (
+          <Field required label="Level / cohort">
+            <select className={inputClass} value={level} onChange={(e) => { setLevel(e.target.value); setResult(null); }}>
+              <option value="">— select level —</option>
+              {levels.map((l) => <option key={l}>{l}</option>)}
+            </select>
+          </Field>
+        )}
+        {effScope === "class" && (
+          <Field required label="Class">
+            <select className={inputClass} value={cls} onChange={(e) => { setCls(e.target.value); setResult(null); }}>
+              <option value="">— select class —</option>
+              {classes.map((c) => <option key={c.name}>{c.name}</option>)}
+            </select>
+          </Field>
+        )}
+        {effScope === "student" && (
+          <Field required label="Student">
+            <select className={inputClass} value={studentId} onChange={(e) => { setStudentId(e.target.value); setResult(null); }}>
+              <option value="">— select student —</option>
+              {schoolStudents.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.class})</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Term">
           <select className={inputClass} value={term} onChange={(e) => { setTerm(e.target.value); setResult(null); }}>
             {TERMS.map((t) => <option key={t}>{t}</option>)}
@@ -128,13 +168,13 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
         </Field>
       </div>
 
-      {level && chosen.length ? (
+      {target && chosen.length ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button onClick={generate} disabled={!todo.length}>Generate {todo.length} {todo.length === 1 ? "charge" : "charges"} ({chosen.length} fee type{chosen.length === 1 ? "" : "s"} · {formatSGD(perStudent)} per student)</Button>
           <span className="text-[13px] text-on-surface-variant">{todo.length} to create · {plan.length - todo.length} already charged (skipped)</span>
         </div>
       ) : (
-        <div className="mt-2"><EmptyState title={chosen.length ? "Select a level to generate the charges." : "Nothing to generate yet"} /></div>
+        <div className="mt-2"><EmptyState title={chosen.length ? "Choose who the charges are for." : "Nothing to generate yet"} /></div>
       )}
       {result && (
         <p role="status" className="mt-4 flex items-center gap-2 rounded-card border border-line bg-success-container px-4 py-3 text-sm font-medium text-success">
