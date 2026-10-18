@@ -93,4 +93,7 @@ export const SBFAS_APPLICATIONS: SbfasApplication[] = [
     "No arrears, healthy balance, and a recent top-up. Very low predicted difficulty; kept in the queue only because the family applied."),
   p("SBFAS-2052", "Sim Hui Min", B2, H3, "2026-10-11", 63, "Tier 2", 2,
     "Low income band with a recent medical expense flagged by the family. Balance is low. The model is less confident because the income band was updated this month."),
+  // Dual-citizen test case (Singapore + British) for the R4 nationality field on the review screen.
+  p("SBFAS-2053", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 58, "Tier 3", 3,
+    "Dual citizen (Singapore + British) in a moderate income band. Both parents moved to part-time work after a recent relocation back to Singapore. No arrears and the balance covers about one month of fees. The model recommends partial support while the household settles."),
 ];

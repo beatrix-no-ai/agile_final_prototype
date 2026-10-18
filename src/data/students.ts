@@ -67,7 +67,7 @@ const ROWS: Row[] = [
   ["Chloe Wong Shu Ting", "P4", 1, "Inactive", 1604.1, "Not applied", "Not applied"],
   ["Haziq bin Abdullah", "P4", 1, "Active", 1431.6, "Not applied", "Approved"],
   ["Sim Hui Min", "P5", 0, "Active", 2036.55, "Not applied", "Not applied"],
-  ["Daniel Koh Jun Wei", "P5", 0, "Active", 1978.2, "Not applied", "Not applied"],
+  ["Daniel Koh Jun Wei", "P5", 0, "Active", 1978.2, "Pending", "Not applied"],
   ["Kavitha d/o Raman", "P5", 1, "Active", 2112.8, "Approved", "Not applied"],
   ["Aqil Zafran bin Salleh", "P5", 1, "Inactive", 1895.35, "Pending", "Not applied"],
   ["Yeo Rui En", "P6", 0, "Active", 2587.9, "Not applied", "Not applied"],
