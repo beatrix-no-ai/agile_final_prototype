@@ -14,6 +14,7 @@
 | F2 | Quy trình quyết định: Approve / Override / Reject kèm kiểm tra hợp lệ | Cửa sổ Review |
 | F3 | Lịch sử quyết định: tab Granted và Declined | Các nút lọc phía trên bảng |
 | F4 | Ngữ cảnh phí theo từng đơn: Fee payable và Account balance (top-up) | Hai cột + khối thông tin trong cửa sổ Review |
+| F5 | Nộp đơn family-level từ parent e-Service: sinh per-child application vào queue admin; tracker + thẻ FAS phía parent cập nhật theo quyết định | Parent portal → FAS; Admin → FAS queue |
 | F5 | Kết quả SBFAS phản ánh vào phí phải đóng (subsidy trên charge đã phát hành) | Fee → Student fees; modal charge |
 | F6 | Ghi nhận thanh toán cho charge được giảm trợ | Modal charge → *Record a payment* |
 
@@ -90,6 +91,8 @@ Hằng số liên quan (R4):
 - **BR12 — Quốc tịch và eligibility scheme (R4).** **MOE FAS** chỉ dành cho **công dân Singapore** (học sinh song tịch `Dual (Singapore + …)` vẫn được tính là công dân vì trẻ em được phép giữ song tịch). **SBFAS** cấp cho công dân Singapore và **Singapore PR**; học sinh **quốc tịch nước ngoài không được cấp SBFAS** (cả hai scheme đều không áp dụng) và **không thể nộp đơn** — hàng đợi SBFAS không bao giờ chứa đơn của học sinh quốc tịch nước ngoài. Trên cửa sổ review: quốc tịch PR → cảnh báo vàng "chỉ được xét SBFAS"; quốc tịch nước ngoài → cảnh báo đỏ "không đủ điều kiện cả MOE FAS lẫn SBFAS — từ chối đơn". Cảnh báo mang tính nhắc nhở — quyết định vẫn thuộc school user.
 - **BR12 — Trạng thái charge suy diễn.** `paid` khi thanh toán đủ phủ phần phải trả (còn `≤ S$0.005`); ngược lại `overdue` khi quá hạn `due`; còn lại `outstanding`. Trạng thái không lưu cứng — ghi nhận thanh toán có thể đổi dòng thành *paid* tức thì.
 - **BR13 — Quy tắc thanh toán.** Mỗi lần ghi nhận gắn với đúng một charge; số tiền > 0, tối đa 2 chữ số thập phân, không vượt phần còn nợ. Nguồn là *Education account* (trừ số dư top-up về mặt khái niệm) hoặc *Card / PayNow* (cổng thanh toán). Cho phép trả một phần; mỗi lần ghi nhận có tham chiếu `CH-xxxx-Pn`.
+
+- **BR14 — Luồng đơn family-level (R4-parent).** Phụ huynh nộp **một đơn cho cả gia đình** trên e-Service Portal (một lần/phiên). Nếu dải thu nhập đã sync thuộc band SBFAS (không thuộc band MOEFAS — BR10b), hệ thống sinh **mỗi em một application** vào queue admin: id tiếp chuỗi `SBFASXXXX`, `studentId` trỏ về hồ sơ admin của em đó, trạng thái `Pending`, income band/household band/sync date lấy từ lần sync của gia đình. Band MOEFAS → không sinh đơn trường (MOE cấp tự động); band cao hơn → không đủ điều kiện. Quyết định phản hồi ngược: tracker phía parent (Review = Done khi mọi em đã có quyết định; Disbursement = In progress khi có em được cấp) và thẻ FAS Overview (Under review → Approved nếu **ít nhất một em** được cấp, Not approved nếu tất cả bị từ chối); dòng "Result per child" hiển thị `SBFAS Tier X - Granted` / `SBFAS - Declined` kèm lý do.
 
 ---
 

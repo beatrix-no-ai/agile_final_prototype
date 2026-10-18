@@ -1,14 +1,12 @@
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
-import { fmtDate } from "../overview/shared";
-import { application } from "../../../data/familyFas";
 import type { Step } from "./logic";
 import { AssumptionTag } from "../../../components/ui/AssumptionTag";
 import { stateTone } from "./shared";
 
-export function Tracker({ steps }: { steps: Step[] }) {
+export function Tracker({ steps, meta }: { steps: Step[]; meta: string }) {
   return (
-    <Card title="Application status" action={<span className="text-[13px] text-on-surface-variant">{application.id} - submitted {fmtDate(application.submittedOn)}</span>}>
+    <Card title="Application status" action={<span className="text-[13px] text-on-surface-variant">{meta}</span>}>
       <ol className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {steps.map((s, i) => (
           <li key={s.name} className="flex items-center gap-3 rounded-control border border-line px-4 py-3">

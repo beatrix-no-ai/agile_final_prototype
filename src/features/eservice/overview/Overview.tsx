@@ -33,7 +33,6 @@ export default function Overview() {
     );
   }
   const { children, invoices, transactions } = state;
-  const { fasStatus } = query.data;
   return (
     <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="space-y-4">
@@ -42,7 +41,7 @@ export default function Overview() {
         <section aria-label="Children"><ChildCards children={children} invoices={invoices} /></section>
       </div>
       <div className="space-y-4">
-        <FasCard fas={fasStatus} />
+        <FasCard />
         <RecentTransactions transactions={transactions} children={children} />
       </div>
     </div>

@@ -9,14 +9,17 @@ test("assess: MOEFAS tiers first, SBFAS only when MOEFAS is not granted, never b
   expect(assess(BANDS[3])).toMatchObject({ scheme: null, status: "Not eligible" });
 });
 
-test("trackerSteps follows submission and income sync", () => {
-  const s = (sync: "idle" | "loading" | "success" | "error", hasBand: boolean) => trackerSteps(sync, hasBand).map((x) => x.state);
-  expect(s("idle", true)).toEqual(["Done", "Done", "In progress", "Waiting"]);
-  expect(s("idle", false)).toEqual(["Done", "To do", "Waiting", "Waiting"]);
-  expect(s("loading", true)).toEqual(["Done", "In progress", "Waiting", "Waiting"]);
-  expect(s("error", false)).toEqual(["Done", "Failed", "Waiting", "Waiting"]);
-  expect(s("error", true)).toEqual(["Done", "Failed", "Waiting", "Waiting"]);
-  expect(s("success", true)).toEqual(["Done", "Done", "In progress", "Waiting"]);
+test("trackerSteps follows submission, income sync and the school's review", () => {
+  const s = (sync: "idle" | "loading" | "success" | "error", hasBand: boolean, review: "not-submitted" | "pending" | "decided") =>
+    trackerSteps(sync, hasBand, review).map((x) => x.state);
+  expect(s("idle", true, "pending")).toEqual(["Done", "Done", "In progress", "Waiting"]);
+  expect(s("idle", false, "not-submitted")).toEqual(["To do", "To do", "Waiting", "Waiting"]);
+  expect(s("idle", true, "not-submitted")).toEqual(["To do", "Done", "Waiting", "Waiting"]);
+  expect(s("loading", true, "pending")).toEqual(["Done", "In progress", "Waiting", "Waiting"]);
+  expect(s("error", false, "pending")).toEqual(["Done", "Failed", "Waiting", "Waiting"]);
+  expect(s("success", true, "pending")).toEqual(["Done", "Done", "In progress", "Waiting"]);
+  expect(s("idle", true, "decided")).toEqual(["Done", "Done", "Done", "Waiting"]);
+  expect(trackerSteps("idle", true, "decided", true).map((x) => x.state)).toEqual(["Done", "Done", "Done", "In progress"]);
 });
 
 const ok = { contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };

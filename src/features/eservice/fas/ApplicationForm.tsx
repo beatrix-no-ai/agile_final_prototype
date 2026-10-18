@@ -3,16 +3,17 @@ import { useRef, useState, type FormEvent } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { application, household } from "../../../data/familyFas";
+import { household } from "../../../data/familyFas";
+import type { FamilyApplication } from "../../../data/familySubmission";
 import { children } from "../../../data/parent";
 import { fmtDate } from "../overview/shared";
 import { validateForm, type FormValues } from "./logic";
 import { AssumptionTag } from "../../../components/ui/AssumptionTag";
 import { TODAY } from "./shared";
 
-type Props = { values: FormValues; onChange: (v: FormValues) => void; filledNote: string; onAskAi: () => void };
+type Props = { values: FormValues; onChange: (v: FormValues) => void; filledNote: string; onAskAi: () => void; onSubmit: () => void; family: FamilyApplication | null };
 
-export function ApplicationForm({ values, onChange, filledNote, onAskAi }: Props) {
+export function ApplicationForm({ values, onChange, filledNote, onAskAi, onSubmit, family }: Props) {
   const [tried, setTried] = useState(false);
   const [consent, setConsent] = useState(false);
   const [sentOn, setSentOn] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export function ApplicationForm({ values, onChange, filledNote, onAskAi }: Props
     const first = Object.keys(validateForm(values, consent))[0]; // key order = field order on screen
     setSentOn(first ? null : TODAY);
     if (first) (formRef.current?.elements.namedItem(first) as HTMLElement | null)?.focus();
+    else onSubmit(); // one family submission per session creates the per-child applications in the school queue
   }
 
   return (
@@ -39,7 +41,7 @@ export function ApplicationForm({ values, onChange, filledNote, onAskAi }: Props
       action={<Button size="sm" variant="secondary" icon={<Sparkle size={16} weight="bold" aria-hidden="true" />} onClick={onAskAi}>Ask AI helper</Button>}
     >
       <p className="text-sm text-on-surface-variant">
-        One form for the whole family ({application.id}). Update the details the bursar needs; you can resubmit while review is in progress. <AssumptionTag />
+        One form for the whole family{family ? ` (${family.appIds[0]})` : ""}. Update the details the bursar needs; submit once — the school reviews each child from this one application. <AssumptionTag />
       </p>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-control border border-line bg-surface-container-low p-3">
         <div>
@@ -143,7 +145,7 @@ export function ApplicationForm({ values, onChange, filledNote, onAskAi }: Props
           >
             Submit application
           </Button>
-          <p role="status" className="text-sm font-medium text-success">{sentOn && `Submitted on ${fmtDate(sentOn)}. Review continues.`}</p>
+          <p role="status" className="text-sm font-medium text-success">{family ? `Submitted on ${fmtDate(family.submittedOn)}. The school is reviewing each child.` : sentOn && `Submitted on ${fmtDate(sentOn)}. Review continues.`}</p>
         </div>
       </form>
     </Card>

@@ -91,6 +91,9 @@ const ROWS: Row[] = [
   ["Farhan bin Ahmad", "Sec 4", 0, "Active", 4379.3, "Not applied", "Approved"],
   ["Bernice Seah Xin Rong", "Sec 4", 1, "Active", 4502.6, "Not applied", "Not applied"],
   ["Joel Soh Wen Jie", "Sec 4", 1, "Inactive", 4418.95, "Not applied", "Not applied"],
+  // Rachel Lim's children (parent e-Service demo family). A family FAS submission creates per-child SBFAS applications for them.
+  ["Ethan Lim", "P5", 0, "Active", 320.5, "Not applied", "Not applied"],
+  ["Chloe Lim", "Sec 2", 1, "Active", 540.25, "Not applied", "Not applied"],
 ];
 
 // Nationality differs on a few records so the SBFAS decision screen shows the field working.

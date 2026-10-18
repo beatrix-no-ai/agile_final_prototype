@@ -1,6 +1,5 @@
 // ASSUMPTION: all mock data for the parent e-Service portal. Single source of truth: Overview, Payments (Task 15) and FAS read from here.
 // Dates are ISO yyyy-mm-dd; the mock "today" is MOCK_TODAY.
-import { nextSbfasId, SBFAS_APPLICATIONS } from "./sbfasApplications";
 
 export const MOCK_TODAY = "2026-10-12";
 
@@ -52,17 +51,6 @@ export const children: Child[] = [
   { id: "c2", name: "Chloe Lim", level: "Secondary 2", school: "Eastbrook Secondary School", educationBalance: ledgerBalance(transactions, "c2") },
 ];
 
-export const fasStatus = {
-  // Generated with the shared SBFASXXXX sequence so the parent portal and the admin queue can never disagree.
-  applicationId: nextSbfasId(SBFAS_APPLICATIONS),
-  scheme: "MOE Financial Assistance Scheme (MOEFAS)",
-  status: "Under review" as "Under review" | "Approved" | "Not approved",
-  submittedOn: "2026-09-18",
-  note: "Household income band was synced via SingPass on 18 Sep. A school bursar is reviewing your family application.",
-};
-
-export type Fas = typeof fasStatus;
-
 export type Profile = { name: string; nric: string; address: string; mailingAddress: string; contact: string };
 
 export const profile: Profile = {
@@ -73,4 +61,4 @@ export const profile: Profile = {
   contact: "+65 9123 4567",
 };
 
-export const parentData = { children, invoices, transactions, fasStatus, profile };
+export const parentData = { children, invoices, transactions, profile };

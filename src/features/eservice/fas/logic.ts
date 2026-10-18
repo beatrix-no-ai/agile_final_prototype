@@ -23,15 +23,21 @@ export function assess(band: Band): ChildResult {
 export type StepState = "Done" | "In progress" | "To do" | "Waiting" | "Failed";
 export type Step = { name: string; state: StepState };
 
-/** ASSUMPTION: the application is already submitted (id comes from the shared SBFASXXXX generator); tracker states follow the income sync. Disbursement starts after review. */
-export function trackerSteps(sync: SyncStatus, hasBand: boolean): Step[] {
+/**
+ * Tracker states follow the income sync and the school's review. Review phase: "not-submitted" (no family
+ * application yet), "pending" (the school is deciding the per-child SBFAS applications) or "decided"
+ * (every child application has a decision). Disbursement only moves once something is granted.
+ */
+export function trackerSteps(sync: SyncStatus, hasBand: boolean, review: "not-submitted" | "pending" | "decided", granted = false): Step[] {
   const income: StepState = sync === "loading" ? "In progress" : sync === "error" ? "Failed" : hasBand ? "Done" : "To do";
-  const review: StepState = income === "Done" ? "In progress" : "Waiting";
+  const submission: StepState = review === "not-submitted" ? "To do" : "Done";
+  const reviewState: StepState = review === "decided" ? "Done" : review === "pending" && income === "Done" ? "In progress" : "Waiting";
+  const disbursement: StepState = review === "decided" && granted ? "In progress" : "Waiting";
   return [
-    { name: "Submission", state: "Done" },
+    { name: "Submission", state: submission },
     { name: "Income sync", state: income },
-    { name: "Review", state: review },
-    { name: "Disbursement", state: "Waiting" },
+    { name: "Review", state: reviewState },
+    { name: "Disbursement", state: disbursement },
   ];
 }
 

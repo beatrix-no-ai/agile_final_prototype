@@ -1,5 +1,5 @@
 // ASSUMPTION: all mock data for the family FAS application (Req 10). Children come from parent.ts; nothing is duplicated.
-import { children, fasStatus, profile, type Child } from "./parent";
+import { children, profile, type Child } from "./parent";
 
 export type Member = { id: string; name: string; role: "Applicant" | "Spouse" | "Child"; detail: string };
 
@@ -20,10 +20,8 @@ export const BANDS: Band[] = [
   { id: "b4", label: "Above $1,500 per person", tier: null },
 ];
 
-/** Band already on file from the application submitted on 18 Sep (see fasStatus). */
-export const initialBandId = "b2";
-
-export const application = { id: fasStatus.applicationId, submittedOn: fasStatus.submittedOn };
+// Default demo band is the SBFAS band so a family submission creates per-child applications in the school queue.
+export const initialBandId = "b3";
 
 // ASSUMPTION: mock AI helper. Canned questions, one at a time; answers are picked from options.
 export type Question = { id: "mailing" | "contact"; text: string; options: { value: string; label: string }[] };

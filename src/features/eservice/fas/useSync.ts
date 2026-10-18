@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { application, initialBandId } from "../../../data/familyFas";
+import { initialBandId } from "../../../data/familyFas";
 import { TODAY } from "./shared";
 import type { SyncStatus } from "./logic";
 
@@ -9,7 +9,7 @@ export type Outcome = string;
 export function useSync() {
   const [status, setStatus] = useState<SyncStatus>("idle");
   const [bandId, setBandId] = useState<string>(initialBandId);
-  const [syncedOn, setSyncedOn] = useState(application.submittedOn);
+  const [syncedOn, setSyncedOn] = useState(TODAY);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const busy = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
