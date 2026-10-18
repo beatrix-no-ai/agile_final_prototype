@@ -65,7 +65,7 @@ export default function SbfasApplications() {
 
   const decide = (id: string, action: Action, draft: Draft) => {
     const a = apps.find((x) => x.id === id)!;
-    dispatch({ type: "decide", id, action, draft });
+    dispatch({ type: "decide", id, action, draft, at: new Date().toISOString() });
     setOpenId(null);
     setMessage(
       `Application ${id} for ${a.student} ${VERB[action]}${action === "override" ? ` to ${draft.tier}` : action === "approve" ? ` at ${a.recommendedTier}` : ""}.`,

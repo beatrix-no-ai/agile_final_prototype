@@ -6,11 +6,12 @@ import { BarChart } from "../../../components/ui/BarChart";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StatCard } from "../../../components/ui/StatCard";
 import { ACADEMIC_YEAR, SBFAS_GOVERNANCE } from "../../../data/budgets";
-import { selectSbfas, useFas } from "../../../data/fasStore";
+import { selectRecentGrants, selectSbfas, useFas } from "../../../data/fasStore";
 import { formatSGD } from "../../../lib/format";
 import { useSession } from "../../../session";
 import { BudgetAlert } from "./BudgetAlert";
 import { BudgetHistory } from "./BudgetHistory";
+import { RecentGrants } from "./RecentGrants";
 import { SetBudgetModal } from "./SetBudgetModal";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -42,6 +43,10 @@ export function SchoolBudget() {
           <BarChart data={s.byTier} />
           <p className="mt-2 text-sm text-on-surface-variant">{s.helped} students receiving SBFAS this year. Updates when you approve an application.</p>
         </Card>
+        <RecentGrants grants={selectRecentGrants(state)} />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BudgetHistory changes={history} />
         <Card title="Governance notes">
           <ul className="space-y-3 text-sm text-on-surface-variant">
             {SBFAS_GOVERNANCE.map((n) => (
@@ -53,7 +58,6 @@ export function SchoolBudget() {
           </ul>
         </Card>
       </div>
-      <BudgetHistory changes={history} />
       <SetBudgetModal
         open={modal}
         onClose={() => setModal(false)}

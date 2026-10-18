@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Coins, Receipt, UsersThree, Wallet } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { BarChart } from "../../../components/ui/BarChart";
 import { Card } from "../../../components/ui/Card";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StatCard } from "../../../components/ui/StatCard";
@@ -38,28 +39,34 @@ export function HqBudget() {
           <ProgressBar pct={m.budget > 0 ? (m.used / m.budget) * 100 : 0} label="Overall usage" />
         </div>
       </Card>
-      <Card title="Breakdown by level">
-        <ul className="divide-y divide-line">
-          {m.levels.map((l) => {
-            const lvlOver = l.used > l.budget;
-            return (
-              <li key={l.id} className="py-4 first:pt-0 last:pb-0">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold">
-                    {l.id} <span className="font-normal text-on-surface-variant">- {l.beneficiaries.toLocaleString("en-US")} students helped</span>
-                  </span>
-                  {lvlOver && <Badge tone="alert">Over budget</Badge>}
-                </div>
-                <ProgressBar
-                  pct={l.budget > 0 ? (l.used / l.budget) * 100 : 0}
-                  label={`${formatSGD(l.used, compact)} of ${formatSGD(l.budget, compact)}`}
-                />
-                {lvlOver && <p className="mt-1 text-[13px] font-medium text-alert">Exceeds budget by {formatSGD(l.used - l.budget, compact)}.</p>}
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title="Breakdown by level">
+          <ul className="divide-y divide-line">
+            {m.levels.map((l) => {
+              const lvlOver = l.used > l.budget;
+              return (
+                <li key={l.id} className="py-4 first:pt-0 last:pb-0">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold">
+                      {l.id} <span className="font-normal text-on-surface-variant">- {l.beneficiaries.toLocaleString("en-US")} students helped</span>
+                    </span>
+                    {lvlOver && <Badge tone="alert">Over budget</Badge>}
+                  </div>
+                  <ProgressBar
+                    pct={l.budget > 0 ? (l.used / l.budget) * 100 : 0}
+                    label={`${formatSGD(l.used, compact)} of ${formatSGD(l.budget, compact)}`}
+                  />
+                  {lvlOver && <p className="mt-1 text-[13px] font-medium text-alert">Exceeds budget by {formatSGD(l.used - l.budget, compact)}.</p>}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+        <Card title="Students helped by tier">
+          <BarChart data={m.byTier} />
+          <p className="mt-2 text-sm text-on-surface-variant">{m.helped.toLocaleString("en-US")} students receiving MOEFAS this year.</p>
+        </Card>
+      </div>
       <BudgetHistory changes={history} />
       <SetBudgetModal
         open={modal}

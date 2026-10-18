@@ -28,6 +28,14 @@ export const MOEFAS_BY_LEVEL: LevelBudget[] = [
   { id: "Secondary", budget: 18000000, used: 18900000, beneficiaries: 4100 },
 ];
 
+// ASSUMPTION: MOEFAS tier names and the split of the 9,300 students across them are mock values; confirm with MOE.
+export const MOEFAS_BY_TIER = [
+  { label: "Tier 1", value: 3600 },
+  { label: "Tier 2", value: 2700 },
+  { label: "Tier 3", value: 1900 },
+  { label: "Tier 4", value: 1100 },
+];
+
 // ASSUMPTION: what happens when spend exceeds budget is an open question. The UI only displays it
 // (capped bar + "Over budget" badge); nothing blocks payouts or triggers an approval step.
 export const OVER_BUDGET_NOTE = "When spend exceeds budget it is shown for review only; payouts are not blocked.";

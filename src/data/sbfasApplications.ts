@@ -20,6 +20,8 @@ export type SbfasApplication = {
   status: SbfasStatus;
   sbfasTier?: SbfasTier;
   justification?: string;
+  /** ISO timestamp of the decision; set when the application is decided. */
+  decidedAt?: string;
 };
 
 // ASSUMPTION: tier names (Tier 1 = highest subsidy), band edges and SLA length are invented; confirm with MOE.

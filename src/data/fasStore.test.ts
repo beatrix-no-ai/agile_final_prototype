@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT } from "./budgets";
-import { fasReducer, initialFasState, selectBudgets, selectMoefas, selectSbfas } from "./fasStore";
+import { fasReducer, initialFasState, selectBudgets, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
 
 const first = (s = initialFasState()) => s.apps[0]; // SBFAS-2041, recommended Tier 1
-const approve = (s = initialFasState()) => fasReducer(s, { type: "decide", id: first(s).id, action: "approve", draft: { justification: "", tier: first(s).recommendedTier } });
+const approveAt = (s: ReturnType<typeof initialFasState>, id: string, at: string) =>
+  fasReducer(s, { type: "decide", id, action: "approve", draft: { justification: "", tier: "Tier 1" }, at });
+const approve = (s = initialFasState()) => approveAt(s, first(s).id, "2026-10-18T09:00:00.000Z");
 
 describe("SBFAS stats follow real decisions", () => {
   it("starts at the seeded baseline", () => {
@@ -21,7 +23,7 @@ describe("SBFAS stats follow real decisions", () => {
 
   it("rejecting adds nothing", () => {
     const s0 = initialFasState();
-    const s = fasReducer(s0, { type: "decide", id: first(s0).id, action: "reject", draft: { justification: "", tier: "Tier 1" } });
+    const s = fasReducer(s0, { type: "decide", id: first(s0).id, action: "reject", draft: { justification: "", tier: "Tier 1" }, at: "2026-10-18T09:00:00.000Z" });
     expect(selectSbfas(s).used).toBe(SBFAS.absorbed);
   });
 
@@ -61,4 +63,37 @@ it("selectBudgets feeds the dashboard card in the same shape as before", () => {
   const [moefas, sbfas] = selectBudgets(initialFasState());
   expect(moefas).toMatchObject({ name: "MOEFAS", owner: "MOE HQ", budget: 38_000_000 });
   expect(sbfas).toMatchObject({ name: "SBFAS", owner: "School", used: SBFAS.absorbed, budget: SBFAS.budget });
+});
+
+describe("recent grants", () => {
+  it("is empty until something is granted", () => {
+    expect(selectRecentGrants(initialFasState())).toEqual([]);
+  });
+
+  it("lists granted applications newest first with tier, amount and date", () => {
+    const s0 = initialFasState();
+    let s = approveAt(s0, s0.apps[0].id, "2026-10-18T09:00:00.000Z");
+    s = approveAt(s, s0.apps[1].id, "2026-10-18T10:30:00.000Z");
+    const out = selectRecentGrants(s);
+    expect(out.map((g) => g.id)).toEqual([s0.apps[1].id, s0.apps[0].id]);
+    expect(out[0]).toMatchObject({ student: s0.apps[1].student, tier: "Tier 1", amount: SBFAS_TIER_AMOUNT["Tier 1"], at: "2026-10-18T10:30:00.000Z" });
+  });
+
+  it("leaves out rejected and pending applications", () => {
+    const s0 = initialFasState();
+    const s = fasReducer(s0, { type: "decide", id: s0.apps[0].id, action: "reject", draft: { justification: "", tier: "Tier 1" }, at: "2026-10-18T09:00:00.000Z" });
+    expect(selectRecentGrants(s)).toEqual([]);
+  });
+
+  it("shows at most the limit", () => {
+    const s0 = initialFasState();
+    const s = s0.apps.slice(0, 4).reduce((acc, a, i) => approveAt(acc, a.id, `2026-10-18T0${i}:00:00.000Z`), s0);
+    expect(selectRecentGrants(s, 3)).toHaveLength(3);
+  });
+});
+
+it("MOEFAS students helped by tier add up to the students helped total", () => {
+  const m = selectMoefas(initialFasState());
+  expect(m.byTier.reduce((t, x) => t + x.value, 0)).toBe(m.helped);
+  expect(m.byTier.map((t) => t.label)).toEqual(["Tier 1", "Tier 2", "Tier 3", "Tier 4"]);
 });
