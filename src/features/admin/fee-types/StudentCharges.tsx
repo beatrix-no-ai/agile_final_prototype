@@ -76,7 +76,7 @@ export default function StudentCharges({ school }: { school: string }) {
             { value: "overdue", label: "Overdue", count: count("overdue") }, { value: "paid", label: "Paid", count: count("paid") },
           ]} />
         </div>
-        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={10} empty={<EmptyState title="No charges match" hint="Change the filters, or generate charges in Assign and generate." />} />
+        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={10} large="md" empty={<EmptyState title="No charges match" hint="Change the filters, or generate charges in Assign and generate." />} />
       </Card>
       <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)}
         onPay={(chargeId, amount, method) => dispatch({ type: "recordPayment", chargeId, amount, method })} />

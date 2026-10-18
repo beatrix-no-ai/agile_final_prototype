@@ -38,12 +38,10 @@ export default function SchoolMaintenance() {
 
   const columns: Column<SchoolRecord>[] = [
     { key: "code", header: "ID", sortable: true },
-    { key: "name", header: "School", sortable: true, render: (s) => <span className="font-medium">{s.name}</span> },
-    { key: "level", header: "Type", sortable: true },
+    { key: "name", header: "School", sortable: true, render: (s) => (<><span className="font-medium">{s.name}</span><span className="block text-[13px] text-on-surface-variant">{s.level}</span></>) },
     { key: "principal", header: "Principal", sortable: true },
     { key: "users", header: "Users", render: (s) => { const u = usersOfSchool(s.code); return u.length ? u.map((x) => x.title === "Principal" ? `${x.name} (Principal)` : x.name).join(", ") : "Not assigned"; } },
-    { key: "email", header: "Email", sortable: true },
-    { key: "phone", header: "Phone", sortable: true },
+    { key: "email", header: "Contact", sortable: true, render: (s) => (<>{s.email}<span className="block text-[13px] text-on-surface-variant">{s.phone}</span></>) },
     { key: "students", header: "Students", sortable: true, align: "right", render: (s) => s.students.toLocaleString("en-SG") },
     { key: "active", header: "Status", sortable: true, render: (s) => <Badge tone={s.active ? "success" : "neutral"}>{s.active ? "Active" : "Inactive"}</Badge> },
   ];

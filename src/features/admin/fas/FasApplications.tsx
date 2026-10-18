@@ -12,6 +12,7 @@ import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus } from "../../../lib/fees";
 import { useMockQuery } from "../../../lib/useMockQuery";
+import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal, RiskBadge } from "./ReviewModal";
 import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
@@ -73,24 +74,25 @@ export default function SbfasApplications() {
     { key: "student", header: "Student", sortable: true, render: (a) => (
       <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         <span className="font-semibold">{a.student}</span>
-        <span className="block text-[13px] text-on-surface-variant">{a.id} - {a.level}</span>
+        <span className="block text-[13px] text-on-surface-variant">{a.level} · {a.id}</span>
       </Link>
     ) },
-    { key: "incomeBand", header: "Per-capita income band" },
-    { key: "riskScore", header: "AI risk rating", sortable: true, render: (a) => <RiskBadge score={a.riskScore} /> },
-    { key: "payable", header: "Fee payable", sortable: true, align: "right", render: (a) => (
+    { key: "riskScore", header: "AI risk", sortable: true, render: (a) => (
+      <>
+        <RiskBadge score={a.riskScore} />
+        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {a.recommendedTier}</span>
+      </>
+    ) },
+    { key: "incomeBand", header: "Income per person", sortable: true },
+    { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
       <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         {a.payable ? <span className="font-semibold">{formatSGD(a.payable)}</span> : <span className="text-on-surface-variant">—</span>}
+        <span className="block text-[13px] text-on-surface-variant" title="Education Account balance from MOE top-ups, separate from the FAS subsidy">Balance {formatSGD(a.balance)}</span>
       </Link>
     ) },
-    { key: "balance", header: "Account balance", sortable: true, align: "right", render: (a) => (
-      <span className="tabular-nums" title="Education Account balance from MOE top-ups — separate from the FAS subsidy">{formatSGD(a.balance)}</span>
-    ) },
-    { key: "recommendedTier", header: "Recommended tier", sortable: true },
-    { key: "slaDays", header: "SLA", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Closed</span>) },
-    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{a.status}{a.sbfasTier ? ` - ${a.sbfasTier}` : ""}</Badge> },
+    { key: "slaDays", header: "Decide within", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
+    { key: "status", header: "Status", render: (a) => (a.status === "Pending" ? <Badge tone="neutral">Awaiting review</Badge> : <Badge tone={statusTone[a.status]}>{a.status}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge>) },
   ];
-
   const tabs: [Filter, string][] = [
     ["all", `All (${apps.length})`],
     ["pending", `Pending (${pendingCount})`],
@@ -101,6 +103,12 @@ export default function SbfasApplications() {
   return (
     <div className="space-y-4">
       <HqPermissionNote />
+      <Tiles items={[
+        { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
+        { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
+        { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
+        { label: "Declined", value: String(declinedCount), note: "Rejected" },
+      ]} />
       <Card
         title="SBFAS review queue"
         action={
@@ -115,10 +123,7 @@ export default function SbfasApplications() {
           </div>
         }
       >
-        <p className="mb-3 text-sm text-on-surface-variant">
-          Highest AI risk first, pending applications before decided ones. Income is shown as a band only.
-          Granted and Declined keep the decision history — open an application to see the tier granted and the justification recorded.
-        </p>
+        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
         <div ref={msgRef} tabIndex={-1} aria-live="polite" className="mb-3 outline-none empty:hidden">
           {message && (
             <p className="flex items-center gap-2 rounded-control border border-line bg-success-container px-3 py-2 text-sm font-medium text-success">
@@ -134,6 +139,7 @@ export default function SbfasApplications() {
             rows={rows}
             rowKey={(a) => a.id}
             rowActions={(a) => <RowAction onClick={() => setOpenId(a.id)}>{a.status === "Pending" ? "Open review" : "View decision"}</RowAction>}
+            large
             empty={<EmptyState title="No applications in this view" hint={filter === "pending" ? "Every application has been decided." : filter === "granted" ? "Nothing granted yet — approve or override an application from the Pending tab." : filter === "declined" ? "Nothing declined yet — rejected applications appear here with their reason." : "Nothing here yet."} action={<Button variant="secondary" onClick={() => setFilter("all")}>Show all</Button>} />}
           />
         )}

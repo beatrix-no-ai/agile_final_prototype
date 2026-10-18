@@ -85,7 +85,7 @@ export default function StudentFees() {
             <p className="px-1 text-[12.5px] text-on-surface-variant">{REIMBURSEMENT_NOTE}</p>
           </div>
         )}
-        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
+        <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} large="md" empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
       </Card>
       <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)}
         onPay={(chargeId, amount, method) => dispatch({ type: "recordPayment", chargeId, amount, method })} />
