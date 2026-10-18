@@ -4,6 +4,7 @@ import { AssumptionTag } from "../../components/ui/AssumptionTag";
 import { Button } from "../../components/ui/Button";
 import { Modal } from "../../components/ui/Modal";
 import { useSession } from "../../session";
+import { PARENT } from "../../data/users";
 
 type Step = "qr" | "verifying" | "done";
 // ASSUMPTION: step timings are only there to show the three states of the SingPass hand-off.
@@ -33,6 +34,11 @@ export default function ParentPanel() {
     <>
       <h3 className="text-[15px] font-semibold text-on-surface">Parent or guardian</h3>
       <p className="mt-1 text-sm text-on-surface-variant">Sign in securely with your SingPass to view accounts, pay fees and apply for FAS.</p>
+      <div className="mt-4 rounded-control border border-line bg-surface-container-low p-3 text-sm">
+        <p className="font-semibold text-on-surface">Demo SingPass account</p>
+        <p className="mt-1 text-on-surface-variant">{PARENT.name} · {PARENT.singpassId}</p>
+        <p className="text-[13px] text-on-surface-variant">{PARENT.email}</p>
+      </div>
       <Button className="mt-5 w-full" onClick={() => setOpen(true)}>
         Log in with SingPass
       </Button>

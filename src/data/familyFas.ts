@@ -26,21 +26,9 @@ export const initialBandId = "b2";
 export const application = { id: fasStatus.applicationId, submittedOn: fasStatus.submittedOn };
 
 // ASSUMPTION: mock AI helper. Canned questions, one at a time; answers are picked from options.
-export type Question = { id: "circumstance" | "mailing" | "contact"; text: string; options: { value: string; label: string }[] };
-
-export const circumstances = ["Reduced working hours", "Job loss", "Medical expenses", "Single-parent household", "Other"];
+export type Question = { id: "mailing" | "contact"; text: string; options: { value: string; label: string }[] };
 
 export const questions: Question[] = [
-  {
-    id: "circumstance",
-    text: "What best describes the change in your family's finances?",
-    options: [
-      { value: "Reduced working hours", label: "Reduced working hours" },
-      { value: "Job loss", label: "Job loss" },
-      { value: "Medical expenses", label: "Medical expenses" },
-      { value: "Other", label: "Something else" },
-    ],
-  },
   {
     id: "mailing",
     text: "Should we send letters to your registered address?",
@@ -62,6 +50,5 @@ export const questions: Question[] = [
 export const autoFillSource = {
   contact: profile.contact,
   mailingAddress: profile.mailingAddress,
-  circumstance: "Reduced working hours",
   note: "Household income reduced since August; two children in school.",
 };

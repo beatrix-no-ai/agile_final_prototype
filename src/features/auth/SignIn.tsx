@@ -16,8 +16,7 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
-// Sprint 1 is admin-only: the parent tab (e-Service Portal, Req 8-10) is hidden until Sprint 2.
-const VISIBLE = TABS.filter((t) => t.id === "staff");
+const VISIBLE = TABS;
 
 const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 

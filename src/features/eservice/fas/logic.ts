@@ -1,7 +1,7 @@
 import { autoFillSource, type Band } from "../../../data/familyFas";
 
 export type SyncStatus = "idle" | "loading" | "success" | "error";
-export type FormValues = { contact: string; mailingAddress: string; circumstance: string; note: string };
+export type FormValues = { contact: string; mailingAddress: string; note: string };
 export type FormErrors = Partial<Record<keyof FormValues | "consent", string>>;
 
 export type ChildResult = { scheme: "MOEFAS" | "SBFAS" | null; tier?: string; status: "Indicative" | "School decides" | "Not eligible"; note: string };
@@ -43,7 +43,6 @@ export function validateForm(v: FormValues, consent: boolean): FormErrors {
   if (!v.contact.trim()) e.contact = "Enter a contact number.";
   else if (!sgNumber.test(v.contact.trim())) e.contact = "Enter a valid Singapore number, e.g. +65 9123 4567.";
   if (!v.mailingAddress.trim()) e.mailingAddress = "Enter a mailing address.";
-  if (!v.circumstance) e.circumstance = "Choose what best describes your situation.";
   if (!consent) e.consent = "Tick the box to consent before submitting.";
   return e;
 }
@@ -62,10 +61,9 @@ export function autoFill(cur: FormValues): { values: FormValues; count: number }
 }
 
 /** "different" leaves the field as typed so the parent can enter their own value. */
-export function answersToForm(a: Partial<Record<"circumstance" | "mailing" | "contact", string>>, cur: FormValues): FormValues {
+export function answersToForm(a: Partial<Record<"mailing" | "contact", string>>, cur: FormValues): FormValues {
   return {
     ...cur,
-    circumstance: a.circumstance ?? cur.circumstance,
     mailingAddress: a.mailing === "same" ? autoFillSource.mailingAddress : cur.mailingAddress,
     contact: a.contact === "same" ? autoFillSource.contact : cur.contact,
   };

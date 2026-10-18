@@ -1,10 +1,21 @@
 import type { Role } from "../session";
 
 export type User = { name: string; initials: string };
+export type ParentAccount = User & {
+  role: "parent";
+  singpassId: string;
+  email: string;
+};
 export type StaffAccount = User & { role: "hq" | "school"; title: string; email: string; password: string; schoolCode?: string };
 
 // ASSUMPTION: mock identities and test-only credentials; real auth is out of scope (SingPass and staff SSO are simulated).
-export const PARENT: User = { name: "Rachel Lim", initials: "RL" };
+export const PARENT: ParentAccount = {
+  role: "parent",
+  name: "Rachel Lim",
+  initials: "RL",
+  singpassId: "S****567A",
+  email: "rachel.lim@example.com",
+};
 
 export const STAFF: StaffAccount[] = [
   { role: "school", name: "Alicia Tan", initials: "AT", title: "School Admin", email: "alicia.tan@school.example", password: "Sch00l-Demo-26", schoolCode: "S001" },

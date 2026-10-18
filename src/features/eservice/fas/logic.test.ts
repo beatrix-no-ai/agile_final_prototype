@@ -19,7 +19,7 @@ test("trackerSteps follows submission and income sync", () => {
   expect(s("success", true)).toEqual(["Done", "Done", "In progress", "Waiting"]);
 });
 
-const ok = { contact: "+65 9123 4567", mailingAddress: "Blk 1", circumstance: "Job loss", note: "" };
+const ok = { contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };
 
 test("validateForm requires fields, a valid SG number and consent", () => {
   expect(validateForm(ok, true)).toEqual({});
@@ -27,23 +27,21 @@ test("validateForm requires fields, a valid SG number and consent", () => {
   expect(validateForm({ ...ok, contact: "12345" }, true).contact).toBeTruthy();
   expect(validateForm({ ...ok, contact: "91234567" }, true)).toEqual({});
   expect(validateForm({ ...ok, mailingAddress: " " }, true).mailingAddress).toBeTruthy();
-  expect(validateForm({ ...ok, circumstance: "" }, true).circumstance).toBeTruthy();
   expect(validateForm(ok, false).consent).toBeTruthy();
 });
 
 test("autoFill fills only empty fields and counts them", () => {
-  const empty = { contact: "", mailingAddress: "", circumstance: "", note: "" };
-  expect(autoFill(empty)).toEqual({ values: autoFillSource, count: 4 });
+  const empty = { contact: "", mailingAddress: "", note: "" };
+  expect(autoFill(empty)).toEqual({ values: autoFillSource, count: 3 });
   expect(validateForm(autoFill(empty).values, true)).toEqual({});
   const typed = { ...empty, note: "my own words", contact: "9000 0000" };
-  expect(autoFill(typed)).toEqual({ values: { ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 2 });
+  expect(autoFill(typed)).toEqual({ values: { ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 1 });
   expect(autoFill(autoFillSource).count).toBe(0);
 });
 
 test("answersToForm maps picks and keeps the typed value when the parent will type their own", () => {
-  const empty = { contact: "", mailingAddress: "", circumstance: "", note: "" };
-  expect(answersToForm({ circumstance: "Job loss", mailing: "same", contact: "same" }, empty)).toMatchObject({
-    circumstance: "Job loss",
+  const empty = { contact: "", mailingAddress: "", note: "" };
+  expect(answersToForm({ mailing: "same", contact: "same" }, empty)).toMatchObject({
     contact: autoFillSource.contact,
     mailingAddress: autoFillSource.mailingAddress,
   });
