@@ -9,10 +9,10 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
 import { benefitsFor, MOE_FAS_BENEFITS, REIMBURSEMENT_NOTE, SBFAS_PACKAGE } from "../../../data/fasBenefits";
 import type { Charge, ChargeStatus } from "../../../data/fees";
-import { formatSGD } from "../../../lib/format";
+import { formatDate, formatSGD } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
 import { balanceOf, chargeStatus, feeOf, fasOf, paidOf, payableOf, subsidyOf } from "../../../lib/fees";
-import { ChargeModal, StatusBadge } from "../fee-types/parts";
+import { ChargeModal, StatusBadge, Tiles } from "../fee-types/parts";
 import { useStudent } from "./useStudent";
 
 type Row = { id: string; charge: Charge; title: string; issued: string; due: string; fee: number; subsidy: number; payable: number; paid: number; balance: number; status: string };
@@ -38,13 +38,13 @@ export default function StudentFees() {
   const total = rows.filter((r) => r.status !== "paid").reduce((t, r) => t + r.balance, 0);
   const fas = fasOf(student);
   const columns: Column<Row>[] = [
-    { key: "title", header: "Charge", sortable: true, render: (r) => (<><span className="font-medium">{r.title}</span><span className="block text-[13px] text-on-surface-variant">{r.id}, issued {r.issued}, due {r.due}</span></>) },
+    { key: "title", header: "Charge", sortable: true, render: (r) => (<><span className="font-medium">{r.title}</span><span className="block text-[13px] text-on-surface-variant">Due {formatDate(r.due)} · issued {formatDate(r.issued)}</span></>) },
     { key: "fee", header: "Fee", sortable: true, align: "right", render: (r) => formatSGD(r.fee) },
-    { key: "subsidy", header: "Subsidy", align: "right", render: (r) => (r.subsidy ? `- ${formatSGD(r.subsidy)}${r.charge.fas ? ` · ${r.charge.fas}` : ""}` : "-") },
+    { key: "subsidy", header: "Subsidy", align: "right", render: (r) => (r.subsidy ? <span className="text-success">− {formatSGD(r.subsidy)}</span> : <span className="text-on-surface-variant">—</span>) },
     { key: "paid", header: "Paid", sortable: true, align: "right", render: (r) => (r.paid ? formatSGD(r.paid) : <span className="text-on-surface-variant">—</span>) },
     { key: "balance", header: "Outstanding", sortable: true, align: "right", render: (r) => r.balance ? <span className="font-semibold">{formatSGD(r.balance)}</span> : <span className="text-on-surface-variant">—</span> },
     { key: "status", header: "Status", sortable: true, render: (r) => <StatusBadge status={r.status as ChargeStatus} /> },
-    { key: "view", header: "", render: (r) => <Button size="sm" variant="ghost" onClick={() => setOpenId(r.id)} aria-label={`Components of ${r.id}`}>Payments</Button> },
+    { key: "view", header: "", render: (r) => <Button size="sm" variant="ghost" onClick={() => setOpenId(r.id)} aria-label={`Details of ${r.title}, due ${formatDate(r.due)}`}>View details</Button> },
   ];
 
   return (
@@ -52,14 +52,17 @@ export default function StudentFees() {
       <Link to={`/admin/students/${student.id}/account`} state={{ student }} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
         <ArrowLeft size={16} aria-hidden /> Back to Education Account
       </Link>
-      <Card title={`Fees for ${student.name}`}>
-        <p className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-          <span>{maskNric(student.nric)}</span>
-          <span>{student.level}, {student.class}</span>
-          <span>Account balance <strong className="text-on-surface">{formatSGD(student.balance)}</strong></span>
-          <span>MOEFAS <Badge tone="neutral">{student.moefas}</Badge></span>
-          <span>SBFAS <Badge tone="neutral">{student.sbfas}</Badge></span>
-        </p>
+      <div>
+        <h2 className="text-xl font-semibold text-on-surface">Fees for {student.name}</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">{maskNric(student.nric)} · {student.level}, {student.class}</p>
+      </div>
+      <Tiles items={[
+        { label: "Still to pay", value: formatSGD(total), note: `${rows.filter((r) => r.status !== "paid").length} unpaid ${rows.filter((r) => r.status !== "paid").length === 1 ? "charge" : "charges"}`, alert: rows.some((r) => r.status === "overdue") },
+        { label: "Paid so far", value: formatSGD(rows.reduce((t, r) => t + r.paid, 0)), note: `${rows.filter((r) => r.status === "paid").length} ${rows.filter((r) => r.status === "paid").length === 1 ? "charge" : "charges"} settled`, good: true },
+        { label: "Education Account balance", value: formatSGD(student.balance), note: total > student.balance ? "Not enough to cover what is due" : "Covers what is due" },
+        { label: "Financial assistance", value: fas ? fas.scheme : "None", note: fas ? `${Math.round(fas.rate * 100)}% off each new charge` : `MOEFAS ${student.moefas.toLowerCase()} · SBFAS ${student.sbfas.toLowerCase()}` },
+      ]} />
+      <Card title="Charges">
         {fas && (
           <div className="mb-4 space-y-2">
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
@@ -83,7 +86,6 @@ export default function StudentFees() {
           </div>
         )}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
-        <p className="mt-4 text-right text-sm">Total outstanding <strong className="text-on-surface">{formatSGD(total)}</strong>{total > student.balance && <span className="text-alert"> (exceeds account balance)</span>}</p>
       </Card>
       <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)}
         onPay={(chargeId, amount, method) => dispatch({ type: "recordPayment", chargeId, amount, method })} />

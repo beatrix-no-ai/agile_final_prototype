@@ -9,3 +9,11 @@ export function formatSGD(n: number, opts?: { compact?: boolean }): string {
   }
   return `S$${full.format(n)}`;
 }
+
+/** "2026-09-18" -> "18 Sep 2026". Parsed as a local calendar date so it never shifts a day. Anything unparsable is returned as-is. */
+export function formatDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return d.toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
+}

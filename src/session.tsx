@@ -91,7 +91,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       /* storage unavailable: session lives in memory only */
     }
   };
-  const signed = realRole === "hq" || realRole === "school" ? staffByEmail(email) ?? STAFF.find((s) => s.role === realRole) ?? null : null;
+  const signed = realRole === "hq" || realRole === "school" ? (staffByEmail(email)?.role === realRole ? staffByEmail(email) : undefined) ?? STAFF.find((s) => s.role === realRole) ?? null : null;
   const staff = role === "school" && realRole === "hq" ? STAFF.find((s) => s.role === "school") ?? null : role === "hq" || role === "school" ? signed : null;
   const value: Session = {
     role,

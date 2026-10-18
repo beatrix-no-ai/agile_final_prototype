@@ -7,7 +7,7 @@ import { inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import type { Charge, ChargeStatus, FeeType, PayMethod } from "../../../data/fees";
 import { STUDENTS } from "../../../data/students";
-import { formatSGD } from "../../../lib/format";
+import { formatDate, formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus, feeOf, paidOf, paidOnOf, payableOf, subsidyOf } from "../../../lib/fees";
 import { maskNric } from "../../../lib/nric";
 
@@ -42,13 +42,23 @@ function KV({ k, v }: { k: string; v: ReactNode }) {
   );
 }
 
-/** One charge: FAS subsidy, per-component breakdown, the parent's payments and a form to record the next one. */
+/** A labelled value: small grey label over the value. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[13px] text-on-surface-variant">{label}</dt>
+      <dd className="mt-0.5 text-sm font-semibold text-on-surface">{children}</dd>
+    </div>
+  );
+}
+
+/** One charge: what is owed, how it is made up, what has been paid, and a form to record the next payment. */
 export function ChargeModal({ charge, feeName, onClose, onPay }: { charge: Charge | null; feeName?: string; onClose: () => void; onPay?: (chargeId: string, amount: number, method: PayMethod) => void }) {
   const st = charge && studentOf(charge.studentId);
   const status = charge ? chargeStatus(charge) : "outstanding";
   const balance = charge ? balanceOf(charge) : 0;
   return (
-    <Modal open={!!charge} onClose={onClose} title={charge ? `Charge ${charge.id}` : "Charge"} footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+    <Modal open={!!charge} onClose={onClose} title={charge ? charge.title : "Charge"} footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
       {charge && <ChargeBody key={charge.id + charge.payments.length} charge={charge} feeName={feeName} st={st} status={status} balance={balance} onPay={onPay} />}
     </Modal>
   );
@@ -69,90 +79,116 @@ function ChargeBody({ charge, feeName, st, status, balance, onPay }: {
     onPay?.(charge.id, n, method);
   };
   const paidOn = paidOnOf(charge);
+  const payable = payableOf(charge);
+  const paid = paidOf(charge);
+  const subsidy = subsidyOf(charge);
+  const pct = payable > 0 ? Math.min(100, (paid / payable) * 100) : 100;
+  const hasSubsidy = subsidy > 0;
+  const tone = status === "paid" ? "text-success" : status === "overdue" ? "text-alert" : "text-on-surface";
+  const when = status === "paid" ? (paidOn ? `Paid on ${formatDate(paidOn)}` : "Fully paid") : status === "overdue" ? `Was due ${formatDate(charge.due)}` : `Due ${formatDate(charge.due)}`;
   return (
-    <>
-      <dl>
-        <KV k="Student" v={st ? `${st.name} (${maskNric(st.nric)})` : charge.studentId} />
-        {st && <KV k="Level / class" v={`${st.level}, ${st.class}`} />}
-        <KV k="Charge" v={charge.title} />
-        {feeName && <KV k="Fee type" v={feeName} />}
-        <KV k="Issued / due" v={`${charge.issued} to ${charge.due}`} />
-        {paidOn && <KV k="Last paid on" v={paidOn} />}
-        <KV k="Status" v={<StatusBadge status={status} />} />
-        <KV k="Paid / remaining" v={`${formatSGD(paidOf(charge))} / ${formatSGD(balance)}`} />
+    <div className="grid gap-5">
+      <section className="rounded-card border border-line bg-surface-container-low p-5" aria-label="Amount">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[13px] font-medium text-on-surface-variant">{status === "paid" ? "Nothing left to pay" : "Still to pay"}</p>
+            <p className={`mt-0.5 text-3xl font-bold tracking-tight tabular-nums ${tone}`}>{formatSGD(balance)}</p>
+            <p className="mt-1 text-sm text-on-surface-variant">{when}</p>
+          </div>
+          <StatusBadge status={status} />
+        </div>
+        <div role="progressbar" aria-label="Paid so far" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} className="mt-4 h-2 overflow-hidden rounded-full bg-track">
+          <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
+        </div>
+        <dl className={`mt-3 grid gap-4 text-sm ${hasSubsidy ? "grid-cols-3" : "grid-cols-2"}`}>
+          <Fact label={hasSubsidy ? "Fee" : "Total fee"}>{formatSGD(feeOf(charge))}</Fact>
+          {hasSubsidy && <Fact label="Subsidy"><span className="text-success">− {formatSGD(subsidy)}</span></Fact>}
+          <Fact label="Paid so far">{formatSGD(paid)}</Fact>
+        </dl>
+      </section>
+
+      <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+        <Fact label="Student">{st ? <>{st.name} <span className="font-normal text-on-surface-variant">{maskNric(st.nric)}</span></> : charge.studentId}</Fact>
+        {st && <Fact label="Level / class">{st.level}, {st.class}</Fact>}
+        <Fact label="Issued">{formatDate(charge.issued)}</Fact>
+        <Fact label="Due">{formatDate(charge.due)}</Fact>
+        {feeName && <Fact label="Bill">{feeName}</Fact>}
+        <Fact label="Charge number">{charge.id}</Fact>
       </dl>
+
       {charge.fas && (
-        <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-sm">
           <Link to="/admin/fas" className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"><Badge tone="primary">{charge.fas} applied</Badge></Link>
           <span>
-            Subsidy <strong>− {formatSGD(subsidyOf(charge))}</strong> deducted from the fee of {formatSGD(feeOf(charge))} · payable{" "}
-            <strong>{formatSGD(payableOf(charge))}</strong>. The subsidy reduces the fee — it is separate from MOE top-ups, which credit the Education Account.
+            The subsidy of <strong>{formatSGD(subsidy)}</strong> is taken off the fee of {formatSGD(feeOf(charge))}, so <strong>{formatSGD(payable)}</strong> is payable. It is separate from MOE top-ups, which add to the Education Account balance.
           </span>
         </p>
       )}
-      <table className="mt-4 w-full text-sm">
-        <thead><tr className="border-b border-line text-left text-[13px] text-on-surface-variant"><th className="py-2 font-semibold">Component</th><th className="text-right font-semibold">Fee</th><th className="text-right font-semibold">Subsidy</th><th className="text-right font-semibold">Payable</th></tr></thead>
-        <tbody>
-          {charge.components.map((c) => (
-            <tr key={c.name} className="border-b border-line">
-              <td className="py-2">{c.name}</td>
-              <td className="text-right tabular-nums">{formatSGD(c.amount)}</td>
-              <td className="text-right tabular-nums text-success">{c.subsidy ? `− ${formatSGD(Math.min(c.subsidy, c.amount))}` : "—"}</td>
-              <td className="text-right tabular-nums">{formatSGD(c.amount - Math.min(c.subsidy ?? 0, c.amount))}</td>
-            </tr>
-          ))}
-          <tr className="font-semibold">
-            <td className="py-2">Total</td>
-            <td className="text-right tabular-nums">{formatSGD(feeOf(charge))}</td>
-            <td className="text-right tabular-nums text-success">{subsidyOf(charge) ? `− ${formatSGD(subsidyOf(charge))}` : "—"}</td>
-            <td className="text-right tabular-nums text-primary">{formatSGD(payableOf(charge))}</td>
-          </tr>
-        </tbody>
-      </table>
 
-      <h4 className="mt-5 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Payments received</h4>
-      {charge.payments.length ? (
-        <table className="mt-2 w-full text-sm">
-          <thead><tr className="border-b border-line text-left text-[13px] text-on-surface-variant"><th className="py-2 font-semibold">Reference</th><th className="font-semibold">Date</th><th className="font-semibold">Source</th><th className="text-right font-semibold">Amount</th></tr></thead>
-          <tbody>
+      <section aria-label="What the fee covers">
+        <h4 className="text-sm font-semibold text-on-surface">What the fee covers</h4>
+        <ul className="mt-1 divide-y divide-line">
+          {charge.components.map((c) => {
+            const off = Math.min(c.subsidy ?? 0, c.amount);
+            return (
+              <li key={c.name} className="flex items-baseline justify-between gap-4 py-2.5 text-sm">
+                <span>{c.name}</span>
+                <span className="text-right tabular-nums">
+                  {off > 0 && <span className="mr-3 text-[13px] text-success">− {formatSGD(off)} subsidy</span>}
+                  {formatSGD(c.amount - off)}
+                </span>
+              </li>
+            );
+          })}
+          <li className="flex items-baseline justify-between gap-4 py-2.5 text-sm font-semibold">
+            <span>{hasSubsidy ? "Total payable" : "Total"}</span>
+            <span className="tabular-nums text-primary">{formatSGD(payable)}</span>
+          </li>
+        </ul>
+      </section>
+
+      <section aria-label="Payments received">
+        <h4 className="text-sm font-semibold text-on-surface">Payments received</h4>
+        {charge.payments.length ? (
+          <ul className="mt-1 divide-y divide-line">
             {charge.payments.map((p) => (
-              <tr key={p.id} className="border-b border-line">
-                <td className="py-2 font-mono text-[13px]">{p.id}</td>
-                <td className="py-2">{p.on}</td>
-                <td className="py-2">{p.method}</td>
-                <td className="text-right tabular-nums">{formatSGD(p.amount)}</td>
-              </tr>
+              <li key={p.id} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+                <span>
+                  <span className="block font-medium">{p.method}</span>
+                  <span className="block text-[13px] text-on-surface-variant">{formatDate(p.on)} · Receipt {p.id}</span>
+                </span>
+                <span className="font-semibold tabular-nums text-success">{formatSGD(p.amount)}</span>
+              </li>
             ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="mt-2 text-sm text-on-surface-variant">Nothing paid yet — the full payable is outstanding.</p>
-      )}
+          </ul>
+        ) : (
+          <p className="mt-1 text-sm text-on-surface-variant">Nothing paid yet. The full amount is still to pay.</p>
+        )}
+      </section>
 
       {balance > 0.005 && onPay && (
-        <div className="mt-4 rounded-control border border-line bg-surface-container-low p-4">
-          <p className="text-[13px] font-semibold text-on-surface">Record a payment</p>
+        <section aria-label="Record a payment" className="rounded-card border border-line p-4">
+          <h4 className="text-sm font-semibold text-on-surface">Record a payment</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <label className="block text-sm">
-              <span className="mb-1 block text-[13px] font-medium text-on-surface-variant">Amount (remaining {formatSGD(balance)})</span>
+              <span className="mb-1 block text-[13px] font-medium text-on-surface-variant">Amount (up to {formatSGD(balance)})</span>
               <input className={inputClass} inputMode="decimal" value={amount} onChange={(e) => { setAmount(e.target.value); setErr(""); }} />
             </label>
             <label className="block text-sm">
-              <span className="mb-1 block text-[13px] font-medium text-on-surface-variant">Source</span>
+              <span className="mb-1 block text-[13px] font-medium text-on-surface-variant">Paid from</span>
               <select className={inputClass} value={method} onChange={(e) => setMethod(e.target.value as PayMethod)}>
                 <option value="Education account">Education account</option>
                 <option value="Card / PayNow">Card / PayNow (gateway)</option>
               </select>
             </label>
-            <Button onClick={pay}>Record</Button>
+            <Button onClick={pay}>Record payment</Button>
           </div>
-          {err && <p className="mt-2 text-[13px] font-medium text-alert">{err}</p>}
-        </div>
+          {err && <p role="alert" className="mt-2 text-[13px] font-medium text-alert">{err}</p>}
+        </section>
       )}
-    </>
+    </div>
   );
 }
-
 /** A fee type's components, read-only (used by the HQ drill-down). */
 export function FeeTypeModal({ fee, used, onClose }: { fee: FeeType | null; used: number; onClose: () => void }) {
   return (

@@ -7,7 +7,9 @@ import { SCHOOLS } from "../../../data/schools";
 import { ACCOUNT_CLOSES_AT, ageForLevel } from "../../../lib/accounts";
 import { ACCOUNTS, FUND_RULES, PAST_TRANSACTIONS, type Account, type FundRule, type Target, type Transaction } from "../../../data/topup";
 import { ledgerIds, topUpReportRows } from "../../../lib/topup";
+import { formatDate } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
+import { Tiles } from "../fee-types/parts";
 import { downloadXlsx } from "../../../lib/xlsx";
 import Execute from "./Execute";
 import Rules from "./Rules";
@@ -23,6 +25,17 @@ type TabId = (typeof TABS)[number]["id"];
 const statusClass = (s: Transaction["status"]) => (s === "Pending" ? "draft" : s === "Failed" || s === "Partial Success" ? "failed" : "");
 const targetClass = (s: string) => (s === "Pending" ? "draft" : s === "Failed" ? "deactivated" : "");
 
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+function Fact({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
+  return (
+    <div className={wide ? "sm:col-span-3" : undefined}>
+      <dt className="text-[13px] text-on-surface-variant">{label}</dt>
+      <dd className="mt-0.5 text-sm font-semibold text-on-surface">{children}</dd>
+    </div>
+  );
+}
+
 function History({ rows, accounts, onCreate }: { rows: Transaction[]; accounts: Account[]; onCreate: () => void }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
@@ -31,32 +44,51 @@ function History({ rows, accounts, onCreate }: { rows: Transaction[]; accounts: 
   const [to, setTo] = useState("");
   const [viewing, setViewing] = useState<number | null>(null);
   const ledger = useMemo(() => ledgerIds(rows, accounts), [rows, accounts]);
+  const stats = useMemo(() => {
+    let credited = 0, scheduled = 0, scheduledTotal = 0, attention = 0;
+    rows.forEach((t, i) => {
+      credited += ledger[i].targets.filter((a) => a.status === "Success").length * t.amount;
+      if (t.status === "Pending") { scheduled++; scheduledTotal += t.amount * t.accounts; }
+      if (t.status === "Failed" || t.status === "Partial Success") attention++;
+    });
+    return { credited, scheduled, scheduledTotal, attention };
+  }, [rows, ledger]);
   const reset = () => { setQ(""); setStatus(""); setType(""); setFrom(""); setTo(""); };
   const list = rows.map((t, i) => ({ t, i })).filter(({ t, i }) => (!status || t.status === status) && (!type || t.type === type) && (!from || t.date >= from) && (!to || t.date <= to) && (!q.trim() || `${ledger[i].id} ${t.recipient} ${t.type}`.toLowerCase().includes(q.trim().toLowerCase())));
   if (viewing !== null && rows[viewing]) return <Details t={rows[viewing]} id={ledger[viewing].id} items={ledger[viewing].targets} accounts={accounts} onBack={() => setViewing(null)} />;
   return (
-    <div className="card tablecard">
-      <div className="toolbar filters-toolbar">
-        <input className="filter-search" placeholder="Search ID or recipient..." aria-label="Search top-ups" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select aria-label="Filter by type" value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option><option value="Single">Single</option><option value="Batch">Batch</option></select>
-        <input type="date" aria-label="From date" title="From date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        <input type="date" aria-label="To date" title="To date" value={to} onChange={(e) => setTo(e.target.value)} />
-        <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option><option>Success</option><option>Partial Success</option><option>Pending</option><option>Failed</option></select>
-        <button type="button" className="btn" onClick={reset}>Reset Filter</button>
-        <button type="button" className="btn primary create-action" onClick={onCreate}>＋ Create top-up execution</button>
+    <div className="grid gap-5">
+      <Tiles items={[
+        { label: "Credited so far", value: cash(stats.credited), note: "Money that reached Education Accounts", good: true },
+        { label: "Scheduled", value: String(stats.scheduled), note: stats.scheduled ? `${cash(stats.scheduledTotal)} estimated, not credited yet` : "Nothing waiting to run" },
+        { label: "Need attention", value: String(stats.attention), note: "Failed or partly failed", alert: stats.attention > 0 },
+        { label: "All top-ups", value: String(rows.length), note: `${rows.filter((r) => r.type === "Batch").length} batch · ${rows.filter((r) => r.type === "Single").length} single` },
+      ]} />
+      <div className="card tablecard">
+        <div className="toolbar filters-toolbar">
+          <input className="filter-search" placeholder="Search ID or recipient..." aria-label="Search top-ups" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select aria-label="Filter by type" value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option><option value="Single">Single</option><option value="Batch">Batch</option></select>
+          <input type="date" aria-label="From date" title="From date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input type="date" aria-label="To date" title="To date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <select aria-label="Filter by status" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option><option>Success</option><option>Partial Success</option><option>Pending</option><option>Failed</option></select>
+          <button type="button" className="btn" onClick={reset}>Reset Filter</button>
+          <button type="button" className="btn primary create-action" onClick={onCreate}>＋ Create top-up</button>
+        </div>
+        <div className="tablewrap"><table className="data-table"><thead><tr><th>Top-up ID</th><th>Recipient / rule</th><th>Date</th><th style={{ textAlign: "right" }}>Per account</th><th style={{ textAlign: "right" }}>Total</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            {list.length ? list.map(({ t, i }) => (
+              <tr key={`${t.ref}-${i}`}>
+                <td><strong>{ledger[i].id}</strong></td>
+                <td><strong>{t.recipient}</strong><small>{t.type} · {plural(t.accounts, "account")}</small></td>
+                <td>{formatDate(t.date)}<small>{t.schedule}</small></td>
+                <td style={{ textAlign: "right" }}>{cash(t.amount)}</td>
+                <td style={{ textAlign: "right" }}><strong>{cash(t.amount * t.accounts)}</strong>{t.status === "Pending" && <small>Estimated, not credited</small>}</td>
+                <td><span className={`badge ${statusClass(t.status)}`}>{t.status}</span></td>
+                <td><div className="actiongroup"><button type="button" onClick={() => setViewing(i)}>View details</button></div></td>
+              </tr>
+            )) : <tr><td colSpan={7} className="empty">No top-ups found.</td></tr>}
+          </tbody></table></div>
       </div>
-      <div className="tablewrap"><table className="data-table"><thead><tr><th>Top-up ID</th><th>Top-up Type</th><th>Recipient / rule</th><th>Date</th><th>Schedule</th><th>Accounts</th><th>Per account</th><th>Total</th><th>Status</th><th>Executed by</th><th>Action</th></tr></thead>
-        <tbody>
-          {list.length ? list.map(({ t, i }) => (
-            <tr key={`${t.ref}-${i}`}>
-              <td><strong>{ledger[i].id}</strong></td><td>{t.type}</td><td><strong>{t.recipient}</strong><small>{t.detail}</small></td><td>{t.date}</td><td>{t.schedule}</td>
-              <td style={{ textAlign: "right" }}>{t.accounts}</td><td>{cash(t.amount)}</td>
-              <td>{cash(t.amount * t.accounts)}{t.status === "Pending" && <small>Estimated · Not credited</small>}</td>
-              <td><span className={`badge ${statusClass(t.status)}`}>{t.status}</span></td><td>{t.by}</td>
-              <td><div className="actiongroup"><button type="button" onClick={() => setViewing(i)}>View</button></div></td>
-            </tr>
-          )) : <tr><td colSpan={11} className="empty">No top-ups found.</td></tr>}
-        </tbody></table></div>
     </div>
   );
 }
@@ -66,47 +98,57 @@ function Details({ t, id, items, accounts, onBack }: { t: Transaction; id: strin
   const [st, setSt] = useState("");
   const pending = t.status === "Pending", batch = t.type === "Batch";
   const count = (s: string) => items.filter((a) => a.status === s).length;
-  const row = (k: string, v: string) => <div className="summaryrow"><span>{k}</span><strong>{v}</strong></div>;
   const credited = count("Success");
+  const failed = count("Failed");
   const download = () => downloadXlsx(`${id}-topped-up-students.xlsx`, "Topped-up students", topUpReportRows(t, id, items, accounts));
   const shown = items.filter((a) => (!st || a.status === st) && (!q.trim() || `${a.txid ?? ""} ${a.student} ${a.account} ${maskNric(a.account)} ${a.reason ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())));
   return (
-    <div>
-      <button type="button" className="backline" onClick={onBack}>← Back to Top-up History</button>
-      <div className="card tablecard">
-        <div className="tabletop"><h2>Top-up Details · {id}</h2><span className={`badge ${statusClass(t.status)}`}>{t.status}</span></div>
-        <div className="toolbar" style={{ marginBottom: 12 }}>
-          <button type="button" className="btn primary" disabled={!credited} onClick={download}>Download Excel report</button>
-          <span className="small">{credited ? `Lists the ${credited} account(s) topped up. Failed accounts are not included.` : "Available once accounts have been topped up."}</span>
+    <div className="grid gap-5">
+      <button type="button" className="backline" style={{ justifySelf: "start" }} onClick={onBack}>← Back to Top-up History</button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-on-surface">{t.recipient}</h2>
+          <p className="mt-0.5 text-sm text-on-surface-variant">{id} · {t.type} top-up</p>
         </div>
-        {row("Type", t.type)}{row("Recipient / rule", t.recipient)}{row(pending ? "Scheduled date" : "Execution date", t.date)}{row("Schedule", t.schedule)}
-        {batch && row("Eligible account(s)", String(t.accounts))}
-        {row(batch ? "Amount per account" : "Amount", cash(t.amount))}
-        {batch && <>
-          {row(pending ? "Estimated total" : "Planned total", cash(t.amount * t.accounts))}
-          {row("Successfully credited", pending ? "—" : cash(count("Success") * t.amount))}
-          {row("Failed amount", pending ? "—" : cash(count("Failed") * t.amount))}
-        </>}
-        <h2 style={{ marginTop: 24 }}>{pending ? "Eligible Account(s) (Pending)" : "Account Transaction History"}</h2>
-        <p className="small" style={{ marginBottom: 12 }}>{pending ? "Eligible accounts were fixed when the schedule was created. No ledger transactions exist yet." : `Success: ${count("Success")} · Failed: ${count("Failed")} · Failure reasons are shown for failed accounts.`}</p>
+        <div className="flex items-center gap-3">
+          <span className={`badge ${statusClass(t.status)}`}>{t.status}</span>
+          <button type="button" className="btn primary" disabled={!credited} onClick={download} title={credited ? "Lists the accounts topped up. Failed accounts are not included." : "Available once accounts have been topped up."}>Download Excel report</button>
+        </div>
+      </div>
+      <Tiles items={[
+        { label: batch ? "Amount per account" : "Amount", value: cash(t.amount), note: plural(t.accounts, "account") },
+        { label: pending ? "Estimated total" : "Planned total", value: cash(t.amount * t.accounts) },
+        { label: "Credited", value: pending ? "Not yet" : cash(credited * t.amount), note: pending ? "Runs on the scheduled date" : plural(credited, "account"), good: !pending && credited > 0 },
+        { label: "Failed", value: pending ? "-" : cash(failed * t.amount), note: pending ? undefined : plural(failed, "account"), alert: failed > 0 },
+      ]} />
+      <div className="card" style={{ padding: 20 }}>
+        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+          <Fact label={pending ? "Scheduled for" : "Executed on"}>{formatDate(t.date)}</Fact>
+          <Fact label="Schedule">{t.schedule}</Fact>
+          <Fact label="Executed by">{t.by}</Fact>
+          <Fact label="Reason" wide>{t.detail}</Fact>
+        </dl>
+      </div>
+      <div className="card tablecard">
+        <div className="tabletop"><h2>{pending ? "Accounts that will be topped up" : "Account transactions"}</h2></div>
+        <p className="small" style={{ marginBottom: 12 }}>{pending ? "The accounts were fixed when the schedule was created. Nothing has been credited yet." : `${credited} succeeded · ${failed} failed. A reason is shown for each failed account.`}</p>
         {batch && (
           <div className="toolbar">
-            <input placeholder="Search student, account or transaction ID..." aria-label="Search accounts" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="Search student, NRIC or transaction ID..." aria-label="Search accounts" value={q} onChange={(e) => setQ(e.target.value)} />
             <select aria-label="Filter by account status" value={st} onChange={(e) => setSt(e.target.value)}><option value="">All account statuses</option><option>Pending</option><option>Success</option><option>Failed</option></select>
             <button type="button" className="btn" onClick={() => { setQ(""); setSt(""); }}>Reset Filter</button>
           </div>
         )}
         <div className={`tablewrap${batch ? " transaction-scroll" : ""}`} {...(batch ? { role: "region", "aria-label": "Account transaction list", tabIndex: 0 } : {})}>
-          <table className="data-table" style={{ minWidth: 850 }}><thead><tr><th>Transaction ID</th><th>Student</th><th>Education Account ID (NRIC)</th><th>Amount</th><th>Status</th><th>Failure Reason</th></tr></thead>
+          <table className="data-table" style={{ minWidth: 700 }}><thead><tr><th>Student</th><th>Education Account ID (NRIC)</th><th style={{ textAlign: "right" }}>Amount</th><th>Status</th><th>Transaction ID</th><th>Failure reason</th></tr></thead>
             <tbody>{shown.length ? shown.map((a) => (
-              <tr key={a.account + (a.txid ?? "")}><td>{a.txid ?? "—"}</td><td>{a.student}</td><td>{maskNric(a.account)}</td><td>{cash(t.amount)}</td><td><span className={`badge ${targetClass(a.status)}`}>{a.status}</span></td><td>{a.reason ?? "—"}</td></tr>
+              <tr key={a.account + (a.txid ?? "")}><td><strong>{a.student}</strong></td><td>{maskNric(a.account)}</td><td style={{ textAlign: "right" }}>{cash(t.amount)}</td><td><span className={`badge ${targetClass(a.status)}`}>{a.status}</span></td><td>{a.txid ?? "—"}</td><td>{a.reason ?? "—"}</td></tr>
             )) : <tr><td colSpan={6} className="empty">No account transactions found.</td></tr>}</tbody></table>
         </div>
       </div>
     </div>
   );
 }
-
 /** Student opened from an Education Account page; the top-up form is preset to them. */
 const accountOf = (s: Student): Account => ({
   id: s.id, nric: s.nric, name: s.name, school: SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "", class: s.class, age: ageForLevel(s.level),
