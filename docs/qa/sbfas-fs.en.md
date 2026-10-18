@@ -17,8 +17,8 @@
 | F3 | Decision history: Granted and Declined tabs | Filter buttons above the table |
 | F4 | Fee context per application: Fee payable and Account balance (top-up) | Two columns + an info block in the Review window |
 | F5 | Family-level submission from the parent e-Service: creates per-child applications in the admin queue; the parent tracker and FAS card follow the decisions | Parent portal → FAS; Admin → FAS queue |
-| F5 | SBFAS outcome reflected in the fee payable (subsidy on issued charges) | Fee → Student fees; charge modal |
-| F6 | Recording a payment against a subsidised charge | Charge modal → *Record a payment* |
+| F6 | SBFAS outcome reflected in the fee payable (subsidy on issued charges) | Fee → Student fees; charge modal |
+| F7 | Recording a payment against a subsidised charge | Charge modal → *Record a payment* |
 
 ---
 
@@ -84,7 +84,7 @@
 - **BR11 — Subsidy ≠ top-up.** An FAS subsidy **reduces the fees** the family has to pay. A MOE top-up **adds to the Education Account balance**. The two are calculated, stored and displayed separately: the *Fee payable* column = the total still owed on unpaid charges; the *Account balance* column = the student's top-up balance. Neither changes the other.
 
 - **BR12 — Citizenship and scheme eligibility (R4).** **MOE FAS** is for **Singapore Citizens only** (dual-citizen students `Dual (Singapore + …)` still count as citizens, since children may hold dual citizenship). **SBFAS** grants to Singapore Citizens and **Singapore PRs**; **foreign-national students are not granted SBFAS** (neither scheme applies) and **cannot apply** — the SBFAS queue never contains a foreign-national application. In the review window: PR nationality shows a yellow "SBFAS-only" warning; a foreign nationality shows a red "not eligible for either scheme — reject" warning. Warnings are advisory — the decision stays with the school user.
-- **BR12 — Derived charge status.** `paid` when payments fully cover the payable amount (remainder `≤ S$0.005`); otherwise `overdue` when past `due`; otherwise `outstanding`. The status is not stored — recording a payment can turn the row to *paid* immediately.
+- **BR12a — Derived charge status.** `paid` when payments fully cover the payable amount (remainder `≤ S$0.005`); otherwise `overdue` when past `due`; otherwise `outstanding`. The status is not stored — recording a payment can turn the row to *paid* immediately.
 - **BR13 — Payment rules.** Each recording is tied to exactly one charge; the amount must be > 0, at most 2 decimal places, and not more than the amount still owed. The source is *Education account* (conceptually deducts from the top-up balance) or *Card / PayNow* (payment gateway). Partial payments are allowed; each recording gets a reference `CH-xxxx-Pn`.
 
 - **BR14 — Family-level application flow (R4-parent).** The parent submits **one application for the whole family** on the e-Service Portal (once per session). If the synced income band is the SBFAS band (not a MOEFAS band — BR10b), the system creates **one application per child** in the admin queue: ids continue the `SBFASXXXX` sequence, `studentId` points at the child's admin record, status `Pending`, and the income/household bands and sync date come from the family's sync. A MOEFAS band creates no school application (granted at MOE level); a higher band is not eligible. Decisions flow back: the parent tracker (Review = Done once every child is decided; Disbursement = In progress once anyone is granted) and the Overview FAS card (Under review → Approved when **at least one child** is granted, Not approved when all are declined); "Result per child" shows `SBFAS Tier X - Granted` / `SBFAS - Declined` with the reason.
