@@ -3,39 +3,41 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import type { SchoolRecord } from "../../../data/schoolMgmt";
-import { principalOf } from "../../../data/users";
+import { principalOf, unassignedStaff } from "../../../data/users";
 import { nextSchoolId, validateSchool, type SchoolInput } from "../../../lib/schoolMgmt";
 
-const EMPTY: SchoolInput = { code: "", name: "", level: "", address: "", principal: "", email: "", phone: "", userName: "", userEmail: "" };
+const EMPTY: SchoolInput = { code: "", name: "", level: "", address: "", principal: "", email: "", phone: "", userEmail: "" };
 export const SCHOOL_TYPES = ["Primary", "Secondary"] as const;
-type Props = { open: boolean; editing: SchoolRecord | null; all: SchoolRecord[]; onClose: () => void; onSave: (s: SchoolRecord, user: { name: string; email: string; resetPassword: boolean }) => void };
+type Props = { open: boolean; editing: SchoolRecord | null; all: SchoolRecord[]; onClose: () => void; onSave: (s: SchoolRecord, principalEmail: string) => void };
 
 export default function SchoolFormModal({ open, editing, all, onClose, onSave }: Props) {
-  const account = editing && principalOf(editing.code);
-  const [v, setV] = useState<SchoolInput>(editing ? { ...editing, userName: account?.name ?? "", userEmail: account?.email ?? "" } : EMPTY);
-  const [reset, setReset] = useState(false);
+  const current = editing && principalOf(editing.code);
+  const [v, setV] = useState<SchoolInput>(editing ? { ...editing, userEmail: current?.email ?? "" } : EMPTY);
   const [active, setActive] = useState(editing?.active ?? true);
   const [submitted, setSubmitted] = useState(false);
   const code = editing?.code ?? nextSchoolId(all);
   const others = all.filter((s) => s.code !== editing?.code);
-  const errors = submitted ? validateSchool({ ...v, code }, others, true) : {};
+  const candidates = [...(current ? [current] : []), ...unassignedStaff()];
+  const principal = candidates.find((s) => s.email === v.userEmail);
+  const full = { ...v, code, principal: principal?.name ?? "" };
+  const errors = submitted ? validateSchool(full, others, true) : {};
   const set = (k: keyof SchoolInput) => (e: { target: { value: string } }) => setV((p) => ({ ...p, [k]: e.target.value }));
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-    if (Object.keys(validateSchool({ ...v, code }, others, true)).length) return;
+    if (Object.keys(validateSchool(full, others, true)).length) return;
     onSave({
       code,
       name: v.name.trim().replace(/\s+/g, " "),
       level: v.level as SchoolRecord["level"],
       address: v.address.trim(),
-      principal: v.principal.trim(),
+      principal: full.principal,
       email: v.email.trim(),
       phone: v.phone.replace(/\s/g, ""),
       students: editing?.students ?? 0,
       active,
-    }, { name: v.userName!.trim(), email: v.userEmail!.trim(), resetPassword: reset });
+    }, principal!.email);
     onClose();
   };
 
@@ -69,8 +71,11 @@ export default function SchoolFormModal({ open, editing, all, onClose, onSave }:
         <Field required label="Address" error={errors.address}>
           <input className={inputClass} value={v.address} onChange={set("address")} />
         </Field>
-        <Field required label="Principal" error={errors.principal}>
-          <input className={inputClass} value={v.principal} onChange={set("principal")} />
+        <Field required label="Principal" error={errors.userEmail} hint="Pick an existing school user. No new account or password is created. Other School Admins are managed on the User page.">
+          <select className={inputClass} value={v.userEmail} onChange={set("userEmail")}>
+            <option value="">Select principal</option>
+            {candidates.map((s) => <option key={s.email} value={s.email}>{s.name} ({s.email})</option>)}
+          </select>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field required label="Contact email" error={errors.email}>
@@ -80,22 +85,6 @@ export default function SchoolFormModal({ open, editing, all, onClose, onSave }:
             <input type="tel" className={inputClass} value={v.phone} onChange={set("phone")} />
           </Field>
         </div>
-        <fieldset className="grid gap-4 rounded-control border border-line p-4 sm:grid-cols-2">
-            <legend className="px-1 text-[13px] font-semibold">Principal account (one per school)</legend>
-            <Field required label="Name" error={errors.userName}>
-              <input className={inputClass} value={v.userName} onChange={set("userName")} />
-            </Field>
-            <Field required label="Email (login)" error={errors.userEmail} hint={editing ? "Changing this changes the login." : "A one-time password is generated after saving."}>
-              <input type="email" className={inputClass} value={v.userEmail} onChange={set("userEmail")} />
-            </Field>
-            <p className="text-[13px] text-on-surface-variant sm:col-span-2">Other School Admins and their modules are managed on the User page.</p>
-            {editing && (
-              <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm sm:col-span-2">
-                <input type="checkbox" className="size-5 accent-primary" checked={reset} onChange={(e) => setReset(e.target.checked)} />
-                Issue a new one-time password
-              </label>
-            )}
-          </fieldset>
         {editing && (
           <label className="flex min-h-11 items-center gap-3 text-sm">
             <input type="checkbox" className="size-5 accent-primary" checked={active} onChange={(e) => setActive(e.target.checked)} />

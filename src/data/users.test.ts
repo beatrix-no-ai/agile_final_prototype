@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { navFor } from "./nav";
-import { STAFF, createSchoolUser, principalOf, saveSchoolUser, updateSchoolUser, usersOfSchool, validateUser } from "./users";
+import { STAFF, assignPrincipal, createSchoolUser, principalOf, unassignedStaff, updateSchoolUser, usersOfSchool, validateUser } from "./users";
 
 describe("school users", () => {
   test("a school has one Principal and several admins", () => {
@@ -25,11 +25,21 @@ describe("school users", () => {
     expect(admin.modules).toEqual(["Top-up"]);
     updateSchoolUser(admin, { name: "Test Admin", email: admin.email, position: "School Admin", modules: ["FAS", "Top-up"] });
     expect(admin.modules).toEqual(["FAS", "Top-up"]);
-    const principal = saveSchoolUser("S002", "Test Principal", "test.principal@school.example");
-    expect(principal.modules).toEqual(["FAS", "Top-up"]);
-    expect(principalOf("S002")).toBe(principal);
     STAFF.splice(STAFF.indexOf(admin), 1);
-    STAFF.splice(STAFF.indexOf(principal), 1);
+  });
+
+  test("assigning a Principal reuses the existing account and demotes the old one", () => {
+    const before = STAFF.length;
+    const [first, second] = unassignedStaff();
+    const p = assignPrincipal("S002", first.email);
+    expect(p).toBe(first);
+    expect(STAFF).toHaveLength(before);
+    expect(p).toMatchObject({ schoolCode: "S002", title: "Principal", modules: ["FAS", "Top-up"], active: true });
+    expect(unassignedStaff()).not.toContain(first);
+    assignPrincipal("S002", second.email);
+    expect(first.title).toBe("School Admin");
+    expect(principalOf("S002")).toBe(second);
+    for (const a of [first, second]) Object.assign(a, { schoolCode: undefined, title: "Teacher", modules: [], active: false });
   });
 });
 

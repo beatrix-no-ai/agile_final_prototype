@@ -39,6 +39,10 @@ export const STAFF: StaffAccount[] = [
   { role: "school", name: "Marcus Ong", initials: "MO", title: "School Admin", email: "marcus.ong@school.example", password: "Sch00l-Admin-26", schoolCode: "S001", modules: ["FAS"], active: true },
   { role: "school", name: "Priya Nair", initials: "PN", title: "School Admin", email: "priya.nair@school.example", password: "Sch00l-Top-26", schoolCode: "S001", modules: ["Top-up"], active: true },
   { role: "hq", name: "Daniel Lim", initials: "DL", title: "MOE HQ Officer", email: "daniel.lim@moe.example", password: "HqOfficer-Demo-26", modules: [...MODULES], active: true },
+  // Third-party feed: school staff not yet assigned to a school. HQ assigns one as Principal when adding a school.
+  { role: "school", name: "Grace Wong", initials: "GW", title: "Teacher", email: "grace.wong@school.example", password: "Sch00l-Grace-26", modules: [], active: false },
+  { role: "school", name: "Ahmad Rahman", initials: "AR", title: "Teacher", email: "ahmad.rahman@school.example", password: "Sch00l-Ahmad-26", modules: [], active: false },
+  { role: "school", name: "Chen Mei Ling", initials: "CM", title: "Teacher", email: "chen.meiling@school.example", password: "Sch00l-Chen-26", modules: [], active: false },
 ];
 
 export const initialsOf = (name: string) => name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -97,11 +101,20 @@ export function updateSchoolUser(acct: StaffAccount, v: Omit<UserInput, "schoolC
   return acct;
 }
 
-/** Req 3 (assumed): HQ creates the school's Principal together with the school. Creates it, or updates the existing Principal (name, login email, optional fresh password). */
-export function saveSchoolUser(schoolCode: string, name: string, email: string, resetPassword = false): StaffAccount {
-  const acct = principalOf(schoolCode);
-  if (!acct) return createSchoolUser({ schoolCode, name, email, position: "Principal", modules: [...MODULES] });
-  return updateSchoolUser(acct, { name, email, position: "Principal", modules: [...MODULES] }, resetPassword);
+/** School users from the third-party feed that no school has claimed yet. */
+export const unassignedStaff = () => STAFF.filter((s) => s.role === "school" && !s.schoolCode);
+
+/** Req 3 (assumed): HQ assigns an existing (third-party) account as the school's Principal. No account is created; a Principal replaced here stays on as School Admin. */
+export function assignPrincipal(schoolCode: string, email: string): StaffAccount {
+  const acct = staffByEmail(email);
+  if (!acct || acct.role !== "school") throw new Error(`No school user with email ${email}`);
+  const old = principalOf(schoolCode);
+  if (old && old !== acct) old.title = "School Admin";
+  acct.schoolCode = schoolCode;
+  acct.title = "Principal";
+  acct.modules = [...MODULES];
+  acct.active = true;
+  return acct;
 }
 
 /** School of the first (mock) school user; undefined for HQ. Screens that know the signed-in user should use the session instead. */

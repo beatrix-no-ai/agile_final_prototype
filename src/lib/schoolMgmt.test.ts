@@ -14,9 +14,10 @@ it("rejects bad email and phone", () => {
   expect(validateSchool({ ...school, email: "x" }, []).email).toBeTruthy();
   expect(validateSchool({ ...school, phone: "12345678" }, []).phone).toBeTruthy();
 });
-it("requires the school user only when asked", () => {
+it("requires the principal only when asked", () => {
   expect(validateSchool(school, [])).toEqual({});
-  expect(Object.keys(validateSchool(school, [], true)).sort()).toEqual(["userEmail", "userName"]);
+  expect(Object.keys(validateSchool(school, [], true))).toEqual(["userEmail"]);
+  expect(validateSchool({ ...school, userEmail: "a@b.sg" }, [], true)).toEqual({});
 });
 it("generates the next school ID", () => expect(nextSchoolId([{ code: "S003" }, { code: "S012" }])).toBe("S013"));
 describe("validateClass", () => {
