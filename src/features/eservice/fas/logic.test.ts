@@ -9,14 +9,11 @@ test("assess: MOEFAS tiers first, SBFAS only when MOEFAS is not granted, never b
   expect(assess(BANDS[3])).toMatchObject({ scheme: null, status: "Not eligible" });
 });
 
-test("trackerSteps follows submission and income sync", () => {
-  const s = (sync: "idle" | "loading" | "success" | "error", hasBand: boolean) => trackerSteps(sync, hasBand).map((x) => x.state);
-  expect(s("idle", true)).toEqual(["Done", "Done", "In progress", "Waiting"]);
-  expect(s("idle", false)).toEqual(["Done", "To do", "Waiting", "Waiting"]);
-  expect(s("loading", true)).toEqual(["Done", "In progress", "Waiting", "Waiting"]);
-  expect(s("error", false)).toEqual(["Done", "Failed", "Waiting", "Waiting"]);
-  expect(s("error", true)).toEqual(["Done", "Failed", "Waiting", "Waiting"]);
-  expect(s("success", true)).toEqual(["Done", "Done", "In progress", "Waiting"]);
+test("trackerSteps has three stages: prepare info, submission, disbursement", () => {
+  const s = (stage: "not-started" | "preparing" | "submitted") => trackerSteps(stage).map((x) => `${x.name}:${x.state}`);
+  expect(s("not-started")).toEqual(["Prepare info:To do", "Submission:Waiting", "Disbursement:Waiting"]);
+  expect(s("preparing")).toEqual(["Prepare info:In progress", "Submission:To do", "Disbursement:Waiting"]);
+  expect(s("submitted")).toEqual(["Prepare info:Done", "Submission:Done", "Disbursement:Waiting"]);
 });
 
 const ok = { contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };

@@ -42,7 +42,7 @@ export default function Overview() {
         <section aria-label="Children"><ChildCards children={children} invoices={invoices} /></section>
       </div>
       <div className="space-y-4">
-        <FasCard fas={fasStatus} />
+        <FasCard fas={fasStatus} progress={state.fas} />
         <RecentTransactions transactions={transactions} children={children} />
       </div>
     </div>

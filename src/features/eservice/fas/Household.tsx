@@ -53,23 +53,25 @@ export function Household({ status, bandId, syncedOn, onSync }: Props) {
             {message[status]}
           </p>
         </div>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <Field label="Demo: next sync outcome" className="w-full max-w-80">
-            <select
-              className={inputClass}
-              value={outcome}
-              onChange={(e) => {
-                setOutcome(e.target.value);
-                if (e.target.value !== "fail") setAfter(e.target.value);
-              }}
-            >
-              {BANDS.map((b) => <option key={b.id} value={b.id}>Succeeds - band {b.label}</option>)}
-              <option value="fail">Fails once, then Retry succeeds</option>
-            </select>
-          </Field>
-          <span className="pb-3"><AssumptionTag /></span>
-        </div>
-      </div>
+        <details className="mt-3 text-[13px] text-on-surface-variant">
+          <summary className="cursor-pointer font-medium">Demo options</summary>
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <Field label="Next sync outcome" className="w-full max-w-80">
+              <select
+                className={inputClass}
+                value={outcome}
+                onChange={(e) => {
+                  setOutcome(e.target.value);
+                  if (e.target.value !== "fail") setAfter(e.target.value);
+                }}
+              >
+                {BANDS.map((b) => <option key={b.id} value={b.id}>Succeeds - band {b.label}</option>)}
+                <option value="fail">Fails once, then Retry succeeds</option>
+              </select>
+            </Field>
+            <span className="pb-3"><AssumptionTag /></span>
+          </div>
+        </details>      </div>
     </Card>
   );
 }

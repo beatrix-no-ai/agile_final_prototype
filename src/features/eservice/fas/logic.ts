@@ -1,4 +1,5 @@
 import { autoFillSource, type Band } from "../../../data/familyFas";
+import type { FasStage } from "../../../data/parentStore";
 
 export type SyncStatus = "idle" | "loading" | "success" | "error";
 export type FormValues = { contact: string; mailingAddress: string; note: string };
@@ -23,18 +24,14 @@ export function assess(band: Band): ChildResult {
 export type StepState = "Done" | "In progress" | "To do" | "Waiting" | "Failed";
 export type Step = { name: string; state: StepState };
 
-/** ASSUMPTION: the application is already submitted (FAS-2026-0418); tracker states follow the income sync. Disbursement starts after review. */
-export function trackerSteps(sync: SyncStatus, hasBand: boolean): Step[] {
-  const income: StepState = sync === "loading" ? "In progress" : sync === "error" ? "Failed" : hasBand ? "Done" : "To do";
-  const review: StepState = income === "Done" ? "In progress" : "Waiting";
+/** Three stages for the parent: prepare the information, submit, then disbursement (which only starts after MOE has reviewed the application). */
+export function trackerSteps(stage: FasStage): Step[] {
   return [
-    { name: "Submission", state: "Done" },
-    { name: "Income sync", state: income },
-    { name: "Review", state: review },
+    { name: "Prepare info", state: stage === "submitted" ? "Done" : stage === "preparing" ? "In progress" : "To do" },
+    { name: "Submission", state: stage === "submitted" ? "Done" : stage === "preparing" ? "To do" : "Waiting" },
     { name: "Disbursement", state: "Waiting" },
   ];
 }
-
 // ASSUMPTION: Singapore mobile/landline, 8 digits starting 3, 6, 8 or 9, optional +65.
 const sgNumber = /^(\+?65)?[\s-]?[3689]\d{3}[\s-]?\d{4}$/;
 

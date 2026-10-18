@@ -5,13 +5,18 @@ import { children, invoices, profile, transactions, type Child, type Invoice, ty
 
 // ASSUMPTION: parent state lives in memory only and resets on reload (no backend). Payments, Overview and profile edit
 // all read and write this one store, so a payment on /parent/payments shows on /parent until the page is reloaded.
-export type ParentState = { invoices: Invoice[]; children: Child[]; transactions: Transaction[]; profile: Profile };
+/** Where the family's FAS application stands: nothing started, being prepared, or submitted (then under review). */
+export type FasStage = "not-started" | "preparing" | "submitted";
+export type FasProgress = { stage: FasStage; submittedOn?: string };
+export type ParentState = { invoices: Invoice[]; children: Child[]; transactions: Transaction[]; profile: Profile; fas: FasProgress };
 
 export type ParentAction =
   | { type: "pay"; ids: string[]; mode: Mode; date: string }
-  | { type: "saveProfile"; form: ProfileForm };
+  | { type: "saveProfile"; form: ProfileForm }
+  | { type: "startFas" }
+  | { type: "submitFas"; date: string };
 
-export const initialParentState: ParentState = { invoices, children, transactions, profile };
+export const initialParentState: ParentState = { invoices, children, transactions, profile, fas: { stage: "not-started" } };
 
 /** Pure: pay marks invoices paid, debits the Education Accounts and prepends the ledger rows; saveProfile merges the editable fields. */
 export function parentReducer(state: ParentState, action: ParentAction): ParentState {
@@ -24,6 +29,10 @@ export function parentReducer(state: ParentState, action: ParentAction): ParentS
     }
     case "saveProfile":
       return { ...state, profile: { ...state.profile, ...action.form } };
+    case "startFas":
+      return state.fas.stage === "not-started" ? { ...state, fas: { stage: "preparing" } } : state;
+    case "submitFas":
+      return state.fas.stage === "preparing" ? { ...state, fas: { stage: "submitted", submittedOn: action.date } } : state;
   }
 }
 
