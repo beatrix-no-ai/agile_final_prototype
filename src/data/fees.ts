@@ -10,6 +10,8 @@ export type ChargeStatus = "outstanding" | "overdue" | "paid";
 export type ChargeComponent = FeeComponent & { subsidy?: number };
 /** Fee assistance scheme applied to a charge. A student receives at most one: MOEFAS takes precedence over SBFAS. */
 export type FasScheme = "MOEFAS" | "SBFAS";
+/** One payment made out of a student's Education Account (shown on the account ledger). */
+export type AccountPayment = { id: string; studentId: string; amount: number; on: string; title: string };
 /** Money a parent paid against one charge, and where it came from. */
 export type PayMethod = "Education account" | "Card / PayNow";
 export type Payment = { id: string; on: string; amount: number; method: PayMethod };

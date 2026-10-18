@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useLocation } from "react-router";
 import { useSession } from "../../../session";
 import type { Student } from "../../../data/students";
-import { schoolOfLevel } from "../../../data/schoolMgmt";
-import { SCHOOLS } from "../../../data/schools";
-import { ACCOUNT_CLOSES_AT, ageForLevel } from "../../../lib/accounts";
-import { ACCOUNTS, FUND_RULES, PAST_TRANSACTIONS, type Account, type FundRule, type Target, type Transaction } from "../../../data/topup";
+import { useMovements } from "../../../data/movements";
+import { useRegistry } from "../../../data/registryStore";
+import { useTopUp } from "../../../data/topupStore";
+import { accountsOf } from "../../../lib/accounts";
+import type { Account, Target, Transaction } from "../../../data/topup";
 import { ledgerIds, topUpReport } from "../../../lib/topup";
 import { formatDate } from "../../../lib/format";
 import { maskNric } from "../../../lib/nric";
@@ -150,34 +151,28 @@ function Details({ t, id, items, accounts, onBack }: { t: Transaction; id: strin
     </div>
   );
 }
-/** Student opened from an Education Account page; the top-up form is preset to them. */
-const accountOf = (s: Student): Account => ({
-  id: s.id, nric: s.nric, name: s.name, school: SCHOOLS.find((x) => x.code === schoolOfLevel(s.level))?.name ?? "", class: s.class, age: ageForLevel(s.level),
-  citizen: true, enrolled: s.status === "Active", schooling: s.status, status: ageForLevel(s.level) >= ACCOUNT_CLOSES_AT ? "Closed" : "Active", balance: s.balance,
-});
-
 export default function TopUp() {
   const preset = (useLocation().state as { student?: Student } | null)?.student;
   // A School user with the Top-up module sees only their own school's accounts, single top-ups, and no rule tab.
   const { role, staff } = useSession();
-  const ownSchool = role === "school" ? SCHOOLS.find((s) => s.code === staff?.schoolCode)?.name ?? "" : undefined;
+  const { state: reg } = useRegistry();
+  const movements = useMovements();
+  const { state: tu, dispatch } = useTopUp();
+  const ownSchool = role === "school" ? reg.schools.find((s) => s.code === staff?.schoolCode)?.name ?? "" : undefined;
   const tabs = ownSchool === undefined ? TABS : TABS.filter((t) => t.id === "transactions");
-  const base = ownSchool === undefined ? ACCOUNTS : ACCOUNTS.filter((a) => a.school === ownSchool);
+  // Every account is a real student, with the balance after top-ups paid in and fees paid out.
+  const accounts = useMemo(
+    () => accountsOf(reg.students, reg.classes, reg.schools, movements).filter((a) => ownSchool === undefined || a.school === ownSchool),
+    [reg, movements, ownSchool],
+  );
+  const history = ownSchool === undefined ? tu.history : tu.history.filter((h) => h.school === ownSchool);
   const [tab, setTab] = useState<TabId>("transactions");
   const [creating, setCreating] = useState(Boolean(preset)); // a preset student opens the create form directly
-  const [rules, setRules] = useState<FundRule[]>(FUND_RULES);
-  const [accounts, setAccounts] = useState<Account[]>(() => (preset && !base.some((a) => a.id === preset.id) ? [accountOf(preset), ...base] : base));
-  const [history, setHistory] = useState<Transaction[]>(ownSchool === undefined ? PAST_TRANSACTIONS : []);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const { notify, toast } = useToast();
 
-  const done = (row: Transaction, creditedIds: string[]) => {
-    setHistory((h) => [row, ...h]);
-    if (creditedIds.length) {
-      const credit = new Set(creditedIds);
-      setAccounts((as) => as.map((a) => (credit.has(a.id) ? { ...a, balance: Math.round((a.balance + row.amount) * 100) / 100 } : a)));
-    }
-  };
+  // The credit goes to the Education Account itself, so the student's page, the school and the parent all show it.
+  const done = (row: Transaction, creditedIds: string[]) => dispatch({ type: "topUp", row: ownSchool === undefined ? row : { ...row, school: ownSchool }, creditedIds });
   const closeAsk = () => setDialog(null);
 
   return (
@@ -188,9 +183,9 @@ export default function TopUp() {
         ))}
       </nav>
       {tab === "transactions" && (creating
-        ? <Execute rules={rules} accounts={accounts} presetAccountId={preset?.id} singleOnly={ownSchool !== undefined} onBack={() => setCreating(false)} onDone={done} notify={notify} ask={setDialog} closeAsk={closeAsk} />
+        ? <Execute rules={tu.rules} accounts={accounts} presetAccountId={preset?.id} singleOnly={ownSchool !== undefined} onBack={() => setCreating(false)} onDone={done} notify={notify} ask={setDialog} closeAsk={closeAsk} />
         : <History rows={history} accounts={accounts} onCreate={() => setCreating(true)} />)}
-      {tab === "rules" && <Rules rules={rules} onChange={setRules} notify={notify} ask={setDialog} closeAsk={closeAsk} />}
+      {tab === "rules" && <Rules rules={tu.rules} onChange={(rules) => dispatch({ type: "setRules", rules })} notify={notify} ask={setDialog} closeAsk={closeAsk} />}
       <Dialog spec={dialog} onClose={closeAsk} />
       {toast}
     </div>

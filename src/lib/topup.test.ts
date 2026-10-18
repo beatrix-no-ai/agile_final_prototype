@@ -1,7 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { parseAmount } from "./amount";
 import { eligibleAccounts, eligibleForRule, nextRuleId, totalFunds, transactionCode, type TopUpRule } from "./topup";
-import { ACCOUNTS, FUND_RULES, type Account } from "../data/topup";
+import { initialRegistry } from "../data/registryStore";
+import { FUND_RULES, type Account } from "../data/topup";
+import { accountsOf } from "./accounts";
+
+const reg = initialRegistry();
+const ACCOUNTS = accountsOf(reg.students, reg.classes, reg.schools, { debits: {}, credits: {} });
 
 const acc = (id: string, o: Partial<Account> = {}): Account => ({ id, nric: `T${id}`, name: id, school: "Riverbank Primary School", class: "P4 Courage", age: 10, citizen: true, enrolled: true, schooling: "Active", status: "Active", balance: 100, ...o });
 const rule: TopUpRule = { ageMin: 7, ageMax: 12, citizenOnly: false, enrolledOnly: false, balanceMin: 0, balanceMax: 500 };

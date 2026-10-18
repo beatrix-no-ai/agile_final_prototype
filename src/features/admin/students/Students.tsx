@@ -1,5 +1,5 @@
 import { useFas } from "../../../data/fasStore";
-import { useFees } from "../../../data/feeStore";
+import { useMovements } from "../../../data/movements";
 import { withBalance, withFas } from "../../../lib/studentFas";
 import { useMemo, useState } from "react";
 import { HeaderActions } from "../../../components/layout/HeaderActions";
@@ -25,8 +25,8 @@ const sbfasTone: Record<SbfasStatus, BadgeTone> = { Approved: "success", Pending
 export default function Students() {
   const { state: reg, dispatch: regDispatch } = useRegistry();
   const { state: fas } = useFas();
-  const { state: fee } = useFees();
-  const students = useMemo(() => reg.students.map((s) => withBalance(withFas(s, fas), fee.debits)), [reg.students, fas, fee.debits]); // SBFAS status follows the FAS queue
+  const movements = useMovements();
+  const students = useMemo(() => reg.students.map((s) => withBalance(withFas(s, fas), movements)), [reg.students, fas, movements]); // SBFAS status follows the FAS queue
   const [params] = useSearchParams(); // "View students" on the Classes page arrives as ?class=<name>
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");

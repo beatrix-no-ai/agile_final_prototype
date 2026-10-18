@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SCHOOLS } from "../../../data/schools";
+import { useRegistry } from "../../../data/registryStore";
 import { SCHOOLING, type FundRule, type RuleSchooling, type RuleStatus } from "../../../data/topup";
 import { nextRuleId } from "../../../lib/topup";
 import { cash, type DialogSpec } from "./tuUi";
@@ -61,11 +61,12 @@ function RuleForm({ rules, onChange, onBack, view: v, notify, ask, closeAsk }: P
   const [balMin, setBalMin] = useState(String(v?.minBalance ?? 0));
   const [balMax, setBalMax] = useState(String(v?.maxBalance ?? 500));
   const [schooling, setSchooling] = useState<string>(v?.schooling ?? "");
+  const { state: reg } = useRegistry();
   const [find, setFind] = useState("");
   const [schools, setSchools] = useState<string[]>(v?.schools ?? []);
   const [error, setError] = useState("");
 
-  const shown = SCHOOLS.filter((s) => `${s.name} ${s.level}`.toLowerCase().includes(find.trim().toLowerCase()));
+  const shown = reg.schools.filter((s) => `${s.name} ${s.level}`.toLowerCase().includes(find.trim().toLowerCase()));
 
   const save = (status: RuleStatus) => {
     const a = Number(amount), mn = Number(ageMin), mx = Number(ageMax), bmin = Number(balMin), bmax = Number(balMax);

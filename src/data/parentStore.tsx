@@ -7,7 +7,9 @@ import { selectChildFas, useFas, type ChildFas } from "./fasStore";
 import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
 import { profile, type Child, type Invoice, type Profile, type Transaction } from "./parent";
+import { useMovements } from "./movements";
 import { useRegistry } from "./registryStore";
+import { useTopUp } from "./topupStore";
 
 // ASSUMPTION: the parent's own state (profile edits and where the family FAS application stands) lives in memory only and resets on reload.
 // Everything else the parent sees is derived from the school side (fees, Education Accounts, FAS decisions), so both portals always agree.
@@ -44,19 +46,21 @@ export function ParentProvider({ children: kids }: { children: ReactNode }) {
   const fees = useFees();
   const fas = useFas();
   const { state: reg } = useRegistry();
+  const movements = useMovements();
+  const topUps = useTopUp().state.entries;
   const actions = useFasActions();
 
   const state = useMemo<ParentState>(() => {
-    const children = familyChildren(reg.students, fees.state.debits, reg.schools, reg.classes);
+    const children = familyChildren(reg.students, movements, reg.schools, reg.classes);
     const ids = children.map((c) => c.id);
     return {
       ...local,
       children,
       invoices: familyInvoices(fees.state.charges, ids),
-      transactions: familyTransactions(fees.state.charges, reg.students.filter((s) => ids.includes(s.id))),
+      transactions: familyTransactions(fees.state.charges, reg.students.filter((s) => ids.includes(s.id)), topUps),
       outcomes: Object.fromEntries(ids.map((id) => [id, selectChildFas(fas.state, id)])),
     };
-  }, [local, fees.state, fas.state, reg]);
+  }, [local, fees.state, fas.state, reg, movements, topUps]);
 
   const dispatch: Dispatch<ParentAction> = (a) => {
     if (a.type === "pay") {

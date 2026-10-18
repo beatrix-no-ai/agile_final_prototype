@@ -2,7 +2,12 @@ import { describe, expect, test } from "vitest";
 import { activeRulesInOrder, overlapCount, stackRules, topUpReport } from "./topup";
 import { makeNric, maskNric } from "./nric";
 import { buildXlsx, crc32, columnName } from "./xlsx";
-import { ACCOUNTS, FUND_RULES, type Transaction } from "../data/topup";
+import { initialRegistry } from "../data/registryStore";
+import { FUND_RULES, type Transaction } from "../data/topup";
+import { accountsOf } from "./accounts";
+
+const reg = initialRegistry();
+const ACCOUNTS = accountsOf(reg.students, reg.classes, reg.schools, { debits: {}, credits: {} });
 
 describe("nric", () => {
   test("generates S/T-format ids with a check letter", () => {

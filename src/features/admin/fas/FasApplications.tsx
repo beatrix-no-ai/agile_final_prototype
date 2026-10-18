@@ -10,6 +10,7 @@ import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
+import { useMovements } from "../../../data/movements";
 import { useRegistry } from "../../../data/registryStore";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus } from "../../../lib/fees";
@@ -38,6 +39,7 @@ export default function SbfasApplications() {
   const fees = useFees();
   const { state: fas } = useFas();
   const { state: reg } = useRegistry();
+  const movements = useMovements();
   const { decide: decideApp } = useFasActions();
   const apps = fas.apps; // shared with the Budgets pages, so a decision moves the school's statistics
   const [openId, setOpenId] = useState<string | null>(null);
@@ -52,9 +54,9 @@ export default function SbfasApplications() {
       ...a,
       // What the family still owes (after any FAS subsidy and payments) — separate from the account's top-up balance.
       payable: fees.state.charges.filter((c) => c.studentId === a.studentId && chargeStatus(c) !== "paid").reduce((t, c) => t + balanceOf(c), 0),
-      balance: withBalance(reg.students.find((s) => s.id === a.studentId)!, fees.state.debits).balance,
+      balance: withBalance(reg.students.find((s) => s.id === a.studentId)!, movements).balance,
     })),
-    [apps, fees.state.charges],
+    [apps, fees.state.charges, movements, reg.students],
   );
   const rows: Row[] = useMemo(
     () => enriched.filter((a) => filter === "all"

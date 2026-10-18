@@ -40,8 +40,15 @@ test("a MOEFAS grant shows on the student record", () => {
 });
 
 test("the live balance subtracts what was paid from the account, and applying it again changes nothing", () => {
-  const once = withBalance(stu, { [stu.id]: 35.25 });
+  const once = withBalance(stu, { debits: { [stu.id]: 35.25 }, credits: {} });
   expect(once.balance).toBe(Math.round((stu.balance - 35.25) * 100) / 100);
-  expect(withBalance(once, { [stu.id]: 35.25 })).toEqual(once); // records are passed from page to page, so this must be safe to repeat
-  expect(withBalance(stu, {}).balance).toBe(stu.balance);
+  expect(withBalance(once, { debits: { [stu.id]: 35.25 }, credits: {} })).toEqual(once); // records are passed from page to page, so this must be safe to repeat
+  expect(withBalance(stu, { debits: {}, credits: {} }).balance).toBe(stu.balance);
+});
+
+test("a top-up raises the balance, and it still cannot be applied twice", () => {
+  const m = { debits: { [stu.id]: 10 }, credits: { [stu.id]: 150 } };
+  const once = withBalance(stu, m);
+  expect(once.balance).toBe(Math.round((stu.balance + 150 - 10) * 100) / 100);
+  expect(withBalance(once, m)).toEqual(once);
 });

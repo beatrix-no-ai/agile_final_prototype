@@ -1,18 +1,18 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
-import { FEE_TYPES, type Charge, type FasScheme, type FeeType, type PayMethod } from "./fees";
+import { FEE_TYPES, type AccountPayment, type Charge, type FasScheme, type FeeType, type PayMethod } from "./fees";
 import { alreadyCharged, balanceOf, makeCharge, makePayment, nextChargeId, seedCharges, subsidyOf } from "../lib/fees";
 import type { Student } from "./students";
 
 // ASSUMPTION: fee state lives in memory only and resets on reload (no backend), like the parent store.
-/** `debits`: what has been paid out of each student's Education Account since the start (by student id), parent or school side. */
-export type FeeState = { types: FeeType[]; charges: Charge[]; debits: Record<string, number> };
+/** `debits`: what has been paid out of each student's Education Account since the start (by student id), parent or school side; `paidFromAccount` lists those payments. */
+export type FeeState = { types: FeeType[]; charges: Charge[]; debits: Record<string, number>; paidFromAccount: AccountPayment[] };
 export type FeeAction =
   | { type: "saveType"; fee: FeeType }
   | { type: "generate"; fee: FeeType; students: Student[]; issued: string; due: string }
   | { type: "recordPayment"; chargeId: string; amount: number; method: PayMethod }
   | { type: "applyFas"; studentId: string; fas: { scheme: FasScheme; rate: number } | null; on: string };
 
-export const initialFeeState = (): FeeState => ({ types: FEE_TYPES, charges: seedCharges(), debits: {} });
+export const initialFeeState = (): FeeState => ({ types: FEE_TYPES, charges: seedCharges(), debits: {}, paidFromAccount: [] });
 
 /**
  * Pure. saveType adds or replaces by id (issued charges keep their copied components).
@@ -40,14 +40,15 @@ export function feeReducer(state: FeeState, a: FeeAction): FeeState {
     };
   }
   if (a.type === "recordPayment") {
-    const paid = state.charges.find((c) => c.id === a.chargeId);
-    const debits = paid && a.method === "Education account"
-      ? { ...state.debits, [paid.studentId]: Math.round(((state.debits[paid.studentId] ?? 0) + a.amount) * 100) / 100 }
-      : state.debits;
+    const charge = state.charges.find((c) => c.id === a.chargeId);
+    if (!charge) return state;
+    const payment = makePayment(charge, a.amount, a.method);
+    const fromAccount = a.method === "Education account";
     return {
       ...state,
-      debits,
-      charges: state.charges.map((c) => (c.id === a.chargeId ? { ...c, payments: [...c.payments, makePayment(c, a.amount, a.method)] } : c)),
+      debits: fromAccount ? { ...state.debits, [charge.studentId]: Math.round(((state.debits[charge.studentId] ?? 0) + a.amount) * 100) / 100 } : state.debits,
+      paidFromAccount: fromAccount ? [...state.paidFromAccount, { id: payment.id, studentId: charge.studentId, amount: payment.amount, on: payment.on, title: charge.title }] : state.paidFromAccount,
+      charges: state.charges.map((c) => (c.id === charge.id ? { ...c, payments: [...c.payments, payment] } : c)),
     };
   }
   const all = [...state.charges];

@@ -8,7 +8,8 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { useFees } from "../../../data/feeStore";
 import { balanceOf, chargeStatus, payableOf } from "../../../lib/fees";
 import { StatusBadge } from "../fee-types/parts";
-import { ACCOUNT_CLOSES_AT, ACCOUNT_OPENS_AT, accountStatus, ageForLevel, ledgerFor } from "../../../lib/accounts";
+import { useTopUp } from "../../../data/topupStore";
+import { ACCOUNT_CLOSES_AT, ACCOUNT_OPENS_AT, accountLedger, accountStatus, ageForLevel } from "../../../lib/accounts";
 import { useRegistry } from "../../../data/registryStore";
 import { schoolOfStudent } from "../../../lib/registry";
 import { formatSGD } from "../../../lib/format";
@@ -33,7 +34,9 @@ function Stat({ label, value, note, alert }: { label: string; value: ReactNode; 
 export default function EducationAccountPage() {
   const student = useStudent();
   const { state: reg } = useRegistry();
-  const allCharges = useFees().state.charges;
+  const fees = useFees().state;
+  const allCharges = fees.charges;
+  const topUps = useTopUp().state.entries;
   const navigate = useNavigate();
   const { role } = useSession();
 
@@ -49,7 +52,7 @@ export default function EducationAccountPage() {
   const unpaid = charges.filter((c) => chargeStatus(c) !== "paid");
   const due = unpaid.reduce((t, c) => t + balanceOf(c), 0);
   const left = student.balance - due;
-  const entries = ledgerFor(student);
+  const entries = accountLedger(student, topUps, fees.paidFromAccount);
   const initials = student.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const feesPath = `/admin/students/${student.id}/fees`;
 
@@ -133,11 +136,11 @@ export default function EducationAccountPage() {
 
           <Card title="Transactions">
             <ul className="divide-y divide-line">
-              {entries.map((e) => {
+              {entries.map((e, i) => {
                 const credit = e.amount > 0;
                 const Icon = credit ? ArrowDownLeft : ArrowUpRight;
                 return (
-                  <li key={e.description} className="flex items-center gap-3 py-3">
+                  <li key={`${e.date}-${e.description}-${i}`} className="flex items-center gap-3 py-3">
                     <span className={`grid size-9 shrink-0 place-items-center rounded-full ${credit ? "bg-success-container text-success" : "bg-track text-on-surface-variant"}`} aria-hidden>
                       <Icon size={16} weight="bold" />
                     </span>

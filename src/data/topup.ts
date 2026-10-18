@@ -1,5 +1,4 @@
-import { SCHOOLS } from "./schools";
-import { CLASSES, LEVELS, STATUSES } from "./students";
+import { STATUSES } from "./students";
 import { makeNric, maskNric } from "../lib/nric";
 
 /** One list for both the student record and top-up rules. */
@@ -9,33 +8,16 @@ export type Schooling = (typeof SCHOOLING)[number];
 export type RuleSchooling = Schooling;
 export type Account = { id: string; nric: string; name: string; school: string; class: string; age: number; citizen: boolean; enrolled: boolean; schooling: Schooling; status: "Active" | "Closed"; balance: number };
 
+/** One credit to one Education Account, kept so the account ledger and the parent portal can show it. */
+export type TopUpEntry = { id: string; studentId: string; amount: number; date: string; ref: string; note: string };
+
 export const FREQUENCIES = ["Once", "Weekly", "Monthly", "Yearly"] as const;
 
 export type TxStatus = "Success" | "Partial Success" | "Pending" | "Failed";
 /** One account inside a top-up. `txid` exists only once the account has been processed (not Pending). */
 export type Target = { student: string; account: string; status: "Success" | "Pending" | "Failed"; reason?: string; txid?: string };
-export type Transaction = { targets?: Target[]; ref: string; type: "Single" | "Batch"; recipient: string; detail: string; date: string; schedule: string; accounts: number; amount: number; status: TxStatus; by: string };
-
-const FIRST = ["Ethan", "Chloe", "Marcus", "Aisha", "Jun Wei", "Priya", "Daniel", "Siti", "Isaac", "Mei Ling", "Arjun", "Hannah", "Wei Jie", "Nur", "Caleb", "Sophia", "Ryan", "Keerthi", "Zhi Hao", "Olivia"];
-const LAST = ["Tan", "Lim", "Wong", "Rahman", "Chua", "Nair", "Ong", "Goh", "Lee", "Ng", "Koh", "Teo"];
-
-/** 60 deterministic mock accounts (no randomness so tests and screenshots are stable). */
-/** Mock class for an account: the level that matches its age within its school type (P1-P6 / Sec 1-4). */
-const classOf = (type: string, age: number, i: number) => CLASSES[type === "Primary" ? LEVELS[Math.min(5, Math.max(0, age - 7))] : LEVELS[6 + Math.min(3, Math.max(0, age - 13))]][i % 2];
-
-export const ACCOUNTS: Account[] = Array.from({ length: 60 }, (_, i) => ({
-  id: `ACC${String(i + 1).padStart(5, "0")}`, // internal record key only; screens show the masked NRIC
-  nric: makeNric(2026 - (7 + ((i * 7) % 10)), 10000 + i * 211),
-  school: SCHOOLS[i % 4].name,
-  class: classOf(SCHOOLS[i % 4].level, 7 + ((i * 7) % 10), i),
-  name: `${FIRST[i % FIRST.length]} ${LAST[(i * 7) % LAST.length]}`,
-  age: 7 + ((i * 7) % 10), // 7..16 only: accounts open at 7 and close at 16 (Req 1)
-  citizen: i % 6 !== 5, // about 1 in 6 is non-citizen
-  enrolled: i % 8 !== 3, // 1 in 8 is not enrolled
-  schooling: i % 8 !== 3 ? "Active" : "Inactive",
-  status: i % 15 === 14 ? "Closed" : "Active", // a few closed accounts: never eligible, never top-up-able
-  balance: 20 + ((i * 137) % 1481) + (i % 4) * 0.5, // S$20 .. ~S$1,500
-}));
+/** `school` = the school (by name) whose user ran it; HQ runs have none. */
+export type Transaction = { school?: string; targets?: Target[]; ref: string; type: "Single" | "Batch"; recipient: string; detail: string; date: string; schedule: string; accounts: number; amount: number; status: TxStatus; by: string };
 
 /** Newest first. */
 export const PAST_TRANSACTIONS: Transaction[] = [

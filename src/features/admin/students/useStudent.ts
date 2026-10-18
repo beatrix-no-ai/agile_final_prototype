@@ -1,6 +1,6 @@
 import { useParams } from "react-router";
 import { useFas } from "../../../data/fasStore";
-import { useFees } from "../../../data/feeStore";
+import { useMovements } from "../../../data/movements";
 import { useRegistry } from "../../../data/registryStore";
 import type { Student } from "../../../data/students";
 import { withBalance, withFas } from "../../../lib/studentFas";
@@ -13,7 +13,7 @@ export function useStudent(): Student | undefined {
   const { id } = useParams();
   const { state: reg } = useRegistry();
   const { state: fas } = useFas();
-  const { state: fees } = useFees();
+  const movements = useMovements();
   const found = reg.students.find((s) => s.id === id);
-  return found && withBalance(withFas(found, fas), fees.debits);
+  return found && withBalance(withFas(found, fas), movements);
 }

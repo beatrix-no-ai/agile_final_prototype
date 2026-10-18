@@ -11,11 +11,14 @@ export function withFas(s: Student, fas: Pick<FasState, "apps" | "moefas">): Stu
   return fas.moefas[s.id] ? { ...sbfas, moefas: "Approved" } : sbfas;
 }
 
+/** What moved each student's Education Account since the start, by student id: paid out (fees) and paid in (MOE top-ups). */
+export type Movements = { debits: Record<string, number>; credits: Record<string, number> };
+
 /**
- * The student's Education Account balance after what has been paid out of it since the start. Safe to apply twice: records are handed
+ * The student's Education Account balance after the top-ups paid in and the fees paid out since the start. Safe to apply twice: records are handed
  * from page to page, so the balance it started from is kept (baseBalance) and the debits are always taken off that.
  */
-export function withBalance(s: Student, debits: Record<string, number>): Student {
+export function withBalance(s: Student, m: Movements): Student {
   const base = s.baseBalance ?? s.balance;
-  return { ...s, baseBalance: base, balance: Math.round((base - (debits[s.id] ?? 0)) * 100) / 100 };
+  return { ...s, baseBalance: base, balance: Math.round((base + (m.credits[s.id] ?? 0) - (m.debits[s.id] ?? 0)) * 100) / 100 };
 }

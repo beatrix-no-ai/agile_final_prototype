@@ -9,7 +9,8 @@ import { familyChildren, familyInvoices, familyTransactions, payActions } from "
 import { settle } from "../features/eservice/payments/settle";
 
 const fees = initialFeeState();
-const kids = familyChildren(STUDENTS, {}, SCHOOL_RECORDS, CLASS_RECORDS);
+const none = { debits: {}, credits: {} };
+const kids = familyChildren(STUDENTS, none, SCHOOL_RECORDS, CLASS_RECORDS);
 const [ethan, chloe] = kids;
 const invoices = familyInvoices(fees.charges, kids.map((k) => k.id));
 
@@ -26,7 +27,7 @@ describe("the parent's children are real students", () => {
   test("the Education Account balance is the student's balance less what the parent has paid from it", () => {
     const s = STUDENTS.find((x) => x.id === chloe.id)!;
     expect(chloe.educationBalance).toBe(s.balance);
-    expect(familyChildren(STUDENTS, { [chloe.id]: 10 }, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(Math.round((s.balance - 10) * 100) / 100);
+    expect(familyChildren(STUDENTS, { debits: { [chloe.id]: 10 }, credits: {} }, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(Math.round((s.balance - 10) * 100) / 100);
   });
 
   test("the Payments demo cases still exist: one empty account, one that only partly covers the bill", () => {
@@ -70,7 +71,7 @@ describe("invoices are the student's fee charges", () => {
 });
 
 describe("transactions", () => {
-  const txs = familyTransactions(fees.charges, STUDENTS.filter((s) => kids.some((k) => k.id === s.id)));
+  const txs = familyTransactions(fees.charges, STUDENTS.filter((s) => kids.some((k) => k.id === s.id)), []);
   test("each child has an MOE top-up credit equal to the account ledger", () => {
     for (const k of kids) {
       const top = txs.find((t) => t.childId === k.id && t.method === "MOE top-up")!;
@@ -84,6 +85,11 @@ describe("transactions", () => {
       const t = txs.find((x) => x.id === p.id)!;
       expect(t).toMatchObject({ childId: c.studentId, amount: -p.amount, invoiceId: c.id, method: p.method === "Education account" ? "Education account" : "Card" });
     }
+  });
+  test("a top-up from MOE shows as a credit for that child", () => {
+    const entry = { id: "TU-1", studentId: chloe.id, amount: 150, date: "2026-10-18", ref: "TUT181026", note: "Mid-year top-up" };
+    const all = familyTransactions(fees.charges, STUDENTS.filter((s) => kids.some((k) => k.id === s.id)), [entry]);
+    expect(all[0]).toMatchObject({ childId: chloe.id, amount: 150, method: "MOE top-up", date: "2026-10-18" });
   });
   test("newest first", () => {
     const dates = txs.map((t) => t.date);
@@ -115,7 +121,7 @@ describe("paying", () => {
     for (const a of payActions(invoices, kids, ids, "account-first")) s = feeReducer(s, a);
     expect(familyInvoices(s.charges, [chloe.id]).every((i) => i.status === "paid")).toBe(true);
     expect(s.debits[chloe.id]).toBe(chloe.educationBalance);
-    expect(familyChildren(STUDENTS, s.debits, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(0);
+    expect(familyChildren(STUDENTS, { debits: s.debits, credits: {} }, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(0);
     expect(settle(familyInvoices(s.charges, [chloe.id]), kids, ids, "gateway").total).toBe(0);
   });
 
@@ -123,5 +129,19 @@ describe("paying", () => {
     let s = fees;
     for (const a of payActions(invoices, kids, ids, "gateway")) s = feeReducer(s, a);
     expect(s.debits[chloe.id] ?? 0).toBe(0);
+  });
+});
+
+describe("the account payments list", () => {
+  const open = new Set(invoices.filter((i) => i.childId === chloe.id && i.status !== "paid").map((i) => i.id));
+  test("a payment from the Education Account is listed for the student, a card payment is not", () => {
+    let s = fees;
+    for (const a of payActions(invoices, kids, open, "account-first")) s = feeReducer(s, a);
+    expect(s.paidFromAccount.length).toBeGreaterThan(0);
+    expect(s.paidFromAccount.every((p) => p.studentId === chloe.id)).toBe(true);
+    expect(Math.round(s.paidFromAccount.reduce((t, p) => t + p.amount, 0) * 100) / 100).toBe(s.debits[chloe.id]);
+    let g = fees;
+    for (const a of payActions(invoices, kids, open, "gateway")) g = feeReducer(g, a);
+    expect(g.paidFromAccount).toEqual([]);
   });
 });
