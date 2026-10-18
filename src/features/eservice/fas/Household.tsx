@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { BANDS, household, initialBandId } from "../../../data/familyFas";
+import { BANDS, householdOf, initialBandId } from "../../../data/familyFas";
+import { useParent } from "../../../data/parentStore";
 import { fmtDate } from "../overview/shared";
 import type { SyncStatus } from "./logic";
 import { AssumptionTag } from "../../../components/ui/AssumptionTag";
@@ -20,6 +21,8 @@ const message: Partial<Record<SyncStatus, string>> = {
 export function Household({ status, bandId, syncedOn, onSync }: Props) {
   const [outcome, setOutcome] = useState<Outcome>(initialBandId);
   const [after, setAfter] = useState<Outcome>(initialBandId); // band the retry returns after a demo failure
+  const { state } = useParent();
+  const household = householdOf(state.children);
   const band = BANDS.find((b) => b.id === bandId);
   const loading = status === "loading";
 

@@ -1,32 +1,33 @@
-import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
-import { applyPayment, paymentTransactions, type Mode } from "../features/eservice/payments/settle";
+import { createContext, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
+import type { Mode } from "../features/eservice/payments/settle";
 import type { ProfileForm } from "../features/eservice/overview/summary";
-import { children, invoices, profile, transactions, type Child, type Invoice, type Profile, type Transaction } from "./parent";
+import { familyChildren, familyInvoices, familyTransactions, payActions } from "../lib/family";
+import { useFasActions } from "./fasActions";
+import { selectChildFas, useFas, type ChildFas } from "./fasStore";
+import { useFees } from "./feeStore";
+import type { Band } from "./familyFas";
+import { profile, type Child, type Invoice, type Profile, type Transaction } from "./parent";
+import { STUDENTS } from "./students";
 
-// ASSUMPTION: parent state lives in memory only and resets on reload (no backend). Payments, Overview and profile edit
-// all read and write this one store, so a payment on /parent/payments shows on /parent until the page is reloaded.
+// ASSUMPTION: the parent's own state (profile edits and where the family FAS application stands) lives in memory only and resets on reload.
+// Everything else the parent sees is derived from the school side (fees, Education Accounts, FAS decisions), so both portals always agree.
 /** Where the family's FAS application stands: nothing started, being prepared, or submitted (then under review). */
 export type FasStage = "not-started" | "preparing" | "submitted";
 export type FasProgress = { stage: FasStage; submittedOn?: string };
-export type ParentState = { invoices: Invoice[]; children: Child[]; transactions: Transaction[]; profile: Profile; fas: FasProgress };
+type Local = { profile: Profile; fas: FasProgress };
+export type ParentState = Local & { invoices: Invoice[]; children: Child[]; transactions: Transaction[]; outcomes: Record<string, ChildFas | null> };
 
-export type ParentAction =
-  | { type: "pay"; ids: string[]; mode: Mode; date: string }
+type LocalAction =
   | { type: "saveProfile"; form: ProfileForm }
   | { type: "startFas" }
-  | { type: "submitFas"; date: string };
+  | { type: "submitFas"; date: string; band: Band };
+export type ParentAction = LocalAction | { type: "pay"; ids: string[]; mode: Mode; date: string };
 
-export const initialParentState: ParentState = { invoices, children, transactions, profile, fas: { stage: "not-started" } };
+export const initialParentState: Local = { profile, fas: { stage: "not-started" } };
 
-/** Pure: pay marks invoices paid, debits the Education Accounts and prepends the ledger rows; saveProfile merges the editable fields. */
-export function parentReducer(state: ParentState, action: ParentAction): ParentState {
+/** Pure: saveProfile merges the editable fields; startFas and submitFas move the application forward one stage. */
+export function parentReducer(state: Local, action: LocalAction): Local {
   switch (action.type) {
-    case "pay": {
-      const ids = new Set(action.ids);
-      const paid = applyPayment(state.invoices, state.children, ids, action.mode);
-      const rows = paymentTransactions(state.invoices, state.children, ids, action.mode, action.date, state.transactions.length + 1);
-      return { ...state, ...paid, transactions: [...rows, ...state.transactions] };
-    }
     case "saveProfile":
       return { ...state, profile: { ...state.profile, ...action.form } };
     case "startFas":
@@ -39,7 +40,33 @@ export function parentReducer(state: ParentState, action: ParentAction): ParentS
 const Ctx = createContext<{ state: ParentState; dispatch: Dispatch<ParentAction> } | null>(null);
 
 export function ParentProvider({ children: kids }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(parentReducer, initialParentState);
+  const [local, dispatchLocal] = useReducer(parentReducer, initialParentState);
+  const fees = useFees();
+  const fas = useFas();
+  const actions = useFasActions();
+
+  const state = useMemo<ParentState>(() => {
+    const children = familyChildren(STUDENTS, fees.state.debits);
+    const ids = children.map((c) => c.id);
+    return {
+      ...local,
+      children,
+      invoices: familyInvoices(fees.state.charges, ids),
+      transactions: familyTransactions(fees.state.charges, STUDENTS.filter((s) => ids.includes(s.id))),
+      outcomes: Object.fromEntries(ids.map((id) => [id, selectChildFas(fas.state, id)])),
+    };
+  }, [local, fees.state, fas.state]);
+
+  const dispatch: Dispatch<ParentAction> = (a) => {
+    if (a.type === "pay") {
+      // Paying writes to the school's fee records and the student's Education Account, so the school side sees it too.
+      for (const act of payActions(state.invoices, state.children, new Set(a.ids), a.mode)) fees.dispatch(act);
+      return;
+    }
+    dispatchLocal(a);
+    if (a.type === "submitFas" && state.fas.stage === "preparing") actions.submitFamily(state.children.map((c) => c.id), a.band);
+  };
+
   return <Ctx.Provider value={{ state, dispatch }}>{kids}</Ctx.Provider>;
 }
 

@@ -8,13 +8,13 @@ import { SessionProvider } from "./session";
 export default function App() {
   return (
     <SessionProvider>
-      <ParentProvider>
-        <FeeProvider>
-          <FasProvider>
+      <FeeProvider>
+        <FasProvider>
+          <ParentProvider>
             <RouterProvider router={router} />
-          </FasProvider>
-        </FeeProvider>
-      </ParentProvider>
+          </ParentProvider>
+        </FasProvider>
+      </FeeProvider>
     </SessionProvider>
   );
 }

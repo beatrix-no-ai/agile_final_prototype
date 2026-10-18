@@ -41,7 +41,7 @@ export default function AssignCharges({ school, presetFee }: { school: string; p
 function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const { state, dispatch } = useFees();
   const { state: fasState } = useFas();
-  const live = (xs: Student[]) => xs.map((s) => overlayFas(s, fasState.apps)); // a new charge is priced on the student's current FAS
+  const live = (xs: Student[]) => xs.map((s) => overlayFas(s, fasState)); // a new charge is priced on the student's current FAS
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
   const [level, setLevel] = useState("");
   const [scope, setScope] = useState<Scope>("level");

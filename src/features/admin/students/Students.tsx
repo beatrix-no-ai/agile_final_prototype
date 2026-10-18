@@ -1,5 +1,6 @@
 import { useFas } from "../../../data/fasStore";
-import { withFas } from "../../../lib/studentFas";
+import { useFees } from "../../../data/feeStore";
+import { withBalance, withFas } from "../../../lib/studentFas";
 import { useMemo, useState } from "react";
 import { HeaderActions } from "../../../components/layout/HeaderActions";
 import { Plus, Wallet } from "@phosphor-icons/react";
@@ -24,7 +25,8 @@ const sbfasTone: Record<SbfasStatus, BadgeTone> = { Approved: "success", Pending
 export default function Students() {
   const [stored, setStudents] = useState(STUDENTS);
   const { state: fas } = useFas();
-  const students = useMemo(() => stored.map((s) => withFas(s, fas.apps)), [stored, fas.apps]); // SBFAS status follows the FAS queue
+  const { state: fee } = useFees();
+  const students = useMemo(() => stored.map((s) => withBalance(withFas(s, fas), fee.debits)), [stored, fas, fee.debits]); // SBFAS status follows the FAS queue
   const [params] = useSearchParams(); // "View students" on the Classes page arrives as ?class=<name>
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");

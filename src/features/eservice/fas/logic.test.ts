@@ -9,6 +9,11 @@ test("assess: MOEFAS tiers first, SBFAS only when MOEFAS is not granted, never b
   expect(assess(BANDS[3])).toMatchObject({ scheme: null, status: "Not eligible" });
 });
 
+test("disbursement is done once every child's application has been decided", () => {
+  expect(trackerSteps("submitted", true).map((x) => `${x.name}:${x.state}`)).toEqual(["Prepare info:Done", "Submission:Done", "Disbursement:Done"]);
+  expect(trackerSteps("preparing", true)[2].state).toBe("Waiting");
+});
+
 test("trackerSteps has three stages: prepare info, submission, disbursement", () => {
   const s = (stage: "not-started" | "preparing" | "submitted") => trackerSteps(stage).map((x) => `${x.name}:${x.state}`);
   expect(s("not-started")).toEqual(["Prepare info:To do", "Submission:Waiting", "Disbursement:Waiting"]);

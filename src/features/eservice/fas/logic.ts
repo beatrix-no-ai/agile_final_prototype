@@ -24,12 +24,12 @@ export function assess(band: Band): ChildResult {
 export type StepState = "Done" | "In progress" | "To do" | "Waiting" | "Failed";
 export type Step = { name: string; state: StepState };
 
-/** Three stages for the parent: prepare the information, submit, then disbursement (which only starts after MOE has reviewed the application). */
-export function trackerSteps(stage: FasStage): Step[] {
+/** Three stages for the parent: prepare the information, submit, then disbursement (which only starts after MOE has reviewed the application, and is done once every child's application is decided). */
+export function trackerSteps(stage: FasStage, decided = false): Step[] {
   return [
     { name: "Prepare info", state: stage === "submitted" ? "Done" : stage === "preparing" ? "In progress" : "To do" },
     { name: "Submission", state: stage === "submitted" ? "Done" : stage === "preparing" ? "To do" : "Waiting" },
-    { name: "Disbursement", state: "Waiting" },
+    { name: "Disbursement", state: stage === "submitted" && decided ? "Done" : "Waiting" },
   ];
 }
 // ASSUMPTION: Singapore mobile/landline, 8 digits starting 3, 6, 8 or 9, optional +65.

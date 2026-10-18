@@ -2,13 +2,21 @@ import { ArrowRight } from "@phosphor-icons/react";
 import { Link } from "react-router";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
-import type { Fas } from "../../../data/parent";
+import type { ChildFas } from "../../../data/fasStore";
+import { fasStatus, type Child } from "../../../data/parent";
 import type { FasProgress } from "../../../data/parentStore";
 import { fmtDate, linkClass } from "./shared";
 
-const tone: Record<Fas["status"], BadgeTone> = { "Under review": "warning", Approved: "success", "Not approved": "alert" };
+type Overall = { label: "Under review" | "Approved" | "Not approved"; tone: BadgeTone };
 
-export function FasCard({ fas, progress }: { fas: Fas; progress: FasProgress }) {
+/** Under review while any child still waits on the school; otherwise approved if at least one child got assistance. */
+export function overallStatus(outcomes: (ChildFas | null)[]): Overall {
+  if (outcomes.some((o) => o?.status === "Awaiting school decision")) return { label: "Under review", tone: "warning" };
+  if (outcomes.some((o) => o?.status === "Granted")) return { label: "Approved", tone: "success" };
+  return { label: "Not approved", tone: "alert" };
+}
+
+export function FasCard({ progress, children, outcomes }: { progress: FasProgress; children: Child[]; outcomes: Record<string, ChildFas | null> }) {
   if (progress.stage !== "submitted") {
     const started = progress.stage === "preparing";
     return (
@@ -22,11 +30,21 @@ export function FasCard({ fas, progress }: { fas: Fas; progress: FasProgress }) 
       </Card>
     );
   }
+  const overall = overallStatus(children.map((c) => outcomes[c.id] ?? null));
   return (
-    <Card title="Financial assistance (FAS)" action={<Badge tone={tone[fas.status]}>{fas.status}</Badge>}>
-      <p className="text-sm font-semibold">{fas.scheme}</p>
-      <p className="text-[13px] text-on-surface-variant">{fas.applicationId} - submitted {fmtDate(progress.submittedOn ?? fas.submittedOn)}</p>
-      <p className="mt-3 text-sm text-on-surface-variant">{fas.note}</p>
+    <Card title="Financial assistance (FAS)" action={<Badge tone={overall.tone}>{overall.label}</Badge>}>
+      <p className="text-[13px] text-on-surface-variant">{fasStatus.applicationId} - submitted {fmtDate(progress.submittedOn ?? fasStatus.submittedOn)}</p>
+      <ul className="mt-3 space-y-1.5 text-sm">
+        {children.map((c) => {
+          const o = outcomes[c.id] ?? null;
+          return (
+            <li key={c.id} className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="font-semibold">{c.name.split(" ")[0]}</span>
+              <span className="text-on-surface-variant">{o ? `${o.scheme}${o.tier ? ` ${o.tier}` : ""} - ${o.status.toLowerCase()}` : "Not eligible"}</span>
+            </li>
+          );
+        })}
+      </ul>
       <Link to="/parent/fas" className={`${linkClass} mt-3 gap-1`}>
         View application <ArrowRight size={14} weight="bold" aria-hidden="true" />
       </Link>

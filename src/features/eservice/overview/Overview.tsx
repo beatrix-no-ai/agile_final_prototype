@@ -1,7 +1,6 @@
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { parentData } from "../../../data/parent";
 import { useParent } from "../../../data/parentStore";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { FasCard } from "./FasCard";
@@ -21,7 +20,7 @@ function Skeleton() {
 }
 
 export default function Overview() {
-  const query = useMockQuery(parentData);
+  const query = useMockQuery(true);
   const { state } = useParent();
 
   if (query.status === "loading") return <Skeleton />;
@@ -33,7 +32,6 @@ export default function Overview() {
     );
   }
   const { children, invoices, transactions } = state;
-  const { fasStatus } = query.data;
   return (
     <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="space-y-4">
@@ -42,7 +40,7 @@ export default function Overview() {
         <section aria-label="Children"><ChildCards children={children} invoices={invoices} /></section>
       </div>
       <div className="space-y-4">
-        <FasCard fas={fasStatus} progress={state.fas} />
+        <FasCard progress={state.fas} children={children} outcomes={state.outcomes} />
         <RecentTransactions transactions={transactions} children={children} />
       </div>
     </div>

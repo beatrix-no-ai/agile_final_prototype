@@ -29,6 +29,9 @@ export const MOEFAS_BY_LEVEL: LevelBudget[] = [
   { id: "Secondary", budget: 18000000, used: 18900000, beneficiaries: 4100 },
 ];
 
+// ASSUMPTION: yearly package value of MOEFAS by tier (fees, textbooks, uniform, meals, transport); mock values.
+export const MOEFAS_TIER_AMOUNT: Record<SbfasTier, number> = { "Tier 1": 4000, "Tier 2": 3000, "Tier 3": 2000, "Tier 4": 1000 };
+
 // ASSUMPTION: MOEFAS tier names and the split of the 9,300 students across them are mock values; confirm with MOE.
 export const MOEFAS_BY_TIER = [
   { label: "Tier 1", value: 3600 },

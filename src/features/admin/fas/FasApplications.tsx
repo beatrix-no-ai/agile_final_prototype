@@ -7,17 +7,18 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
+import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
-import { balanceOf, chargeStatus, fasOf } from "../../../lib/fees";
-import { withFas } from "../../../lib/studentFas";
+import { balanceOf, chargeStatus } from "../../../lib/fees";
+import { withBalance } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
 import { ReviewModal } from "./ReviewModal";
-import { applyDecision, isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
+import { isDeclined, isGranted, sortQueue, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
@@ -35,7 +36,8 @@ type Row = SbfasApplication & { payable: number; balance: number };
 export default function SbfasApplications() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
   const fees = useFees();
-  const { state: fas, dispatch } = useFas();
+  const { state: fas } = useFas();
+  const { decide: decideApp } = useFasActions();
   const apps = fas.apps; // shared with the Budgets pages, so a decision moves the school's statistics
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -49,7 +51,7 @@ export default function SbfasApplications() {
       ...a,
       // What the family still owes (after any FAS subsidy and payments) — separate from the account's top-up balance.
       payable: fees.state.charges.filter((c) => c.studentId === a.studentId && chargeStatus(c) !== "paid").reduce((t, c) => t + balanceOf(c), 0),
-      balance: STUDENTS.find((s) => s.id === a.studentId)?.balance ?? 0,
+      balance: withBalance(STUDENTS.find((s) => s.id === a.studentId)!, fees.state.debits).balance,
     })),
     [apps, fees.state.charges],
   );
@@ -66,11 +68,7 @@ export default function SbfasApplications() {
 
   const decide = (id: string, action: Action, draft: Draft) => {
     const a = apps.find((x) => x.id === id)!;
-    const at = new Date().toISOString();
-    dispatch({ type: "decide", id, action, draft, at });
-    // The decision reaches the student's fees too: their unpaid charges are re-priced for the new scheme.
-    const student = STUDENTS.find((s) => s.id === a.studentId);
-    if (student) fees.dispatch({ type: "applyFas", studentId: a.studentId, fas: fasOf(withFas(student, applyDecision(apps, id, action, draft))), on: at.slice(0, 10) });
+    decideApp(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     setOpenId(null);
     setMessage(
       `Application ${id} for ${a.student} ${VERB[action]}${action === "approve" ? ` at ${draft.tier}` : ""}.`,

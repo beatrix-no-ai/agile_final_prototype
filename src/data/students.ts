@@ -19,6 +19,8 @@ export type Student = {
   /** Education Account balance in SGD. */
   balance: number;
   sbfas: SbfasStatus;
+  /** Set by lib/studentFas.withBalance: the balance before what was paid out of the account since the start. */
+  baseBalance?: number;
   /** Tier the school approved SBFAS at; it sets how much of each fee is waived (see lib/fees.fasOf). */
   sbfasTier?: SbfasTier;
   /** MOE-level FAS status. A student never receives both schemes: MOEFAS takes precedence over SBFAS (see lib/fees.fasOf). */
@@ -52,6 +54,8 @@ const ROWS: Row[] = [
   ["Meera d/o Ramasamy", "P2", 0, "Active", 574.5, "Pending", "Not applied"],
   ["Ong Zi Han", "P3", 0, "Active", 1043.2, "Not applied", "Not applied"],
   ["Priya d/o Subramaniam", "P3", 0, "Active", 986.75, "Not applied", "Approved"],
+  ["Ethan Lim Jun Hao", "P5", 0, "Active", 0, "Not applied", "Not applied"],
+  ["Chloe Lim Wen Xin", "Sec 2", 0, "Active", 100, "Not applied", "Not applied"],
   ["Ethan Teo Kai Ming", "P3", 1, "Active", 1127.05, "Not applied", "Not applied"],
   ["Siti Nurhaliza binte Osman", "P3", 1, "Active", 902.3, "Pending", "Not applied"],
   ["Goh Yu Xuan", "P4", 0, "Active", 1568.9, "Not applied", "Not applied"],

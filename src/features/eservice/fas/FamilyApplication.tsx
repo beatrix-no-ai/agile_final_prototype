@@ -2,9 +2,11 @@
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { BANDS } from "../../../data/familyFas";
 import { useParent } from "../../../data/parentStore";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { ApplicationForm } from "./ApplicationForm";
+import { ChildResults } from "./ChildResults";
 import { Household } from "./Household";
 import { trackerSteps, type FormValues } from "./logic";
 import { StartFas } from "./StartFas";
@@ -19,6 +21,8 @@ export default function FamilyApplication() {
   const sync = useSync();
   const { state, dispatch } = useParent();
   const { stage, submittedOn } = state.fas;
+  // Disbursement starts once the school has answered for every child that was waiting on it.
+  const decided = !Object.values(state.outcomes).some((o) => o?.status === "Awaiting school decision");
   // The form starts with the details already on the parent's profile.
   const [values, setValues] = useState<FormValues>({ contact: state.profile.contact, mailingAddress: state.profile.mailingAddress, note: "" });
 
@@ -41,11 +45,12 @@ export default function FamilyApplication() {
 
   return (
     <div className="space-y-4">
-      <Tracker steps={trackerSteps(stage)} submittedOn={submittedOn} />
+      <Tracker steps={trackerSteps(stage, decided)} submittedOn={submittedOn} />
       <Household status={sync.status} bandId={sync.bandId} syncedOn={sync.syncedOn} onSync={sync.run} />
       <StartFas stage={stage} submittedOn={submittedOn} onStart={() => dispatch({ type: "startFas" })} />
+      {stage === "submitted" && <ChildResults children={state.children} outcomes={state.outcomes} />}
       {stage === "preparing" && (
-        <ApplicationForm values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => dispatch({ type: "submitFas", date: TODAY })} />
+        <ApplicationForm values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => dispatch({ type: "submitFas", date: TODAY, band: BANDS.find((b) => b.id === sync.bandId)! })} />
       )}
     </div>
   );

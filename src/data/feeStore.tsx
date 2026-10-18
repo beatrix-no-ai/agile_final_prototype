@@ -4,19 +4,21 @@ import { alreadyCharged, balanceOf, makeCharge, makePayment, nextChargeId, seedC
 import type { Student } from "./students";
 
 // ASSUMPTION: fee state lives in memory only and resets on reload (no backend), like the parent store.
-export type FeeState = { types: FeeType[]; charges: Charge[] };
+/** `debits`: what has been paid out of each student's Education Account since the start (by student id), parent or school side. */
+export type FeeState = { types: FeeType[]; charges: Charge[]; debits: Record<string, number> };
 export type FeeAction =
   | { type: "saveType"; fee: FeeType }
   | { type: "generate"; fee: FeeType; students: Student[]; issued: string; due: string }
   | { type: "recordPayment"; chargeId: string; amount: number; method: PayMethod }
   | { type: "applyFas"; studentId: string; fas: { scheme: FasScheme; rate: number } | null; on: string };
 
-export const initialFeeState = (): FeeState => ({ types: FEE_TYPES, charges: seedCharges() });
+export const initialFeeState = (): FeeState => ({ types: FEE_TYPES, charges: seedCharges(), debits: {} });
 
 /**
  * Pure. saveType adds or replaces by id (issued charges keep their copied components).
  * generate skips students already holding this fee type issued on the same date.
- * recordPayment appends a parent payment (from the Education Account or the gateway) to one charge.
+ * recordPayment appends a parent payment (from the Education Account or the gateway) to one charge; a payment from the
+ * Education Account is also added to the student's debits, so every screen shows the same balance.
  * applyFas re-prices a student's charges that still have something to pay when a FAS decision changes their scheme;
  * settled charges stay as issued, and the change is recorded on the charge (fasAdjusted), never made silently.
  */
@@ -38,8 +40,13 @@ export function feeReducer(state: FeeState, a: FeeAction): FeeState {
     };
   }
   if (a.type === "recordPayment") {
+    const paid = state.charges.find((c) => c.id === a.chargeId);
+    const debits = paid && a.method === "Education account"
+      ? { ...state.debits, [paid.studentId]: Math.round(((state.debits[paid.studentId] ?? 0) + a.amount) * 100) / 100 }
+      : state.debits;
     return {
       ...state,
+      debits,
       charges: state.charges.map((c) => (c.id === a.chargeId ? { ...c, payments: [...c.payments, makePayment(c, a.amount, a.method)] } : c)),
     };
   }

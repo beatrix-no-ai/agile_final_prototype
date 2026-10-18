@@ -1,13 +1,13 @@
-// ASSUMPTION: all mock data for the family FAS application (Req 10). Children come from parent.ts; nothing is duplicated.
-import { children, fasStatus, profile, type Child } from "./parent";
+// ASSUMPTION: all mock data for the family FAS application (Req 10). Children come from the school side (lib/family.ts); nothing is duplicated.
+import { fasStatus, profile, type Child } from "./parent";
 
 export type Member = { id: string; name: string; role: "Applicant" | "Spouse" | "Child"; detail: string };
 
 // ASSUMPTION: the spouse is invented; MOE would read household members from SingPass / MyInfo.
-export const household: Member[] = [
+export const householdOf = (children: Child[]): Member[] => [
   { id: "m1", name: profile.name, role: "Applicant", detail: `NRIC ${profile.nric}` },
   { id: "m2", name: "David Lim", role: "Spouse", detail: "NRIC S****214C" },
-  ...children.map((c: Child): Member => ({ id: c.id, name: c.name, role: "Child", detail: `${c.level}, ${c.school}` })),
+  ...children.map((c): Member => ({ id: c.id, name: c.name, role: "Child", detail: `${c.level}, ${c.school}` })),
 ];
 
 export type Band = { id: string; label: string; tier: "MOEFAS Tier 1" | "MOEFAS Tier 2" | "SBFAS" | null };
