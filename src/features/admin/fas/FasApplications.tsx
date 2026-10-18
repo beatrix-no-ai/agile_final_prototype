@@ -8,6 +8,9 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
 import { useFees } from "../../../data/feeStore";
 import { useSbfas } from "../../../data/sbfasStore";
+import { schoolOfLevel } from "../../../data/schoolMgmt";
+import { schoolCodeFor } from "../../../data/users";
+import { useSession } from "../../../session";
 import { STUDENTS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus } from "../../../lib/fees";
@@ -32,14 +35,26 @@ type Row = SbfasApplication & { payable: number; balance: number; nationality: s
 export default function SbfasApplications() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
   const fees = useFees();
-  // Decisions live in the app-level store, so they survive navigating to another feature.
+  // Decisions live in the app-level store, so they survive navigating between features.
   const { state: sbfas, dispatch: dispatchSbfas } = useSbfas();
   const apps = sbfas.apps;
+  const { role } = useSession();
+  const mySchool = schoolCodeFor(role); // null for MOE HQ, who sees every school
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
+  // Each school reviews only its own students' applications (BR15): a family submission lands once per child's school.
+  const visible = useMemo(
+    () => apps.filter((a) => {
+      if (!mySchool) return true;
+      const s = STUDENTS.find((x) => x.id === a.studentId);
+      return s ? schoolOfLevel(s.level) === mySchool : false;
+    }),
+    [apps, mySchool],
+  );
+
   const enriched: Row[] = useMemo(
-    () => sortQueue(apps).map((a) => {
+    () => sortQueue(visible).map((a) => {
       // R4 decision inputs beside the application: nationality, plus what the family still owes.
       const unpaid = fees.state.charges.filter((c) => c.studentId === a.studentId && chargeStatus(c) !== "paid");
       return {
@@ -49,7 +64,7 @@ export default function SbfasApplications() {
         nationality: STUDENTS.find((s) => s.id === a.studentId)?.nationality ?? "—",
       };
     }),
-    [apps, fees.state.charges],
+    [visible, fees.state.charges],
   );
   const rows: Row[] = useMemo(
     () => enriched.filter((a) => filter === "all"
@@ -58,9 +73,9 @@ export default function SbfasApplications() {
       || (filter === "declined" && isDeclined(a))),
     [enriched, filter],
   );
-  const pendingCount = apps.filter((a) => a.status === "Pending").length;
-  const grantedCount = apps.filter(isGranted).length;
-  const declinedCount = apps.filter(isDeclined).length;
+  const pendingCount = visible.filter((a) => a.status === "Pending").length;
+  const grantedCount = visible.filter(isGranted).length;
+  const declinedCount = visible.filter(isDeclined).length;
 
   const decide = (id: string, action: Action, draft: Draft) => {
     dispatchSbfas({ type: "decide", id, action, draft });
@@ -91,7 +106,7 @@ export default function SbfasApplications() {
     { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge> },
   ];
   const tabs: [Filter, string][] = [
-    ["all", `All (${apps.length})`],
+    ["all", `All (${visible.length})`],
     ["pending", `Pending (${pendingCount})`],
     ["granted", `Granted (${grantedCount})`],
     ["declined", `Declined (${declinedCount})`],
@@ -102,7 +117,7 @@ export default function SbfasApplications() {
       <HqPermissionNote />
       <Tiles items={[
         { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
-        { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
+        { label: "Overdue", value: String(visible.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: visible.some((a) => a.status === "Pending" && a.slaDays <= 0) },
         { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
         { label: "Declined", value: String(declinedCount), note: "Rejected" },
       ]} />

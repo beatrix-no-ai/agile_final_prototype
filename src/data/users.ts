@@ -38,6 +38,8 @@ export const STAFF: StaffAccount[] = [
   { role: "school", name: "Alicia Tan", initials: "AT", title: "Principal", email: "alicia.tan@school.example", password: "Sch00l-Demo-26", schoolCode: "S001", modules: [...MODULES], active: true },
   { role: "school", name: "Marcus Ong", initials: "MO", title: "School Admin", email: "marcus.ong@school.example", password: "Sch00l-Admin-26", schoolCode: "S001", modules: ["FAS"], active: true },
   { role: "school", name: "Priya Nair", initials: "PN", title: "School Admin", email: "priya.nair@school.example", password: "Sch00l-Top-26", schoolCode: "S001", modules: ["Top-up"], active: true },
+  // S002 (Riverbank Primary) account: each school reviews only its own students' FAS applications (BR15).
+  { role: "school", name: "Geraldine Rajaratnam", initials: "GR", title: "School Admin", email: "geraldine.rajaratnam@school.example", password: "Sch00l-Demo-26", schoolCode: "S002", modules: ["FAS"], active: true },
   { role: "hq", name: "Daniel Lim", initials: "DL", title: "MOE HQ Officer", email: "daniel.lim@moe.example", password: "HqOfficer-Demo-26", modules: [...MODULES], active: true },
 ];
 

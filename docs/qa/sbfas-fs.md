@@ -94,6 +94,8 @@ Hằng số liên quan (R4):
 
 - **BR14 — Luồng đơn family-level (R4-parent).** Phụ huynh nộp **một đơn cho cả gia đình** trên e-Service Portal (một lần/phiên). Nếu dải thu nhập đã sync thuộc band SBFAS (không thuộc band MOEFAS — BR10b), hệ thống sinh **mỗi em một application** vào queue admin: id tiếp chuỗi `SBFASXXXX`, `studentId` trỏ về hồ sơ admin của em đó, trạng thái `Pending`, income band/household band/sync date lấy từ lần sync của gia đình. Band MOEFAS → không sinh đơn trường (MOE cấp tự động); band cao hơn → không đủ điều kiện. Quyết định phản hồi ngược: tracker phía parent (Review = Done khi mọi em đã có quyết định; Disbursement = In progress khi có em được cấp) và thẻ FAS Overview (Under review → Approved nếu **ít nhất một em** được cấp, Not approved nếu tất cả bị từ chối); dòng "Result per child" hiển thị `SBFAS Tier X - Granted` / `SBFAS - Declined` kèm lý do.
 
+- **BR15 — Trường nào quyết định đơn trường đó.** Học sinh thuộc trường theo cấp lớp (P1–P6 → Riverbank Primary `S002`; Sec 1–4 → Greenfield Secondary `S001`). School user chỉ thấy và quyết định đơn của học sinh **trường mình** trong queue SBFAS (kể cả đơn sinh từ family-level: mỗi em rơi vào queue trường của em). MOE HQ thấy mọi trường. Tài khoản demo: `S001` — Alicia Tan / Marcus Ong / Priya Nair; `S002` — Geraldine Rajaratnam (`Sch00l-Demo-26`); HQ — Daniel Lim.
+
 ---
 
 ## 4. Danh mục kiểm tra nhanh (smoke test) cho QA

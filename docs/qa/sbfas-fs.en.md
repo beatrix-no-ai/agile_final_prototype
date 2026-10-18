@@ -89,6 +89,8 @@
 
 - **BR14 — Family-level application flow (R4-parent).** The parent submits **one application for the whole family** on the e-Service Portal (once per session). If the synced income band is the SBFAS band (not a MOEFAS band — BR10b), the system creates **one application per child** in the admin queue: ids continue the `SBFASXXXX` sequence, `studentId` points at the child's admin record, status `Pending`, and the income/household bands and sync date come from the family's sync. A MOEFAS band creates no school application (granted at MOE level); a higher band is not eligible. Decisions flow back: the parent tracker (Review = Done once every child is decided; Disbursement = In progress once anyone is granted) and the Overview FAS card (Under review → Approved when **at least one child** is granted, Not approved when all are declined); "Result per child" shows `SBFAS Tier X - Granted` / `SBFAS - Declined` with the reason.
 
+- **BR15 — Each school decides its own applications.** Students belong to a school by level (P1–P6 → Riverbank Primary `S002`; Sec 1–4 → Greenfield Secondary `S001`). A school user sees and decides only their own school's students in the SBFAS queue (including family-submission applications: each child lands in their own school's queue). MOE HQ sees every school. Demo accounts: `S001` — Alicia Tan / Marcus Ong / Priya Nair; `S002` — Geraldine Rajaratnam (`Sch00l-Demo-26`); HQ — Daniel Lim.
+
 ---
 
 ## 4. QA smoke-test checklist
