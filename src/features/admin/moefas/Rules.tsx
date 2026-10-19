@@ -93,7 +93,10 @@ function Editor({ initial, isNew, readOnly, onBack, onSave, notify }: { initial:
           </section>
 
           <section className="border-t border-line pt-6">
-            <h3 className="text-sm font-bold">2. Configure eligibility & tiers</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-sm font-bold">2. Configure eligibility & tiers</h3>
+              <Button variant="secondary" icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={addTier}>Add tier</Button>
+            </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Rule name" required><input className={inputClass} value={d.name} onChange={(e) => patch({ name: e.target.value })} /></Field>
               <Field label="Income eligibility requirement">
@@ -121,7 +124,6 @@ function Editor({ initial, isNew, readOnly, onBack, onSave, notify }: { initial:
             </div>
             <p className="mt-2 text-[13px] text-on-surface-variant">Each tier accepts its selected band and all lower bands. AND requires both income conditions; OR requires either.</p>
             <div className="mt-3 flex justify-end gap-2">
-              <Button size="sm" variant="secondary" onClick={addTier}>+ Add tier</Button>
               <Button size="sm" variant="secondary" disabled={d.tiers.length <= 1} onClick={removeTier}>Remove last tier</Button>
             </div>
           </section>

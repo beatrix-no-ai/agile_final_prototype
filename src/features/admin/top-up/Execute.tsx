@@ -70,13 +70,12 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
     if (!Number.isSafeInteger(amt) || amt <= 0 || amt > MAX_AMOUNT) return notify(`Enter a whole-dollar top-up amount from S$1 to ${cash(MAX_AMOUNT)}.`);
     if (!reason.trim()) return notify("Please enter a reason.");
     if (later && !date) return notify("Please select the execution date.");
-    if (later && !time) return notify("Please select the execution time.");
     const runs = single
       ? [{ name: chosen.length === 1 ? chosen[0].name : `${chosen.length} selected accounts`, targets: chosen }]
       : stack.map((s) => ({ name: s.rule.name, targets: s.accounts }));
     if (!single && runs.every((r) => !r.targets.length)) return notify("No eligible accounts found.");
     const grand = runs.reduce((t, r) => t + r.targets.length * amt, 0);
-    const when = later ? `${date} at ${time}` : "Execute now";
+    const when = later ? `${date}${time && ` at ${time}`}` : "Execute now";
     ask({
       title: "Review and confirm",
       text: (later ? "Review the scheduled top-up details." : "Review the top-up details before confirming.") + (followup ? ` This creates a NEW top-up linked to ${followup.id}; the original stays unchanged.` : ""),
@@ -92,7 +91,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
             ref: transactionCode(d), type: single ? "Single" : "Batch",
             recipient: single ? (one ? `${one.name} (${maskNric(one.nric)})` : r.name) : r.name,
             detail: single ? `${one ? `Education Account ${maskNric(one.nric)}` : `${r.targets.length} Education Accounts`} · ${reason.trim()}` : reason.trim(),
-            date: d, schedule: later ? `${freq} · ${time}` : "Run now (ad-hoc)", targets: r.targets.map((a) => ({ student: a.name, account: a.nric, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: r.targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
+            date: d, schedule: later ? [freq, time].filter(Boolean).join(" · ") : "Run now (ad-hoc)", targets: r.targets.map((a) => ({ student: a.name, account: a.nric, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: r.targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
             ...(followup ? { followupOf: followup.id } : {}),
           }, later ? [] : r.targets.map((a) => a.id));
         }
@@ -186,7 +185,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
             <div className="field"><label htmlFor="schedule-date">Execution date <span className="required">*</span></label><input type="date" id="schedule-date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
             <div className="field"><label htmlFor="schedule-frequency">Frequency <span className="required">*</span></label>
               <select id="schedule-frequency" value={freq} onChange={(e) => setFreq(e.target.value)}>{FREQUENCIES.map((f) => <option key={f}>{f}</option>)}</select></div>
-            <div className="field"><label htmlFor="schedule-time">Execution time (SGT) <span className="required">*</span></label><input type="time" id="schedule-time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <div className="field"><label htmlFor="schedule-time">Execution time (SGT)</label><input type="time" id="schedule-time" value={time} onChange={(e) => setTime(e.target.value)} />
               {!single && <div className="help">Large batches should run off-hours. Night time {NIGHT_TIME} is suggested.</div>}</div>
           </>)}
           <div className="buttons"><button type="button" className="btn" onClick={reset}>Reset</button><button type="button" className="btn primary" onClick={review}>Review and confirm</button></div>
