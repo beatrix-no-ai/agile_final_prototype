@@ -21,7 +21,7 @@ export type Basis = "percent" | "fixed";
 export type RuleComponent = { id: string; type: FeeKind; basis: Basis; amounts: (number | "")[] };
 export type RuleStatus = "Active" | "Inactive" | "Draft";
 export type Rule = {
-  id: string; name: string; from: string; to: string; logic: "AND" | "OR"; status: RuleStatus;
+  id: string; name: string; from: string; to: string; status: RuleStatus;
   tiers: { hh: number; pc: number }[];
   components: RuleComponent[];
 };
@@ -29,12 +29,12 @@ export type Rule = {
 const comp = (id: string, basis: Basis, amounts: number[]): RuleComponent => ({ id, type: CATALOGUE.find((c) => c.id === id)!.type, basis, amounts });
 const TIERS = () => [{ hh: 0, pc: 0 }, { hh: 2, pc: 2 }];
 
-export const blankRule = (id: string): Rule => ({ id, name: "", from: "2026-01-01", to: "2026-12-31", logic: "AND", status: "Draft", tiers: TIERS(), components: [] });
+export const blankRule = (id: string): Rule => ({ id, name: "", from: "2026-01-01", to: "2026-12-31", status: "Draft", tiers: TIERS(), components: [] });
 
 const SEED: Rule[] = [
-  { id: "FASR9001", name: "MOEFAS 2026 — Standard assistance", status: "Active", from: "2026-01-01", to: "2026-12-31", logic: "AND", tiers: TIERS(), components: [comp("MFC-001", "percent", [80, 50]), comp("MFC-002", "fixed", [20, 10])] },
-  { id: "FASR9002", name: "MOEFAS 2025 — Standard assistance", status: "Inactive", from: "2025-01-01", to: "2025-12-31", logic: "AND", tiers: TIERS(), components: [comp("MFC-003", "percent", [75, 40])] },
-  { id: "FASR9003", name: "MOEFAS 2027 — Proposed assistance", status: "Draft", from: "2027-01-01", to: "2027-12-31", logic: "AND", tiers: TIERS(), components: [comp("MFC-002", "fixed", [15, 8]), comp("MFC-004", "percent", [60, 30])] },
+  { id: "FASR9001", name: "MOEFAS 2026 — Standard assistance", status: "Active", from: "2026-01-01", to: "2026-12-31", tiers: TIERS(), components: [comp("MFC-001", "percent", [80, 50]), comp("MFC-002", "fixed", [20, 10])] },
+  { id: "FASR9002", name: "MOEFAS 2025 — Standard assistance", status: "Inactive", from: "2025-01-01", to: "2025-12-31", tiers: TIERS(), components: [comp("MFC-003", "percent", [75, 40])] },
+  { id: "FASR9003", name: "MOEFAS 2027 — Proposed assistance", status: "Draft", from: "2027-01-01", to: "2027-12-31", tiers: TIERS(), components: [comp("MFC-002", "fixed", [15, 8]), comp("MFC-004", "percent", [60, 30])] },
 ];
 
 const KEY = "moefas-rules-v1";

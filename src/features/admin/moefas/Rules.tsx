@@ -99,12 +99,6 @@ function Editor({ initial, isNew, readOnly, onBack, onSave, notify }: { initial:
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Rule name" required><input className={inputClass} value={d.name} onChange={(e) => patch({ name: e.target.value })} /></Field>
-              <Field label="Income eligibility requirement">
-                <select className={inputClass} value={d.logic} onChange={(e) => patch({ logic: e.target.value as Rule["logic"] })}>
-                  <option value="AND">Both income conditions must be met (AND)</option>
-                  <option value="OR">Either income condition may be met (OR)</option>
-                </select>
-              </Field>
               <Field label="Effective from" required><input type="date" className={inputClass} value={d.from} onChange={(e) => patch({ from: e.target.value })} /></Field>
               <Field label="Effective to" required><input type="date" className={inputClass} value={d.to} onChange={(e) => patch({ to: e.target.value })} /></Field>
             </div>
@@ -122,7 +116,7 @@ function Editor({ initial, isNew, readOnly, onBack, onSave, notify }: { initial:
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-[13px] text-on-surface-variant">Each tier accepts its selected band and all lower bands. AND requires both income conditions; OR requires either.</p>
+            <p className="mt-2 text-[13px] text-on-surface-variant">Each tier accepts its selected band and all lower bands.</p>
             <div className="mt-3 flex justify-end gap-2">
               <Button size="sm" variant="secondary" disabled={d.tiers.length <= 1} onClick={removeTier}>Remove last tier</Button>
             </div>
