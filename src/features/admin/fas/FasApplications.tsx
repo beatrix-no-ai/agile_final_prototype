@@ -20,13 +20,13 @@ import { withBalance } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
-import { ReviewModal } from "./ReviewModal";
+import { ReviewModal, RiskBadge } from "./ReviewModal";
 import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 
-const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Rejected: "alert" };
-const VERB: Record<Action, string> = { approve: "approved", reject: "rejected" };
+const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "primary", Rejected: "alert" };
+const VERB: Record<Action, string> = { approve: "approved", override: "overridden", reject: "rejected" };
 
 function Sla({ days }: { days: number }) {
   if (days <= 0) return <Badge tone="alert">Overdue</Badge>;
@@ -89,7 +89,7 @@ export default function SbfasApplications() {
     decideApp(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     setOpenId(null);
     setMessage(
-      `Application ${id} for ${a.student} ${VERB[action]}${action === "approve" ? ` at ${draft.tier}` : ""}.`,
+      `Application ${id} for ${a.student} ${VERB[action]}${action === "override" ? ` to ${draft.tier}` : action === "approve" ? ` at ${a.recommendedTier}` : ""}.`,
     );
   };
 
@@ -99,6 +99,12 @@ export default function SbfasApplications() {
         <span className="font-semibold">{a.student}</span>
         <span className="block text-[13px] text-on-surface-variant">{a.level} · {a.id}</span>
       </Link>
+    ) },
+    { key: "riskScore", header: "AI risk", sortable: true, render: (a) => (
+      <>
+        <RiskBadge score={a.riskScore} />
+        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {a.recommendedTier}</span>
+      </>
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
     { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
@@ -123,7 +129,7 @@ export default function SbfasApplications() {
       <Tiles items={[
         { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
         { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
-        { label: "Granted", value: String(grantedCount), note: "Approved", good: grantedCount > 0 },
+        { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
         { label: "Declined", value: String(declinedCount), note: "Rejected" },
       ]} />
       <Card
@@ -140,7 +146,7 @@ export default function SbfasApplications() {
           </div>
         }
       >
-        <p className="mb-4 text-sm text-on-surface-variant">Closest deadline first, pending before decided. Income is shown as a band only.</p>
+        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
         <div ref={msgRef} tabIndex={-1} aria-live="polite" className="mb-3 outline-none empty:hidden">
           {message && (
             <p className="flex items-center gap-2 rounded-control border border-line bg-success-container px-3 py-2 text-sm font-medium text-success">
@@ -157,7 +163,7 @@ export default function SbfasApplications() {
             rowKey={(a) => a.id}
             rowActions={(a) => <RowAction onClick={() => setOpenId(a.id)}>{a.status === "Pending" ? "Open review" : "View decision"}</RowAction>}
             large
-            empty={<EmptyState title="No applications in this view" hint={filter === "pending" ? "Every application has been decided." : filter === "granted" ? "Nothing granted yet — approve an application from the Pending tab." : filter === "declined" ? "Nothing declined yet — rejected applications appear here with their reason." : "Nothing here yet."} action={<Button variant="secondary" onClick={() => setFilter("all")}>Show all</Button>} />}
+            empty={<EmptyState title="No applications in this view" hint={filter === "pending" ? "Every application has been decided." : filter === "granted" ? "Nothing granted yet — approve or override an application from the Pending tab." : filter === "declined" ? "Nothing declined yet — rejected applications appear here with their reason." : "Nothing here yet."} action={<Button variant="secondary" onClick={() => setFilter("all")}>Show all</Button>} />}
           />
         )}
       </Card>

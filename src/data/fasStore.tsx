@@ -19,6 +19,9 @@ export type FasAction =
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {} });
 
+// ASSUMPTION: no model scores a family-submitted application yet, so it gets a neutral mock score and tier for the school to review.
+const FAMILY_EXPLANATION = "Submitted by the family through the FAS form. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
+
 /** Pure. A decision is always recorded, even when the budget is already used up (overspend only warns). */
 export function fasReducer(state: FasState, a: FasAction): FasState {
   if (a.type === "decide") {
@@ -33,7 +36,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       if (!student || moefas[id] || apps.some((x) => x.studentId === id)) continue; // one application and one grant per student
       if (a.band.tier === "MOEFAS Tier 1" || a.band.tier === "MOEFAS Tier 2") moefas[id] = { tier: a.band.tier.replace("MOEFAS ", "") as SbfasTier, at: a.at };
       // ASSUMPTION: the school has 10 working days to decide a new application.
-      else if (a.band.tier === "SBFAS") apps = [...apps, { id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), slaDays: 10, status: "Pending" }];
+      else if (a.band.tier === "SBFAS") apps = [...apps, { id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), riskScore: 50, recommendedTier: "Tier 3", slaDays: 10, explanation: FAMILY_EXPLANATION, status: "Pending" }];
     }
     return { ...state, apps, moefas };
   }
@@ -87,7 +90,7 @@ export function selectChildFas(s: FasState, studentId: string): ChildFas | null 
   if (grant) return { scheme: "MOEFAS", status: "Granted", tier: grant.tier };
   const a = s.apps.find((x) => x.studentId === studentId);
   if (!a) return null;
-  if (a.status === "Approved") return { scheme: "SBFAS", status: "Granted", tier: a.sbfasTier };
+  if (a.status === "Approved" || a.status === "Overridden") return { scheme: "SBFAS", status: "Granted", tier: a.sbfasTier };
   if (a.status === "Rejected") return { scheme: "SBFAS", status: "Not granted", reason: a.justification };
   return { scheme: "SBFAS", status: "Awaiting school decision" };
 }
