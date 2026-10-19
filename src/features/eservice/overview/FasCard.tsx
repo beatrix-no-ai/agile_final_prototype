@@ -7,13 +7,13 @@ import { fasStatus, type Child } from "../../../data/parent";
 import type { FasProgress } from "../../../data/parentStore";
 import { fmtDate, linkClass } from "./shared";
 
-type Overall = { label: "Under review" | "Approved" | "Not approved"; tone: BadgeTone };
+type Overall = { label: "Pending" | "Granted" | "Declined"; tone: BadgeTone };
 
-/** Under review while any child still waits on the school; otherwise approved if at least one child got assistance. */
+/** Pending while any child still waits on the school; otherwise approved if at least one child got assistance. */
 export function overallStatus(outcomes: (ChildFas | null)[]): Overall {
-  if (outcomes.some((o) => o?.status === "Awaiting school decision")) return { label: "Under review", tone: "warning" };
-  if (outcomes.some((o) => o?.status === "Granted")) return { label: "Approved", tone: "success" };
-  return { label: "Not approved", tone: "alert" };
+  if (outcomes.some((o) => o?.status === "Awaiting school decision")) return { label: "Pending", tone: "warning" };
+  if (outcomes.some((o) => o?.status === "Granted")) return { label: "Granted", tone: "success" };
+  return { label: "Declined", tone: "alert" };
 }
 
 export function FasCard({ progress, children, outcomes }: { progress: FasProgress; children: Child[]; outcomes: Record<string, ChildFas | null> }) {

@@ -114,7 +114,7 @@ export default function SbfasApplications() {
       </Link>
     ) },
     { key: "slaDays", header: "Deadline", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
-    { key: "status", header: "Status", render: (a) => (a.status === "Pending" ? <Badge tone="neutral">Awaiting review</Badge> : <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge>) },
+    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge> },
   ];
   const tabs: [Filter, string][] = [
     ["all", `All (${apps.length})`],
@@ -129,8 +129,8 @@ export default function SbfasApplications() {
       <Tiles items={[
         { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
         { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
-        { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
-        { label: "Declined", value: String(declinedCount), note: "Rejected" },
+        { label: "Granted", value: String(grantedCount), note: "Applications granted", good: grantedCount > 0 },
+        { label: "Declined", value: String(declinedCount), note: "Applications declined" },
       ]} />
       <Card
         title="SBFAS review queue"

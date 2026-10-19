@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { FREQUENCIES, type Account, type FundRule, type Transaction } from "../../../data/topup";
-import { activeRulesInOrder, conditionText, overlapCount, stackRules, transactionCode } from "../../../lib/topup";
+import { activeRulesInOrder, conditionText, levelOfClass, overlapCount, stackRules, transactionCode } from "../../../lib/topup";
 import { maskNric } from "../../../lib/nric";
 import { cash, sgToday, type DialogSpec } from "./tuUi";
 
@@ -70,13 +70,12 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
     if (!Number.isSafeInteger(amt) || amt <= 0 || amt > MAX_AMOUNT) return notify(`Enter a whole-dollar top-up amount from S$1 to ${cash(MAX_AMOUNT)}.`);
     if (!reason.trim()) return notify("Please enter a reason.");
     if (later && !date) return notify("Please select the execution date.");
-    if (later && !time) return notify("Please select the execution time.");
     const runs = single
       ? [{ name: chosen.length === 1 ? chosen[0].name : `${chosen.length} selected accounts`, targets: chosen }]
       : stack.map((s) => ({ name: s.rule.name, targets: s.accounts }));
     if (!single && runs.every((r) => !r.targets.length)) return notify("No eligible accounts found.");
     const grand = runs.reduce((t, r) => t + r.targets.length * amt, 0);
-    const when = later ? `${date} at ${time}` : "Execute now";
+    const when = later ? `${date}${time && ` at ${time}`}` : "Execute now";
     ask({
       title: "Review and confirm",
       text: (later ? "Review the scheduled top-up details." : "Review the top-up details before confirming.") + (followup ? ` This creates a NEW top-up linked to ${followup.id}; the original stays unchanged.` : ""),
@@ -92,7 +91,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
             ref: transactionCode(d), type: single ? "Single" : "Batch",
             recipient: single ? (one ? `${one.name} (${maskNric(one.nric)})` : r.name) : r.name,
             detail: single ? `${one ? `Education Account ${maskNric(one.nric)}` : `${r.targets.length} Education Accounts`} · ${reason.trim()}` : reason.trim(),
-            date: d, schedule: later ? `${freq} · ${time}` : "Run now (ad-hoc)", targets: r.targets.map((a) => ({ student: a.name, account: a.nric, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: r.targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
+            date: d, schedule: later ? [freq, time].filter(Boolean).join(" · ") : "Run now (ad-hoc)", targets: r.targets.map((a) => ({ student: a.name, account: a.nric, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: r.targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
             ...(followup ? { followupOf: followup.id } : {}),
           }, later ? [] : r.targets.map((a) => a.id));
         }
@@ -104,25 +103,24 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
   const row = (k: string, v: string) => <div className="summaryrow"><span>{k}</span><strong>{v}</strong></div>;
 
   return (
-    <div>
-      <button type="button" className="backline" onClick={onBack}>{followup ? "← Back to original top-up" : "← Back to Top-up History"}</button>
+    <div id="transactions-editor">
       {followup && (
-        <div className="card followup-note">
-          <strong>Follow-up to {followup.id}</strong>
-          <div className="small">Original top-up type: {followup.row.type === "Batch" ? "Batch" : "Specific Accounts"} · Status: {followup.row.status}</div>
+        <div id="new-topup-source-note" className="recovery-note" role="note">
+          <div className="source-head simple"><div><strong>Follow-up to {followup.id}</strong><div className="small" style={{ marginTop: 5 }}>Original top-up type: {followup.row.type === "Batch" ? "Batch" : "Specific Accounts"} · Status: {followup.row.status}</div></div></div>
           <div className="followup-metrics">
             <div className="metric"><span className="small">Failed recipients</span><strong>{followup.failed.length}</strong></div>
             <div className="metric"><span className="small">Available to retry</span><strong>{followup.pool.length}</strong></div>
             <div className="metric"><span className="small">Top-up type</span><strong>Specific Accounts</strong></div>
           </div>
-          <div className="small">A new Specific Accounts top-up will be created. The original amount and reason are pre-filled. The original top-up stays unchanged and is kept for reference.</div>
-          <ul className="followup-list">{followup.failed.map((f) => <li key={f.account}><span>{f.student} · {maskNric(f.account)}</span><strong>{f.ready ? "Ready to select" : "Unavailable"}</strong></li>)}</ul>
-          {followup.failed.some((f) => !f.ready) && <div className="alert">Some failed accounts are not Active, or were already credited by a follow-up, so they cannot be selected.</div>}
+          <div className="source-desc">A new Specific Accounts top-up will be created. The original amount and reason are pre-filled. The original top-up execution remains unchanged and is kept for reference.</div>
+          <div className="followup-list"><strong>Original failed accounts</strong><ul>{followup.failed.map((f) => <li key={f.account}><span>{f.student} · {maskNric(f.account)}</span><strong>{f.ready ? "Ready to select" : "Unavailable"}</strong></li>)}</ul></div>
+          {followup.failed.some((f) => !f.ready) && <div className="source-warning">{followup.failed.filter((f) => !f.ready).length} failed account(s) are not currently Active and cannot be selected for follow-up.</div>}
         </div>
       )}
+      <button type="button" className="backline" id="execution-back-btn" onClick={onBack}>{followup ? "← Back to original top-up execution" : "← Back to top-up transactions"}</button>
       <div className="two">
-        <div className="card leftcard"><h2>{followup ? "Create Specific Accounts top-up" : "Create top-up"}</h2>
-          {!locked && <div className="field"><label>Top-up Type</label><div className="switch">
+        <div className="card leftcard"><h2>{followup ? "Create Specific Accounts Top-up" : "Create top-up"}</h2>
+          {!locked && <div className="field" id="topup-type-field"><label>Top-up Type</label><div className="switch">
             <button type="button" className={single ? "selected" : ""} onClick={() => changeMode("single")}>Specific Accounts</button>
             <button type="button" className={!single ? "selected" : ""} onClick={() => changeMode("batch")}>Batch</button></div></div>}
 
@@ -154,7 +152,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
                     <div className="single-account-row" key={a.id}>
                       <div className="account-details"><strong>{a.name}</strong><small>NRIC: {maskNric(a.nric)} · {a.status}</small></div>
                       <div className="account-right"><div className="studentaccount"><strong>{cash(a.balance)}</strong><small>Account balance</small></div>
-                        <button type="button" className="btn small" onClick={() => setIds(ids.filter((x) => x !== a.id))} aria-label={`Remove ${a.name}`}>Remove</button></div>
+                        <button type="button" className="remove-account" onClick={() => setIds(ids.filter((x) => x !== a.id))} aria-label={`Remove ${a.name}`}>Remove</button></div>
                     </div>
                   ))}
                 </div>
@@ -174,9 +172,8 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
             </div>
           )}
 
-          <div className="field"><label htmlFor="amount">{single ? "Amount (S$)" : "Amount per account (S$)"} <span className="required">*</span></label>
-            <input id="amount" type="number" min={1} step={1} placeholder="e.g. 200" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            {!single && <div className="help">The rule decides who is eligible. This amount is credited to every eligible account.</div>}</div>
+          <div className="field" id="amount-field"><label htmlFor="amount">Amount (S$) <span className="required">*</span></label>
+            <input id="amount" type="number" min={1} step={1} placeholder="e.g. 200" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
           <div className="field"><label htmlFor="reason">Reason <span className="required">*</span></label>
             <textarea id="reason" maxLength={500} placeholder="e.g. ad-hoc student assistance" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="help">Required for Specific Accounts and Batch top-ups. Max 500 characters. Kept in transaction history.</div></div>
@@ -186,10 +183,10 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
           {timing === "now" && large && <div className="help" role="note" style={{ marginBottom: 12 }}>This batch has {n} top-ups. Large batches are best scheduled for off-hours (for example {NIGHT_TIME}) to keep the system responsive.</div>}
           {timing === "later" && (<>
             <div className="field"><label htmlFor="schedule-date">Execution date <span className="required">*</span></label><input type="date" id="schedule-date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <div className="field"><label htmlFor="schedule-time">Execution time <span className="required">*</span></label><input type="time" id="schedule-time" value={time} onChange={(e) => setTime(e.target.value)} />
-              <div className="help">{single ? "Choose when the top-up runs." : `Large batches should run off-hours. Night time ${NIGHT_TIME} is suggested.`}</div></div>
             <div className="field"><label htmlFor="schedule-frequency">Frequency <span className="required">*</span></label>
               <select id="schedule-frequency" value={freq} onChange={(e) => setFreq(e.target.value)}>{FREQUENCIES.map((f) => <option key={f}>{f}</option>)}</select></div>
+            <div className="field"><label htmlFor="schedule-time">Execution time (SGT)</label><input type="time" id="schedule-time" value={time} onChange={(e) => setTime(e.target.value)} />
+              {!single && <div className="help">Large batches should run off-hours. Night time {NIGHT_TIME} is suggested.</div>}</div>
           </>)}
           <div className="buttons"><button type="button" className="btn" onClick={reset}>Reset</button><button type="button" className="btn primary" onClick={review}>Review and confirm</button></div>
         </div>
@@ -197,17 +194,16 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
         <div className="card rightcard"><h2>Top-up summary</h2>
           {row("Type", single ? "Specific Accounts" : "Batch")}
           {row(single ? (chosen.length > 1 ? "Recipients" : "Recipient") : "Target", single ? (chosen.length === 0 ? "Not selected" : chosen.length === 1 ? chosen[0].name : `${chosen.length} accounts selected`) : all ? `All active rules (${active.length})` : rule?.name ?? "Not selected")}
-          {!single && row("Top-ups to run", picked.length ? `${eligible.length}${stacked ? ` (${stacked} account(s) stack more than one rule)` : ""}` : "Preview required")}
+          {!single && row("Eligible accounts", picked.length ? `${eligible.length}${stacked ? ` (${stacked} account(s) stack more than one rule)` : ""}` : "-")}
           {row("Amount / account", cash(amt))}
           {row("Reason", reason.trim() || "Not entered")}
-          {row("Execution", timing === "now" ? "Execute now" : `Schedule for later · ${freq}${time ? ` · ${time}` : ""}`)}
-          {row("Estimated total", total ? cash(total) : "-")}
-          {!single && (
-            <div className="summary-eligible-list"><h3>Eligible accounts</h3>
-              <div className="scroll-small">
-                {!picked.length ? <div className="empty">Select an active rule to view eligible accounts.</div>
-                  : eligible.length ? stack.flatMap((s) => s.accounts.map((a) => <div className="eligible-item" key={`${s.rule.id}-${a.id}`}><div><strong>{a.name}</strong><small>{maskNric(a.nric)}{all ? ` · ${s.rule.id}` : ""}</small></div><span className="account-id">{cash(amt)}</span></div>))
-                  : <div className="empty">No eligible accounts found.</div>}
+          {row("Execution", timing === "now" ? "Execute now" : `Schedule for later · ${[date || "Date not set", freq, time && `${time} SGT`].filter(Boolean).join(" · ")}`)}
+          {!single && row("Estimated total", total ? cash(total) : "-")}
+          {!single && picked.length > 0 && (
+            <div id="batch-eligible-preview" className="eligible-preview"><h3>Eligible accounts</h3>
+              <div id="batch-eligible-list" className="eligible-preview-list" role="region" aria-label="Eligible accounts for selected batch rule" tabIndex={0}>
+                {eligible.length ? stack.flatMap((s) => s.accounts.map((a) => <div className="eligible-preview-item" key={`${s.rule.id}-${a.id}`}><div><strong>{a.name}</strong><small>{maskNric(a.nric)} · {levelOfClass(a.class)} · Age {a.age}{all ? ` · ${s.rule.id}` : ""}</small></div><span className="account-ref">{amt > 0 ? cash(amt) : "Amount not entered"}</span></div>))
+                  : <div className="empty">No eligible accounts for this rule.</div>}
               </div>
             </div>
           )}

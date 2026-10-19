@@ -75,6 +75,7 @@ export const router = createBrowserRouter([
           { path: "students/:id/fees", ...page(() => import("./features/admin/students/StudentFees")) },
           { path: "fee-types", ...page(() => import("./features/admin/fee-types/FeeTypes")) },
           { path: "fas", ...page(() => import("./features/admin/fas/FasApplications"), false, false, "FAS") },
+          { path: "moefas", ...page(() => import("./features/admin/moefas/Moefas"), true) },
           { path: "users", ...page(() => import("./features/admin/users/Users"), false, false, "users") },
           { path: "budgets", ...page(() => import("./features/admin/budgets/Budgets"), false, false, "FAS") },
           { path: "top-up", ...page(() => import("./features/admin/top-up/TopUp"), true) },

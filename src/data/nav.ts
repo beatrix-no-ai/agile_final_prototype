@@ -19,6 +19,7 @@ const HQ: NavItem[] = [
   { to: "/admin/students", label: "Student", desc: "Student records and Education Accounts.", icon: GraduationCap },
   { to: "/admin/top-up", label: "Top-up", desc: "Credit accounts one by one or in batches by rule.", icon: Bank },
   { to: "/admin/fee-types", label: "Fee", desc: "Fee rates against the national ceilings.", icon: Tag },
+  { to: "/admin/moefas", label: "FAS", desc: "MOEFAS applications and assessment rules.", icon: HandHeart },
   { to: "/admin/budgets", label: "Budget", desc: "MOEFAS budget and statistics.", icon: Coins },
 ];
 
@@ -55,7 +56,7 @@ export function navGroupsFor(role: Role, access?: Access): NavGroup[] {
   if (role === "hq") {
     return [
       { group: "School Management", items: pick(HQ, ["/admin/school-maintenance", "/admin/users", "/admin/classes", "/admin/students"]) },
-      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types", "/admin/budgets"]) },
+      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types", "/admin/moefas", "/admin/budgets"]) },
     ];
   }
   const extra = SCHOOL_MODULES.filter((i) => (i.module ? access?.can(i.module) : access?.canManageUsers)).map(({ module: _m, manage: _g, ...item }) => item);

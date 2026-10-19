@@ -44,6 +44,7 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const { state: reg } = useRegistry();
   const live = (xs: Student[]) => xs.map((s) => overlayFas(s, fasState)); // a new charge is priced on the student's current FAS
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
+  const [source, setSource] = useState<"moe" | "school">(() => (presetFee && state.types.find((f) => f.id === presetFee)?.school !== MASTER ? "school" : "moe"));
   const [level, setLevel] = useState("");
   const [scope, setScope] = useState<Scope>("level");
   const [cls, setCls] = useState("");
@@ -60,8 +61,9 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const classes = reg.classes.filter((c) => c.school === school);
   const inClass = (name: string) => studentsOfClass(reg.students, reg.classes, school, name);
   const schoolStudents = live(classes.flatMap((c) => inClass(c.name)));
-  // MOE Bills and School Bills stay separate: picking one source locks the other.
-  const source = chosen.length ? (chosen[0].school === MASTER ? "moe" : "school") : null;
+  // MOE Bills and School Bills stay separate: the source switch decides which list is offered, and switching clears the picks.
+  const pickSource = (s: "moe" | "school") => { if (s !== source) { setSource(s); setPicked([]); setResult(null); } };
+  const pool = source === "moe" ? master : own;
   // A MOE Bill always goes to the whole level (cohort); only a School Bill can be narrowed to a class or one student.
   const effScope: Scope = source === "school" ? scope : "level";
   const perStudent = chosen.reduce((t, f) => t + total(f), 0);
@@ -88,21 +90,36 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
 
   return (
     <Card>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="MOE Bill" hint={source === "school" ? "Remove the School Bill to assign a MOE Bill." : "Mandatory, whole cohort. Created by MOE HQ."}>
-          <select className={inputClass} value="" disabled={source === "school"} onChange={(e) => add(e.target.value)}>
-            <option value="">＋ Add MOE Bill…</option>
-            {master.filter((f) => !picked.includes(f.id)).map((f) => <option key={f.id} value={f.id}>{label(f)}</option>)}
-          </select>
-        </Field>
-        <Field label="School Bill" hint={source === "moe" ? "Remove the MOE Bill to assign a School Bill." : "Created by your school. Target a level, a class or one student."}>
-          <select className={inputClass} value="" disabled={source === "moe"} onChange={(e) => add(e.target.value)}>
-            <option value="">＋ Add School Bill…</option>
-            {own.filter((f) => !picked.includes(f.id)).map((f) => <option key={f.id} value={f.id}>{label(f)}</option>)}
+      <h3 className="border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">1. Choose the type of bill</h3>
+      <div role="radiogroup" aria-label="Type of bill" className="mt-3 grid gap-3 sm:grid-cols-2">
+        {([
+          ["moe", "MOE Bill", "Set by MOE HQ and mandatory. Always issued to a whole level (cohort).", master.length],
+          ["school", "School Bill", "Created by your school. Issue to a level, a class or one student.", own.length],
+        ] as const).map(([id, title, desc, count]) => {
+          const on = source === id, n = on ? picked.length : 0;
+          return (
+            <button key={id} type="button" role="radio" aria-checked={on} onClick={() => pickSource(id)}
+              className={`rounded-card border-2 p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${on ? "border-primary bg-primary-fixed" : "border-line hover:bg-surface-container-low"}`}>
+              <span className="flex items-center justify-between gap-2">
+                <span className={`text-base font-bold ${on ? "text-primary" : ""}`}>{title}</span>
+                {on ? <Badge tone="primary">{n} selected</Badge> : <span className="text-[13px] text-on-surface-variant">{count} available</span>}
+              </span>
+              <span className="mt-1 block text-[13px] text-on-surface-variant">{desc}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[13px] text-on-surface-variant">MOE Bills and School Bills cannot be combined in one assignment. Switching type clears the bills picked below.</p>
+
+      <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">2. Add {source === "moe" ? "MOE" : "School"} Bills</h3>
+      <div className="mt-3 max-w-xl">
+        <Field label={source === "moe" ? "MOE Bill" : "School Bill"}>
+          <select className={inputClass} value="" onChange={(e) => add(e.target.value)}>
+            <option value="">＋ Add {source === "moe" ? "MOE" : "School"} Bill…</option>
+            {pool.filter((f) => !picked.includes(f.id)).map((f) => <option key={f.id} value={f.id}>{label(f)}</option>)}
           </select>
         </Field>
       </div>
-
       <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Selected bills &amp; total</h3>
       {chosen.length ? (
         <table className="mt-3 w-full text-sm">
@@ -134,9 +151,10 @@ function Assign({ school, presetFee }: { school: string; presetFee: string }) {
           </tbody>
         </table>
       ) : (
-        <p className="py-8 text-center text-sm text-on-surface-variant">Add one or more MOE Bills (whole cohort) or School Bills above. The two cannot be combined in one assignment.</p>
+        <p className="py-8 text-center text-sm text-on-surface-variant">Add one or more {source === "moe" ? "MOE Bills (whole cohort)" : "School Bills"} above.</p>
       )}
 
+      <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">3. Assign to &amp; dates</h3>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {source === "school" && (
           <Field required label="Assign to">
