@@ -7,7 +7,8 @@ import type { Student } from "../data/students";
  */
 export function withFas(s: Student, fas: Pick<FasState, "apps" | "moefas">): Student {
   const a = fas.apps.find((x) => x.studentId === s.id);
-  const sbfas = a ? { ...s, sbfas: a.status, sbfasTier: a.status === "Approved" ? a.sbfasTier : undefined } : s;
+  const granted = a?.status === "Approved" || a?.status === "Overridden"; // an override is still a grant, at the school's tier
+  const sbfas = a ? { ...s, sbfas: granted ? ("Approved" as const) : a.status as "Pending" | "Rejected", sbfasTier: granted ? a.sbfasTier : undefined } : s;
   return fas.moefas[s.id] ? { ...sbfas, moefas: "Approved" } : sbfas;
 }
 

@@ -4,7 +4,7 @@ import { FAMILY_STUDENT_NAMES } from "./parent";
 import { STUDENTS } from "./students";
 import { fasReducer, initialFasState, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
 
-const first = (s = initialFasState()) => s.apps[0]; // SBFAS0001
+const first = (s = initialFasState()) => s.apps[0]; // SBFAS0001, recommended Tier 1
 const approveAt = (s: ReturnType<typeof initialFasState>, id: string, at: string) =>
   fasReducer(s, { type: "decide", id, action: "approve", draft: { justification: "", tier: "Tier 1" }, at });
 const approve = (s = initialFasState()) => approveAt(s, first(s).id, "2026-10-18T09:00:00.000Z");
@@ -150,7 +150,7 @@ describe("a family application from the parent portal", () => {
     const appId = s.apps.find((a) => a.studentId === ethan.id)!.id;
     const ok = fasReducer(s, { type: "decide", id: appId, action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
     expect(selectChildFas(ok, ethan.id)).toEqual({ scheme: "SBFAS", status: "Granted", tier: "Tier 3" });
-    const no = fasReducer(s, { type: "decide", id: appId, action: "reject", draft: { justification: "Income above range", tier: "" }, at });
+    const no = fasReducer(s, { type: "decide", id: appId, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
     expect(selectChildFas(no, ethan.id)).toEqual({ scheme: "SBFAS", status: "Not granted", reason: "Income above range" });
   });
 });

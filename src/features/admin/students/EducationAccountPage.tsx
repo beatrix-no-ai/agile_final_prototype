@@ -105,7 +105,7 @@ export default function EducationAccountPage() {
             ))}
           </dl>
           <div className="mt-5 grid gap-2">
-            {role !== "hq" && <Button className="w-full" icon={<Receipt size={18} aria-hidden />} onClick={() => navigate(feesPath, { state: { student } })}>View all fees</Button>}
+            <Button className="w-full" icon={<Receipt size={18} aria-hidden />} onClick={() => navigate(feesPath, { state: { student } })}>View all fees</Button>
             {role === "hq" && <Button className="w-full" icon={<Bank size={18} aria-hidden />} onClick={() => navigate("/admin/top-up", { state: { student } })}>Top up</Button>}
           </div>
         </Card>
@@ -117,7 +117,7 @@ export default function EducationAccountPage() {
             <Stat label="Balance after fees" value={formatSGD(left)} alert={left < 0} note={left < 0 ? "Balance does not cover the fees" : "Balance covers the fees"} />
           </div>
 
-          <Card title="Fees" action={role !== "hq" ? <Link to={feesPath} state={{ student }} className="text-[13px] font-medium text-primary">All fees</Link> : undefined}>
+          <Card title="Fees" action={<Link to={feesPath} state={{ student }} className="text-[13px] font-medium text-primary">All fees</Link>}>
             <ul className="divide-y divide-line">
               {charges.map((c) => (
                 <li key={c.id} className="flex items-center justify-between gap-3 py-3 text-sm">

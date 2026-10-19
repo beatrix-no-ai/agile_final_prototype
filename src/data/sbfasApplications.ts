@@ -1,7 +1,7 @@
 import { STUDENTS } from "./students";
 
 export type SbfasTier = "Tier 1" | "Tier 2" | "Tier 3" | "Tier 4";
-export type SbfasStatus = "Pending" | "Approved" | "Rejected";
+export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
 
 export type SbfasApplication = {
   id: string;
@@ -15,11 +15,14 @@ export type SbfasApplication = {
   householdBand?: string;
   /** ISO date the third-party income API last synced this application's bands. */
   incomeSyncedOn?: string;
+  /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
+  riskScore: number;
+  recommendedTier: SbfasTier;
   /** Working days left to decide. 0 or below = overdue. */
   slaDays: number;
+  explanation: string;
   status: SbfasStatus;
   sbfasTier?: SbfasTier;
-  /** Reason for a rejection (or an optional note on an approval). */
   justification?: string;
   /** ISO timestamp of the decision; set when the application is decided. */
   decidedAt?: string;
@@ -54,29 +57,52 @@ const H4 = "Above S$4,000";
 // Applications are seeded against real student records so the queue can show each family's fee payable.
 const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
 
-const p = (id: string, student: string, incomeBand: string, householdBand: string, incomeSyncedOn: string, slaDays: number): SbfasApplication => {
+// ASSUMPTION: risk scores, recommended tiers and explanations are mock AI output.
+const p = (
+  id: string, student: string, incomeBand: string, householdBand: string, incomeSyncedOn: string,
+  riskScore: number, recommendedTier: SbfasTier, slaDays: number, explanation: string,
+): SbfasApplication => {
   const s = of(student);
-  return { id, student, studentId: s.id, level: s.level, incomeBand, householdBand, incomeSyncedOn, slaDays, status: "Pending" };
+  return { id, student, studentId: s.id, level: s.level, incomeBand, householdBand, incomeSyncedOn, riskScore, recommendedTier, slaDays, explanation, status: "Pending" };
 };
 
 // Foreign nationals cannot apply for either scheme, so none is seeded. Daniel Koh is the dual-citizen (Singapore + British) case.
+// Handoff examples: High 89 / Medium 54 / Low 18.
 export const SBFAS_APPLICATIONS: SbfasApplication[] = [
-  p("SBFAS0001", "Kavitha d/o Raman", B1, H2, "2026-10-05", 1),
-  p("SBFAS0002", "Foo Mei Ling", B1, H1, "2026-10-05", 2),
-  p("SBFAS0003", "Ethan Teo Kai Ming", B2, H2, "2026-10-08", 0),
-  p("SBFAS0004", "Ang Li Ying", B2, H3, "2026-10-08", 3),
-  p("SBFAS0005", "Yeo Rui En", B3, H3, "2026-10-10", 4),
-  p("SBFAS0006", "Tay Jing Wen", B3, H3, "2026-10-10", 5),
-  p("SBFAS0007", "Marcus Heng Zhe Yu", B4, H4, "2026-10-12", 7),
-  p("SBFAS0008", "Goh Yu Xuan", B4, H4, "2026-10-12", 5),
-  p("SBFAS0009", "Lim Xin Yi", B4, H4, "2026-10-12", 8),
-  p("SBFAS0010", "Adrian Pereira", B4, H4, "2026-10-11", 9),
-  p("SBFAS0011", "Sim Hui Min", B2, H3, "2026-10-11", 2),
-  p("SBFAS0012", "Arjun s/o Krishnan", B2, H2, "2026-10-06", 4),
-  p("SBFAS0013", "Meera d/o Ramasamy", B1, H1, "2026-10-06", 3),
-  p("SBFAS0014", "Siti Nurhaliza binte Osman", B3, H3, "2026-10-09", 6),
-  p("SBFAS0015", "Aqil Zafran bin Salleh", B2, H2, "2026-10-07", 1),
-  p("SBFAS0016", "Mohamed Danish bin Yusof", B3, H3, "2026-10-09", 7),
-  p("SBFAS0017", "Deepa d/o Govindasamy", B2, H2, "2026-10-07", 5),
-  p("SBFAS0018", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 3),
+  p("SBFAS0001", "Kavitha d/o Raman", B1, H2, "2026-10-05", 89, "Tier 1", 1,
+    "Per-capita income is in the lowest band and the household has 3 school-going children. Two fee payments were late in the last 12 months and the Education Account balance would not cover this term. Predicted difficulty meeting fees without support is high."),
+  p("SBFAS0002", "Foo Mei Ling", B1, H1, "2026-10-05", 82, "Tier 1", 2,
+    "Single-income household in the lowest band. Account balance covers under one month of fees. No arrears, but the model weighs the income band and household size heavily."),
+  p("SBFAS0003", "Ethan Teo Kai Ming", B2, H2, "2026-10-08", 76, "Tier 2", 0,
+    "Income band is low and a recent change in employment is flagged. Balance is low but stable. The model recommends Tier 2; Tier 1 would apply if the income change is confirmed."),
+  p("SBFAS0004", "Ang Li Ying", B2, H3, "2026-10-08", 71, "Tier 2", 3,
+    "Income band is low with 2 dependants. Exam fees are due this term and the Education Account balance is below the expected total."),
+  p("SBFAS0005", "Yeo Rui En", B3, H3, "2026-10-10", 54, "Tier 3", 4,
+    "Income band is moderate. Fee history is on time, but the household has one non-citizen dependant and a thin account balance. Predicted difficulty is moderate."),
+  p("SBFAS0006", "Tay Jing Wen", B3, H3, "2026-10-10", 49, "Tier 3", 5,
+    "Moderate income band with stable fee history. Balance covers about two months of fees. Recommended tier reflects partial support only."),
+  p("SBFAS0007", "Marcus Heng Zhe Yu", B4, H4, "2026-10-12", 36, "Tier 4", 7,
+    "Income band is above the main support range. Fees have been paid on time every term. Low-moderate risk; Tier 4 gives a small top-up on fee components."),
+  p("SBFAS0008", "Goh Yu Xuan", B4, H4, "2026-10-12", 28, "Tier 4", 5,
+    "Income band is higher and the Education Account covers the full year of fees. Risk is low; the application may be better suited to a school-level discretionary decision."),
+  p("SBFAS0009", "Lim Xin Yi", B4, H4, "2026-10-12", 18, "Tier 4", 8,
+    "Income band is the highest in this queue and the account balance exceeds this year's fees. Predicted difficulty meeting fees is low."),
+  p("SBFAS0010", "Adrian Pereira", B4, H4, "2026-10-11", 12, "Tier 4", 9,
+    "No arrears, healthy balance, and a recent top-up. Very low predicted difficulty; kept in the queue only because the family applied."),
+  p("SBFAS0011", "Sim Hui Min", B2, H3, "2026-10-11", 63, "Tier 2", 2,
+    "Low income band with a recent medical expense flagged by the family. Balance is low. The model is less confident because the income band was updated this month."),
+  p("SBFAS0012", "Arjun s/o Krishnan", B2, H2, "2026-10-06", 68, "Tier 2", 4,
+    "Low income band and two school-going children. Balance covers about one term of fees. One late payment in the last 12 months."),
+  p("SBFAS0013", "Meera d/o Ramasamy", B1, H1, "2026-10-06", 85, "Tier 1", 3,
+    "Lowest income band in a single-income household. Balance would not cover this term and the application includes a flagged income drop."),
+  p("SBFAS0014", "Siti Nurhaliza binte Osman", B3, H3, "2026-10-09", 47, "Tier 3", 6,
+    "Moderate income band with on-time fee history. Balance is adequate for this term but trending down."),
+  p("SBFAS0015", "Aqil Zafran bin Salleh", B2, H2, "2026-10-07", 72, "Tier 2", 1,
+    "Low income band with 3 dependants. Exam fees fall due this term and the balance is below the expected total."),
+  p("SBFAS0016", "Mohamed Danish bin Yusof", B3, H3, "2026-10-09", 45, "Tier 3", 7,
+    "Moderate income band and stable fee history. Balance covers about two months of fees; partial support recommended."),
+  p("SBFAS0017", "Deepa d/o Govindasamy", B2, H2, "2026-10-07", 66, "Tier 2", 5,
+    "Low income band. No arrears, but the balance is thin and a CCA camp fee is due next month."),
+  p("SBFAS0018", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 52, "Tier 3", 3,
+    "Moderate income band. Dual citizenship does not affect SBFAS eligibility. Fee history is on time and the balance is adequate."),
 ];
