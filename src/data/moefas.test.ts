@@ -32,6 +32,6 @@ describe("refreshIncome", () => {
   it("leaves a child with an incomplete record waiting", () => {
     const f = refreshIncome(FAMILIES[3]);
     expect(f.status).toEqual(["Granted", "Awaiting data"]);
-    expect(f.outcome).toBe("Mixed outcomes");
+    expect(f.outcome).toBe("MOEFAS granted");
   });
 });

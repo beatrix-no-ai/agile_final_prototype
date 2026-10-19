@@ -75,7 +75,7 @@ export function ruleProblem(r: Rule): string {
 export type ChildResult = "Granted" | "Not granted" | "Awaiting data";
 export type Family = {
   id: string; parent: string; spouse: string; children: string[]; schools: string[]; levels: string[];
-  outcome: "MOEFAS granted" | "SBFAS review" | "Mixed outcomes";
+  outcome: "MOEFAS granted" | "SBFAS review";
   band: string; pci: string; sync: string; contact: string; address: string;
   status: ChildResult[];
   /** Child indexes whose student record is incomplete, so refreshing income does not help. */
@@ -86,10 +86,10 @@ export const FAMILIES: Family[] = [
   { id: "FAS20260001", parent: "Rachel Lim", spouse: "David Lim", children: ["Ethan Lim Jun Hao", "Chloe Lim Wen Xin"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 5", "Secondary 2"], outcome: "MOEFAS granted", band: "S$2,501–S$4,000", pci: "S$751–S$1,000", sync: "18 Oct 2026", contact: "+65 9123 4567", address: "Blk 214 Bishan Street 23, #08-112, Singapore 570214", status: ["Granted", "Granted"] },
   { id: "FAS20260002", parent: "Nur Aisyah Binte Abdullah", spouse: "Muhammad Farhan", children: ["Adam Muhammad"], schools: ["Riverbank Primary School"], levels: ["Primary 4"], outcome: "SBFAS review", band: "Above S$4,000", pci: "S$1,001–S$1,500", sync: "18 Oct 2026", contact: "+65 9234 5678", address: "Blk 512 Tampines Central 1, #05-118, Singapore 520512", status: ["Not granted"] },
   { id: "FAS20260003", parent: "Priya Nair", spouse: "Arun Nair", children: ["Arjun Nair"], schools: ["Greenfield Secondary School"], levels: ["Secondary 1"], outcome: "SBFAS review", band: "Unavailable", pci: "Unavailable", sync: "Sync failed", contact: "+65 9345 6789", address: "Blk 301 Clementi Avenue 4, #07-102, Singapore 120301", status: ["Awaiting data"] },
-  { id: "FAS20260004", parent: "Michelle Tan", spouse: "Daniel Tan", children: ["Lucas Tan Wei Jie", "Emma Tan Hui Min"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 6", "Secondary 3"], outcome: "Mixed outcomes", band: "S$2,501–S$4,000", pci: "S$751–S$1,000", sync: "18 Oct 2026", contact: "+65 9456 7890", address: "Blk 118 Toa Payoh Lorong 1, #09-210, Singapore 310118", status: ["Granted", "Awaiting data"], missingInfo: [1] },
+  { id: "FAS20260004", parent: "Michelle Tan", spouse: "Daniel Tan", children: ["Lucas Tan Wei Jie", "Emma Tan Hui Min"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 6", "Secondary 3"], outcome: "MOEFAS granted", band: "S$2,501–S$4,000", pci: "S$751–S$1,000", sync: "18 Oct 2026", contact: "+65 9456 7890", address: "Blk 118 Toa Payoh Lorong 1, #09-210, Singapore 310118", status: ["Granted", "Awaiting data"], missingInfo: [1] },
 ];
 
-export const OUTCOMES: Family["outcome"][] = ["MOEFAS granted", "SBFAS review", "Mixed outcomes"];
+export const OUTCOMES: Family["outcome"][] = ["MOEFAS granted", "SBFAS review"];
 
 /** Simulated income-API retry: income arrives, so every waiting child that has complete records is assessed and granted. */
 export function refreshIncome(f: Family): Family {
