@@ -1,10 +1,10 @@
 import { expect, test } from "vitest";
-import { applyDecision, isDeclined, isGranted, sortQueue, validateDecision } from "./review";
+import { applyDecision, isDeclined, isGranted, sortQueue, statusLabel, validateDecision } from "./review";
 import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
 import { STUDENTS } from "../../../data/students";
 
 const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
-  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", householdBand: "hb", incomeSyncedOn: "2026-10-05", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
+  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
 });
 
 test("sortQueue: pending first, then risk score desc", () => {
@@ -58,8 +58,15 @@ test("every seeded application links to a real student record (name, id and leve
 });
 
 test("nextSbfasId: SBFASXXXX format, 4-digit padded, continues from the highest sequence", () => {
-  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS0013");    // highest seed is SBFAS0012
+  expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS0019");    // highest seed is SBFAS0018
   expect(nextSbfasId([])).toBe("SBFAS0001");                     // empty queue starts the 0001 series
   expect(nextSbfasId([{ id: "SBFAS0999" }])).toBe("SBFAS1000"); // continues from the highest, no artificial floor
   expect(nextSbfasId([{ id: "SBFAS9999" }])).toBe("SBFAS10000"); // past 9999 the digits grow, nothing breaks
+});
+
+test("statusLabel: Approved reads Granted, Rejected reads Declined, the rest stay", () => {
+  expect(statusLabel("Approved")).toBe("Granted");
+  expect(statusLabel("Rejected")).toBe("Declined");
+  expect(statusLabel("Pending")).toBe("Pending");
+  expect(statusLabel("Not applied")).toBe("Not applied");
 });

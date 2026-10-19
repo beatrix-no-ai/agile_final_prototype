@@ -1,158 +1,167 @@
-import { useState } from "react";
-import { CheckCircle, X } from "@phosphor-icons/react";
+import { useFas } from "../../../data/fasStore";
+import type { Student } from "../../../data/students";
+import { withFas as overlayFas } from "../../../lib/studentFas";
+import { Fragment, useState } from "react";
+import { CaretRight, CheckCircle, X } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
-import { DataTable, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { Modal } from "../../../components/ui/Modal";
 import { useFees } from "../../../data/feeStore";
-import { DEFAULT_DUE_DAYS, MASTER, type Charge, type FeeType } from "../../../data/fees";
-import { ruleForSchool, tierRate } from "../../../data/sbfasRule";
-import { useSbfas } from "../../../data/sbfasStore";
-import { SCHOOLS } from "../../../data/schools";
-import { CLASS_RECORDS } from "../../../data/schoolMgmt";
+import { MASTER, type Charge, type FeeType } from "../../../data/fees";
+import { useRegistry } from "../../../data/registryStore";
 import { formatSGD } from "../../../lib/format";
-import { addDays, alreadyCharged, chargeStatus, currentTerm, fasOf, feeOf, payableOf, studentsOfClass, TERMS, type Term, TODAY } from "../../../lib/fees";
-import { selectClass, studentOf } from "./parts";
-import { filterRounds, historyRounds, type BillKind, type Round } from "./history";
-import { fuzzyMatch } from "../../../lib/fuzzy";
+import { addDays, alreadyCharged, chargeStatus, fasOf, feeOf, TODAY } from "../../../lib/fees";
+import { studentsOfClass } from "../../../lib/registry";
+import { selectClass, useStudentOf } from "./parts";
 
-type Result = { created: number; skipped: number; level: string; term: string };
+type Result = { created: number; skipped: number; level: string; issued: string; due: string };
 type Scope = "level" | "class" | "student";
 const total = (f: FeeType) => f.components.reduce((t, c) => t + c.amount, 0);
 const scopeOf = (f: FeeType) => f.scope ?? f.level ?? "All levels";
 
-/** School user: MOE Bills and School Bills are two separate flows on their own tabs (US-014). A MOE Bill goes to the whole cohort; a School Bill can target a level, a class or one student. Duplicates are skipped. */
+/** School user: assign MOE Bills (whole cohort) or School Bills (a level, a class or one student) and issue one unpaid charge per student with an issue and due date (US-014). The two sources are never combined in one assignment. Duplicates are skipped. */
 export default function AssignCharges({ school, presetFee }: { school: string; presetFee: string }) {
-  const [tab, setTab] = useState<"moe" | "school" | "history">(presetFee ? "school" : "moe");
-  const tabs = [["moe", "MOE Bill"], ["school", "School Bill"], ["history", "Charge history"]] as const;
+  const [tab, setTab] = useState<"assign" | "history">("assign");
+  const tabs = [["assign", "Assign & generate charges"], ["history", "Charge history"]] as const;
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="Assign fees" className="grid grid-cols-3 overflow-hidden rounded-card border border-line bg-surface-container-lowest">
+      <div role="tablist" aria-label="Assign fees" className="grid grid-cols-2 overflow-hidden rounded-card border border-line bg-surface-container-lowest">
         {tabs.map(([id, label]) => (
           <button key={id} role="tab" type="button" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`min-h-11 px-4 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary ${tab === id ? "bg-primary-fixed text-primary" : "text-on-surface hover:bg-surface-container-low"}`}>{label}</button>
         ))}
       </div>
-      {tab === "moe" && <Assign school={school} source="moe" />}
-      {tab === "school" && <Assign school={school} source="school" presetFee={presetFee} />}
-      {tab === "history" && <History school={school} />}
+      {tab === "assign" ? <Assign school={school} presetFee={presetFee} /> : <History school={school} />}
     </div>
   );
 }
 
-function Assign({ school, presetFee, source }: { school: string; presetFee?: string; source: "moe" | "school" }) {
+function Assign({ school, presetFee }: { school: string; presetFee: string }) {
   const { state, dispatch } = useFees();
-  const { state: sbfas } = useSbfas();
+  const { state: fasState } = useFas();
+  const { state: reg } = useRegistry();
+  const live = (xs: Student[]) => xs.map((s) => overlayFas(s, fasState)); // a new charge is priced on the student's current FAS
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
+  const [source, setSource] = useState<"moe" | "school">(() => (presetFee && state.types.find((f) => f.id === presetFee)?.school !== MASTER ? "school" : "moe"));
   const [level, setLevel] = useState("");
   const [scope, setScope] = useState<Scope>("level");
   const [cls, setCls] = useState("");
-  const [clsLevel, setClsLevel] = useState("");
-  const [pickLevel, setPickLevel] = useState("");
-  const [pickClass, setPickClass] = useState("");
-  const [studentIds, setStudentIds] = useState<string[]>([]);
-  const [pickOpen, setPickOpen] = useState(false);
-  const [term, setTerm] = useState<Term>(currentTerm());
+  const [studentId, setStudentId] = useState("");
+  const [issued, setIssued] = useState(TODAY);
+  const [due, setDue] = useState(addDays(TODAY, 30));
   const [result, setResult] = useState<Result | null>(null);
 
-  const kind = SCHOOLS.find((s) => s.code === school)?.level;
+  const kind = reg.schools.find((s) => s.code === school)?.level;
   const master = state.types.filter((f) => f.school === MASTER && (!f.scope || f.scope === kind));
   const own = state.types.filter((f) => f.school === school);
+  const chosen = [...master, ...own].filter((f) => picked.includes(f.id));
+  const levels = [...new Set(reg.classes.filter((c) => c.school === school).map((c) => c.level))];
+  const classes = reg.classes.filter((c) => c.school === school);
+  const inClass = (name: string) => studentsOfClass(reg.students, reg.classes, school, name);
+  const schoolStudents = live(classes.flatMap((c) => inClass(c.name)));
+  // MOE Bills and School Bills stay separate: the source switch decides which list is offered, and switching clears the picks.
+  const pickSource = (s: "moe" | "school") => { if (s !== source) { setSource(s); setPicked([]); setResult(null); } };
   const pool = source === "moe" ? master : own;
-  const chosen = pool.filter((f) => picked.includes(f.id));
-  const levels = [...new Set(CLASS_RECORDS.filter((c) => c.school === school).map((c) => c.level))];
-  const classes = CLASS_RECORDS.filter((c) => c.school === school);
-  const schoolStudents = classes.flatMap((c) => studentsOfClass(school, c.name));
   // A MOE Bill always goes to the whole level (cohort); only a School Bill can be narrowed to a class or one student.
   const effScope: Scope = source === "school" ? scope : "level";
   const perStudent = chosen.reduce((t, f) => t + total(f), 0);
 
   // Each fee applies to a student only when its own level (if any) matches that student's level.
-  const students = effScope === "level" ? (level ? classes.filter((c) => c.level === level).flatMap((c) => studentsOfClass(school, c.name)) : [])
-    : effScope === "class" ? (cls ? studentsOfClass(school, cls) : [])
-    : schoolStudents.filter((s) => studentIds.includes(s.id));
-  const target = effScope === "level" ? level : effScope === "class" ? cls
-    : students.length === 1 ? `${students[0].name} (${pickClass})` : pickClass ? `${pickClass} — ${students.length} students` : "";
-  const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, TODAY) })));
+  const students = effScope === "level" ? (level ? live(classes.filter((c) => c.level === level).flatMap((c) => inClass(c.name))) : [])
+    : effScope === "class" ? (cls ? live(inClass(cls)) : [])
+    : schoolStudents.filter((s) => s.id === studentId);
+  const target = effScope === "level" ? level : effScope === "class" ? cls : students[0]?.name ?? "";
+  const plan = chosen.flatMap((fee) => students.filter((s) => !fee.level || fee.level === s.level).map((s) => ({ fee, s, dup: alreadyCharged(state.charges, s.id, fee, issued) })));
   const todo = plan.filter((p) => !p.dup);
   const withFas = students.map((s) => fasOf(s)).filter((f): f is NonNullable<typeof f> => f !== null);
   const fasSummary = ["MOEFAS", "SBFAS"].map((k) => `${withFas.filter((f) => f.scheme === k).length} ${k}`).filter((x) => !x.startsWith("0")).join(" + ") || "FAS";
 
   const add = (id: string) => { if (id && !picked.includes(id)) { setPicked([...picked, id]); setResult(null); } };
-  // SBFAS students follow the school's own rule: the rate of the tier their approved application decided.
-  const sbfasRateOf = (studentId: string): number | undefined => {
-    const app = sbfas.apps.find((a) => a.studentId === studentId && (a.status === "Approved" || a.status === "Overridden") && a.sbfasTier);
-    return app?.sbfasTier ? tierRate(ruleForSchool(sbfas.rules, school), app.sbfasTier) : undefined;
-  };
   const generate = () => {
-    const due = addDays(TODAY, DEFAULT_DUE_DAYS);   // no due-date input anymore: every charge carries the standard 30-day window
     for (const fee of chosen) {
       const s = todo.filter((p) => p.fee.id === fee.id).map((p) => p.s);
-      if (!s.length) continue;
-      const rates: Record<string, number> = {};
-      for (const st of s) {
-        const r = sbfasRateOf(st.id);
-        if (r != null) rates[st.id] = r;
-      }
-      dispatch({ type: "generate", fee, students: s, issued: TODAY, due, term, ...(Object.keys(rates).length ? { rates } : {}) });
+      if (s.length) dispatch({ type: "generate", fee, students: s, issued, due });
     }
-    setResult({ created: todo.length, skipped: plan.length - todo.length, level: target, term });
+    setResult({ created: todo.length, skipped: plan.length - todo.length, level: target, issued, due });
   };
   const label = (f: FeeType) => `${f.name}${f.school === MASTER ? ` · ${scopeOf(f)}` : f.level ? ` · ${f.level}` : ""} (${formatSGD(total(f))})`;
 
   return (
     <Card>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={source === "moe" ? "MOE Bill" : "School Bill"} hint={source === "moe" ? "Mandatory, whole cohort. Created by MOE HQ." : "Created by your school. Target a level, a class or one student."}>
+      <h3 className="border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">1. Choose the type of bill</h3>
+      <div role="radiogroup" aria-label="Type of bill" className="mt-3 grid gap-3 sm:grid-cols-2">
+        {([
+          ["moe", "MOE Bill", "Set by MOE HQ and mandatory. Always issued to a whole level (cohort).", master.length],
+          ["school", "School Bill", "Created by your school. Issue to a level, a class or one student.", own.length],
+        ] as const).map(([id, title, desc, count]) => {
+          const on = source === id, n = on ? picked.length : 0;
+          return (
+            <button key={id} type="button" role="radio" aria-checked={on} onClick={() => pickSource(id)}
+              className={`rounded-card border-2 p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${on ? "border-primary bg-primary-fixed" : "border-line hover:bg-surface-container-low"}`}>
+              <span className="flex items-center justify-between gap-2">
+                <span className={`text-base font-bold ${on ? "text-primary" : ""}`}>{title}</span>
+                {on ? <Badge tone="primary">{n} selected</Badge> : <span className="text-[13px] text-on-surface-variant">{count} available</span>}
+              </span>
+              <span className="mt-1 block text-[13px] text-on-surface-variant">{desc}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[13px] text-on-surface-variant">MOE Bills and School Bills cannot be combined in one assignment. Switching type clears the bills picked below.</p>
+
+      <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">2. Add {source === "moe" ? "MOE" : "School"} Bills</h3>
+      <div className="mt-3 max-w-xl">
+        <Field label={source === "moe" ? "MOE Bill" : "School Bill"}>
           <select className={inputClass} value="" onChange={(e) => add(e.target.value)}>
-            <option value="">{source === "moe" ? "＋ Add MOE Bill…" : "＋ Add School Bill…"}</option>
+            <option value="">＋ Add {source === "moe" ? "MOE" : "School"} Bill…</option>
             {pool.filter((f) => !picked.includes(f.id)).map((f) => <option key={f.id} value={f.id}>{label(f)}</option>)}
           </select>
         </Field>
       </div>
-
       <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Selected bills &amp; total</h3>
       {chosen.length ? (
         <table className="mt-3 w-full text-sm">
           <thead>
-              <tr className="bg-surface-container-low text-left text-[13px] uppercase tracking-wide text-on-surface-variant">
-                <th className="px-3 py-2 font-semibold">Fee type &amp; components to assign</th>
-                <th className="px-3 text-right font-semibold">Amount per student</th>
-                <th className="w-10"><span className="sr-only">Remove</span></th>
+            <tr className="bg-surface-container-low text-left text-[13px] uppercase tracking-wide text-on-surface-variant">
+              <th className="px-3 py-2 font-semibold">Source</th>
+              <th className="px-3 font-semibold">Fee type &amp; components to assign</th>
+              <th className="px-3 text-right font-semibold">Amount per student</th>
+              <th className="w-10"><span className="sr-only">Remove</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {chosen.map((f) => (
+              <tr key={f.id} className="border-b border-line align-top">
+                <td className="px-3 py-3"><Badge tone={f.school === MASTER ? "primary" : "neutral"}>{f.school === MASTER ? "MOE Bill" : "School Bill"}</Badge></td>
+                <td className="px-3 py-3">
+                  <b>{f.name}</b> <code className="text-[13px] text-on-surface-variant">{f.id}</code> · {f.level ?? "all levels of this school"}
+                  <div className="mt-0.5 text-[13px] text-on-surface-variant">{f.components.map((c) => `${c.name} (${formatSGD(c.amount)})`).join(" · ")}</div>
+                </td>
+                <td className="px-3 py-3 text-right tabular-nums">{formatSGD(total(f))}</td>
+                <td><Button size="sm" variant="ghost" aria-label={`Remove ${f.name}`} onClick={() => { setPicked(picked.filter((x) => x !== f.id)); setResult(null); }}><X size={16} aria-hidden="true" /></Button></td>
               </tr>
-            </thead>
-            <tbody>
-              {chosen.map((f) => (
-                <tr key={f.id} className="border-b border-line align-top">
-                  <td className="px-3 py-3">
-                    <b>{f.name}</b> <code className="text-[13px] text-on-surface-variant">{f.id}</code> · {f.level ?? "all levels of this school"}
-                    <div className="mt-0.5 text-[13px] text-on-surface-variant">{f.components.map((c) => `${c.name} (${formatSGD(c.amount)})`).join(" · ")}</div>
-                  </td>
-                  <td className="px-3 py-3 text-right tabular-nums">{formatSGD(total(f))}</td>
-                  <td><Button size="sm" variant="ghost" aria-label={`Remove ${f.name}`} onClick={() => { setPicked(picked.filter((x) => x !== f.id)); setResult(null); }}><X size={16} aria-hidden="true" /></Button></td>
-                </tr>
-              ))}
-              <tr className="bg-surface-container-low font-semibold">
-                <td className="px-3 py-2.5">Total fee per student</td>
-                <td className="px-3 text-right tabular-nums text-primary">{formatSGD(perStudent)}</td>
-                <td />
-              </tr>
+            ))}
+            <tr className="bg-surface-container-low font-semibold">
+              <td className="px-3 py-2.5" colSpan={2}>Total fee per student</td>
+              <td className="px-3 text-right tabular-nums text-primary">{formatSGD(perStudent)}</td>
+              <td />
+            </tr>
           </tbody>
         </table>
       ) : (
-        <p className="py-8 text-center text-sm text-on-surface-variant">{source === "moe" ? "Add one or more MOE Bills above — each is assigned whole to the cohort." : "Add one or more School Bills above, then choose who to charge."}</p>
+        <p className="py-8 text-center text-sm text-on-surface-variant">Add one or more {source === "moe" ? "MOE Bills (whole cohort)" : "School Bills"} above.</p>
       )}
 
+      <h3 className="mt-6 border-b border-line pb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">3. Assign to &amp; dates</h3>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {source === "school" && (
           <Field required label="Assign to">
-            <select className={inputClass} value={scope} onChange={(e) => { setScope(e.target.value as Scope); setClsLevel(""); setCls(""); setPickLevel(""); setPickClass(""); setStudentIds([]); setResult(null); }}>
+            <select className={inputClass} value={scope} onChange={(e) => { setScope(e.target.value as Scope); setResult(null); }}>
               <option value="level">A level</option>
               <option value="class">A class</option>
-              <option value="student">Student(s)</option>
+              <option value="student">One student</option>
             </select>
           </Field>
         )}
@@ -165,54 +174,28 @@ function Assign({ school, presetFee, source }: { school: string; presetFee?: str
           </Field>
         )}
         {effScope === "class" && (
-          <Field required label="Level">
-            <select className={inputClass} value={clsLevel} onChange={(e) => { setClsLevel(e.target.value); setCls(""); setResult(null); }}>
-              <option value="">— select level —</option>
-              {levels.map((l) => <option key={l}>{l}</option>)}
-            </select>
-          </Field>
-        )}
-        {effScope === "class" && (
           <Field required label="Class">
-            <select className={inputClass} value={cls} disabled={!clsLevel} onChange={(e) => { setCls(e.target.value); setResult(null); }}>
+            <select className={inputClass} value={cls} onChange={(e) => { setCls(e.target.value); setResult(null); }}>
               <option value="">— select class —</option>
-              {classes.filter((c) => c.level === clsLevel).map((c) => <option key={c.name}>{c.name}</option>)}
+              {classes.map((c) => <option key={c.name}>{c.name}</option>)}
             </select>
           </Field>
         )}
         {effScope === "student" && (
-          <Field required label="Level">
-            <select className={inputClass} value={pickLevel} onChange={(e) => { setPickLevel(e.target.value); setPickClass(""); setStudentIds([]); setResult(null); }}>
-              <option value="">— select level —</option>
-              {levels.map((l) => <option key={l}>{l}</option>)}
+          <Field required label="Student">
+            <select className={inputClass} value={studentId} onChange={(e) => { setStudentId(e.target.value); setResult(null); }}>
+              <option value="">— select student —</option>
+              {schoolStudents.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.class})</option>)}
             </select>
           </Field>
         )}
-        {effScope === "student" && (
-          <Field required label="Class">
-            <select className={inputClass} value={pickClass} disabled={!pickLevel} onChange={(e) => { setPickClass(e.target.value); setStudentIds([]); setResult(null); }}>
-              <option value="">— select class —</option>
-              {classes.filter((c) => c.level === pickLevel).map((c) => <option key={c.name}>{c.name}</option>)}
-            </select>
-          </Field>
-        )}
-        <Field required label="Term">
-          <select className={inputClass} value={term} onChange={(e) => { setTerm(e.target.value as Term); setResult(null); }}>
-            {TERMS.map((t) => <option key={t}>{t}</option>)}
-          </select>
+        <Field label="Issue date" hint="Charges for the same bill and date are skipped.">
+          <input type="date" className={inputClass} value={issued} onChange={(e) => { setIssued(e.target.value); setResult(null); }} />
+        </Field>
+        <Field label="Due date" hint="Unpaid after this date shows as overdue.">
+          <input type="date" className={inputClass} value={due} min={issued} onChange={(e) => { setDue(e.target.value); setResult(null); }} />
         </Field>
       </div>
-
-      {effScope === "student" && (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <Button variant="secondary" disabled={!pickClass} onClick={() => setPickOpen(true)}>{pickClass ? `Pick students in ${pickClass}…` : "Pick students…"}</Button>
-          {studentIds.length > 0 && (
-            <p className="text-[13px] text-on-surface-variant">
-              <b className="text-on-surface">{studentIds.length} student{studentIds.length === 1 ? "" : "s"} picked</b> — {studentIds.map((id) => studentOf(id)?.name ?? id).join(", ")}
-            </p>
-          )}
-        </div>
-      )}
 
       {target && chosen.length ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -226,177 +209,82 @@ function Assign({ school, presetFee, source }: { school: string; presetFee?: str
         <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-on-surface-variant">
           <Badge tone="primary">FAS</Badge>
           <span>
-            {withFas.length} of {students.length} students receive {fasSummary} — for them the subsidy is deducted from the fee when the charge is generated, so their payable is lower than {formatSGD(perStudent)}. MOEFAS is the national full waiver; SBFAS students are subsidised at their decided tier's rate from your SBFAS rules. A student never receives both schemes: MOEFAS takes precedence over SBFAS.
+            {withFas.length} of {students.length} students receive {fasSummary} — for them the subsidy is deducted from the fee when the charge is generated, so their payable is lower than {formatSGD(perStudent)}. A student never receives both schemes: MOEFAS takes precedence over SBFAS.
           </span>
         </p>
       ) : null}
       {result && (
         <p role="status" className="mt-4 flex items-center gap-2 rounded-card border border-line bg-success-container px-4 py-3 text-sm font-medium text-success">
           <CheckCircle size={18} weight="bold" aria-hidden="true" />
-          Created {result.created}, skipped {result.skipped}: {result.level}, {result.term}. Charges are outstanding and appear under Student fees.
+          Created {result.created}, skipped {result.skipped}: {result.level}, issued {result.issued}, due {result.due}. Charges are outstanding and appear under Student fees.
         </p>
-      )}
-      {pickOpen && pickClass && (
-        <StudentPicker key={pickClass} school={school} klass={pickClass} picked={studentIds}
-          onToggle={(id) => setStudentIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))}
-          onClose={() => setPickOpen(false)} />
       )}
     </Card>
   );
 }
 
-/** Pick the students of one class: tick any number of them, with a fuzzy name search (level → class already chosen outside). */
-function StudentPicker({ school, klass, picked, onToggle, onClose }: { school: string; klass: string; picked: string[]; onToggle: (id: string) => void; onClose: () => void }) {
-  const [q, setQ] = useState("");
-  const all = studentsOfClass(school, klass);
-  const shown = all.filter((s) => fuzzyMatch(q, [s.name, s.id, s.class])).sort((a, b) => a.name.localeCompare(b.name));
-  return (
-    <Modal open onClose={onClose} title={`Pick students — ${klass}`} footer={<Button onClick={onClose}>Done — {picked.length} picked</Button>}>
-      <div className="space-y-3 text-on-surface">
-        <input data-autofocus className={inputClass} aria-label="Search students" placeholder="Search by name…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <p className="text-[13px] text-on-surface-variant">{picked.length} of {all.length} student{all.length === 1 ? "" : "s"} ticked{q ? ` · ${shown.length} match “${q}”` : ""}</p>
-        {shown.length ? (
-          <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-card border border-line px-3">
-            {shown.map((s) => (
-              <li key={s.id}>
-                <label className="flex cursor-pointer items-center gap-3 py-2.5 text-sm">
-                  <input type="checkbox" className="size-4 accent-primary" checked={picked.includes(s.id)} onChange={() => onToggle(s.id)} />
-                  <b>{s.name}</b> <span className="text-on-surface-variant">{s.id} · {s.class}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="py-4 text-center text-sm text-on-surface-variant">No students in {klass} match “{q}”.</p>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-const studentCols: Column<Charge>[] = [
-  { key: "studentId", header: "Student", render: (c) => (<><b className="text-on-surface">{studentOf(c.studentId)?.name ?? c.studentId}</b> <span className="text-on-surface-variant">({c.studentId} · {studentOf(c.studentId)?.class})</span></>) },
-  { key: "fas", header: "FAS", render: (c) => (c.fas ? <Badge tone="primary">{c.fas}</Badge> : <span className="text-on-surface-variant">—</span>) },
-  { key: "status", header: "Status", render: (c) => <span className="capitalize">{chargeStatus(c)}</span> },
-  { key: "fee", header: "Fee value", align: "right", render: (c) => formatSGD(feeOf(c)) },
-  { key: "payable", header: "To pay", align: "right", render: (c) => <b>{formatSGD(payableOf(c))}</b> },
-];
-
-/** One round's affected students: the fee components to pay, then the student list with the app's standard 10-per-page pagination. */
-function AffectedModal({ round, onClose }: { round: Round | null; onClose: () => void }) {
-  const comps = round?.rows[0]?.components ?? [];
-  const per = comps.reduce((t, c) => t + c.amount, 0);
-  return (
-    <Modal open={!!round} onClose={onClose} title={round ? `Students affected — ${round.title}` : ""}>
-      {round && (
-        <div className="space-y-5 text-on-surface">
-          <p>{round.rows[0].term ? `${round.rows[0].term} · ` : ""}Issued {round.issued} · due {round.due} · {round.rows.length} charge{round.rows.length === 1 ? "" : "s"} · total fee value {formatSGD(round.rows.reduce((t, c) => t + feeOf(c), 0))}</p>
-          <div>
-            <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Fee components to pay (per student)</h3>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-surface-container-low text-left text-[13px] uppercase tracking-wide text-on-surface-variant">
-                  <th className="px-3 py-2 font-semibold">Component</th>
-                  <th className="px-3 text-right font-semibold">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comps.map((c) => (
-                  <tr key={c.name} className="border-b border-line">
-                    <td className="px-3 py-2">{c.name}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatSGD(c.amount)}</td>
-                  </tr>
-                ))}
-                <tr className="bg-surface-container-low font-semibold">
-                  <td className="px-3 py-2">Total per student</td>
-                  <td className="px-3 py-2 text-right tabular-nums text-primary">{formatSGD(per)}</td>
-                </tr>
-              </tbody>
-            </table>
-            <p className="mt-1 text-[13px] text-on-surface-variant">A student with FAS pays less — see the To pay column below.</p>
-          </div>
-          <div>
-            <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-on-surface-variant">Students affected ({round.rows.length})</h3>
-            <DataTable columns={studentCols} rows={round.rows} rowKey={(c) => c.id} empty={null} />
-          </div>
-        </div>
-      )}
-    </Modal>
-  );
-}
+type Round = { key: string; issued: string; due: string; title: string; ftId: string; rows: Charge[] };
 
 function History({ school }: { school: string }) {
+  const studentOf = useStudentOf();
   const { state } = useFees();
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [kind, setKind] = useState<"" | BillKind>("");
-  const [viewing, setViewing] = useState<Round | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
 
-  // A round belongs here when it is the school's own bill or a MOE Bill for one of this school's students.
-  const classes = CLASS_RECORDS.filter((c) => c.school === school);
-  const schoolIds = new Set(classes.flatMap((c) => studentsOfClass(school, c.name)).map((s) => s.id));
+  const mine = state.charges.filter((c) => state.types.find((f) => f.id === c.ftId)?.school === school);
+  const rounds = new Map<string, Round>();
+  for (const c of mine) {
+    const key = `${c.issued}|${c.ftId}`;
+    rounds.set(key, rounds.get(key) ?? { key, issued: c.issued, due: c.due, title: c.title, ftId: c.ftId, rows: [] });
+    rounds.get(key)!.rows.push(c);
+  }
   const lvl = (r: Round) => [...new Set(r.rows.map((c) => studentOf(c.studentId)?.level ?? ""))].filter(Boolean);
-  const allRounds = historyRounds(state.charges, state.types, school, (id) => schoolIds.has(id));
-  const list = filterRounds(allRounds, { q, from, to, kind, textOf: (r) => `${r.title} ${r.issued} ${lvl(r).join(" ")}` });
+  const list = [...rounds.values()]
+    .filter((r) => (!from || r.issued >= from) && (!to || r.issued <= to) && (!q || `${r.title} ${r.issued} ${lvl(r).join(" ")}`.toLowerCase().includes(q.toLowerCase())))
+    .sort((a, b) => b.issued.localeCompare(a.issued));
   const all = list.flatMap((r) => r.rows);
-  const sections: BillKind[] = kind ? [kind] : ["moe", "school"];
-
-  const roundRow = (r: Round) => {
-    const n = new Set(r.rows.map((c) => c.studentId)).size;
-    return (
-      <tr key={r.key} className="border-b border-line align-top">
-        <td className="py-3 pr-3 whitespace-nowrap">{r.issued}</td>
-        <td className="py-3 pr-3">
-          <b>{r.title}</b>
-          <div className="text-[13px] text-on-surface-variant">{r.rows[0].term ? `${r.rows[0].term} · ` : ""}{lvl(r).join(", ")} · 1 fee type · {n} student{n === 1 ? "" : "s"} · {r.rows.length} charge{r.rows.length === 1 ? "" : "s"}</div>
-          <div className="mt-0.5 text-[13px] text-on-surface-variant">{r.rows[0].components.map((c) => `${c.name} (${formatSGD(c.amount)})`).join(" · ")}</div>
-          <div className="mt-2"><Button size="sm" variant="secondary" onClick={() => setViewing(r)}>View {n} student{n === 1 ? "" : "s"} affected</Button></div>
-        </td>
-        <td className="py-3 pr-3">{r.due}</td>
-        <td className="px-3 py-3 text-right font-bold tabular-nums">{formatSGD(r.rows.reduce((t, c) => t + feeOf(c), 0))}</td>
-      </tr>
-    );
-  };
 
   return (
     <Card>
       <div className="flex flex-wrap items-center gap-3">
         <input aria-label="Search charge history" className={`${inputClass.replace("w-full", "min-w-48 flex-1")}`} placeholder="Search fee type, charge, level…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select aria-label="Bill kind" className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as "" | BillKind)}>
-          <option value="">All bills</option>
-          <option value="moe">MOE bills</option>
-          <option value="school">School bills</option>
-        </select>
         <input type="date" aria-label="Issued from" className={selectClass} value={from} onChange={(e) => setFrom(e.target.value)} />
         <span aria-hidden>→</span>
         <input type="date" aria-label="Issued to" className={selectClass} value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
-      <p className="my-4 text-sm">{all.length} charges in {list.length} issuance round{list.length === 1 ? "" : "s"} · total fee value {formatSGD(all.reduce((t, c) => t + feeOf(c), 0))}{kind ? ` · ${kind === "moe" ? "MOE bills only" : "School bills only"}` : ""}</p>
-      {list.length ? sections.map((k) => {
-        const rows = list.filter((r) => r.kind === k);
-        if (!rows.length) return <p key={k} className="pb-3 text-[13px] text-on-surface-variant">No {k === "moe" ? "MOE Bill" : "School Bill"} charges match your filters.</p>;
-        const nCh = rows.reduce((t, r) => t + r.rows.length, 0);
-        const tot = rows.reduce((t, r) => t + r.rows.reduce((x, c) => x + feeOf(c), 0), 0);
-        return (
-          <div key={k} className="mb-6">
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-              <Badge tone={k === "moe" ? "primary" : "neutral"}>{k === "moe" ? "MOE Bill" : "School Bill"}</Badge>
-              <b>{k === "moe" ? "MOE bills" : "School bills"}</b>
-              <span className="text-on-surface-variant">{rows.length} issuance round{rows.length === 1 ? "" : "s"} · {nCh} charge{nCh === 1 ? "" : "es"} · total fee value {formatSGD(tot)}</span>
-            </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-surface-container-low text-left text-[13px] uppercase tracking-wide text-on-surface-variant">
-                  <th className="px-3 py-2 font-semibold">Issued</th><th className="font-semibold">Charge</th><th className="font-semibold">Due</th><th className="px-3 text-right font-semibold">Amount</th>
+      <p className="my-4 text-sm">{all.length} charges in {list.length} issuance rounds · total fee value {formatSGD(all.reduce((t, c) => t + feeOf(c), 0))}</p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-surface-container-low text-left text-[13px] uppercase tracking-wide text-on-surface-variant">
+            <th className="w-8" /><th className="px-3 py-2 font-semibold">Issued</th><th className="font-semibold">Charge</th><th className="font-semibold">Due</th><th className="px-3 text-right font-semibold">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((r) => {
+            const on = open === r.key, n = new Set(r.rows.map((c) => c.studentId)).size;
+            return (
+              <Fragment key={r.key}>
+                <tr className="border-b border-line align-top">
+                  <td className="py-3 pl-2"><button type="button" aria-expanded={on} aria-label={`${on ? "Hide" : "Show"} students for ${r.title}`} onClick={() => setOpen(on ? null : r.key)} className="grid size-6 place-items-center rounded focus-visible:outline-2 focus-visible:outline-primary"><CaretRight size={14} weight="fill" className={on ? "rotate-90" : ""} aria-hidden="true" /></button></td>
+                  <td className="py-3 pr-3 whitespace-nowrap">{r.issued}</td>
+                  <td className="py-3 pr-3"><b>{r.title}</b><div className="text-[13px] text-on-surface-variant">{lvl(r).join(", ")} · 1 fee type · {n} student{n === 1 ? "" : "s"} · {r.rows.length} charge{r.rows.length === 1 ? "" : "s"}</div></td>
+                  <td className="py-3 pr-3">{r.due}</td>
+                  <td className="px-3 py-3 text-right font-bold tabular-nums">{formatSGD(r.rows.reduce((t, c) => t + feeOf(c), 0))}</td>
                 </tr>
-              </thead>
-              <tbody>{rows.map(roundRow)}</tbody>
-            </table>
-          </div>
-        );
-      }) : <p className="py-6 text-center text-sm text-on-surface-variant">No charges match.</p>}
-      <AffectedModal round={viewing} onClose={() => setViewing(null)} />
+                {on && r.rows.map((c) => (
+                  <tr key={c.id} className="border-b border-line bg-surface-container-low text-[13px]">
+                    <td /><td className="py-2 pr-3" colSpan={2}>{studentOf(c.studentId)?.name ?? c.studentId} <span className="text-on-surface-variant">({c.studentId}, {studentOf(c.studentId)?.class})</span></td>
+                    <td className="capitalize">{chargeStatus(c)}</td><td className="px-3 text-right tabular-nums">{formatSGD(feeOf(c))}</td>
+                  </tr>
+                ))}
+              </Fragment>
+            );
+          })}
+          {!list.length && <tr><td colSpan={5} className="py-6 text-center text-on-surface-variant">No charges match.</td></tr>}
+        </tbody>
+      </table>
     </Card>
   );
 }

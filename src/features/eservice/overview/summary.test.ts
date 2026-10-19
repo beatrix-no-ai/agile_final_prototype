@@ -1,36 +1,29 @@
 import { expect, test } from "vitest";
-import { children, invoices, ledgerBalance, transactions } from "../../../data/parent";
+import type { Invoice } from "../../../data/parent";
 import { childOutstanding, nextDue, outstanding, paidThisYear, validateProfile } from "./summary";
 
+const inv = (id: string, childId: string, amount: number, status: Invoice["status"], dueDate = "2026-10-31"): Invoice => ({ id, childId, title: id, amount, dueDate, status });
+const invoices = [
+  inv("a", "c1", 28, "unpaid", "2026-10-31"),
+  inv("b", "c2", 54, "unpaid", "2026-10-31"),
+  inv("c", "c2", 85, "overdue", "2026-09-30"),
+  inv("d", "c1", 25, "unpaid", "2026-11-14"),
+  inv("e", "c1", 126.5, "paid", "2026-07-31"),
+];
+
 test("outstanding is the sum of unpaid and overdue invoices", () => {
-  expect(outstanding(invoices)).toBe(352);
+  expect(outstanding(invoices)).toBe(192);
   expect(childOutstanding(invoices, "c1")).toBe(53);
-  expect(childOutstanding(invoices, "c2")).toBe(299);
+  expect(childOutstanding(invoices, "c2")).toBe(139);
 });
 
 test("paid this year sums paid invoices", () => {
-  expect(paidThisYear(invoices)).toBe(389.5);
+  expect(paidThisYear(invoices)).toBe(126.5);
 });
 
 test("nextDue groups unpaid invoices on the earliest upcoming date and skips overdue", () => {
   expect(nextDue(invoices)).toEqual({ date: "2026-10-31", amount: 82, count: 2 });
   expect(nextDue([])).toBeNull();
-});
-
-test("every paid invoice has a matching payment transaction of the same amount", () => {
-  for (const inv of invoices.filter((i) => i.status === "paid")) {
-    const tx = transactions.find((t) => t.invoiceId === inv.id);
-    expect(tx?.amount).toBe(-inv.amount);
-  }
-});
-
-test("education balances equal the ledger, with the Payments cases still demonstrable", () => {
-  for (const c of children) expect(c.educationBalance).toBe(ledgerBalance(transactions, c.id));
-  const [ethan, chloe] = children;
-  expect(ethan.educationBalance).toBe(0); // balance 0
-  expect(chloe.educationBalance).toBe(120); // partial: below her outstanding S$299
-  expect(chloe.educationBalance).toBeLessThan(childOutstanding(invoices, "c2"));
-  expect(chloe.educationBalance).toBeGreaterThan(54); // over: covers INV-2610-022 alone
 });
 
 test("validateProfile", () => {

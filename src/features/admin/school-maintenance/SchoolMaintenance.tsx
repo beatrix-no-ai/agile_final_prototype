@@ -8,32 +8,30 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { Modal } from "../../../components/ui/Modal";
-import { SCHOOL_RECORDS, type SchoolRecord } from "../../../data/schoolMgmt";
-import { saveSchoolUser, usersOfSchool } from "../../../data/users";
+import { useRegistry } from "../../../data/registryStore";
+import type { SchoolRecord } from "../../../data/schoolMgmt";
+import { assignPrincipal, usersOfSchool } from "../../../data/users";
 import SchoolFormModal, { SCHOOL_TYPES } from "./SchoolFormModal";
 
 export default function SchoolMaintenance() {
   const navigate = useNavigate();
-  const [schools, setSchools] = useState(SCHOOL_RECORDS);
+  const { state: reg, dispatch } = useRegistry();
+  const schools = reg.schools;
   const [type, setType] = useState("");
   const [q, setQ] = useState("");
   const [form, setForm] = useState<{ editing: SchoolRecord | null } | null>(null);
   const [notice, setNotice] = useState("");
-  const [creds, setCreds] = useState<{ school: string; email: string; password: string } | null>(null);
 
   // Memoised: DataTable goes back to page 1 whenever the rows reference changes.
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return schools.filter((s) => (!type || s.level === type) && (!needle || `${s.code} ${s.name} ${s.email}`.toLowerCase().includes(needle)));
   }, [schools, type, q]);
-  const save = (s: SchoolRecord, u: { name: string; email: string; resetPassword: boolean }) => {
+  const save = (s: SchoolRecord, principalEmail: string) => {
     const exists = schools.some((x) => x.code === s.code);
-    setSchools((all) => (exists ? all.map((x) => (x.code === s.code ? s : x)) : [s, ...all]));
-    const acct = saveSchoolUser(s.code, u.name, u.email, u.resetPassword);
-    const showPassword = !exists || u.resetPassword;
-    setNotice(`${s.name} was ${exists ? "updated" : "added"}. Principal login: ${acct.email}.`);
-    if (showPassword) setCreds({ school: s.name, email: acct.email, password: acct.password });
+    dispatch({ type: "saveSchool", record: s });
+    const acct = assignPrincipal(s.code, principalEmail);
+    setNotice(`${s.name} was ${exists ? "updated" : "added"}. ${acct.name} is now the Principal.`);
   };
 
   const columns: Column<SchoolRecord>[] = [
@@ -78,18 +76,6 @@ export default function SchoolMaintenance() {
           />
         </div>
       </Card>
-      <Modal open={!!creds} onClose={() => setCreds(null)} title="Principal login" footer={<Button onClick={() => setCreds(null)}>I have noted it</Button>}>
-        {creds && (
-          <div className="grid gap-3 text-sm">
-            <p>Give these details to the Principal of <strong>{creds.school}</strong>. The password is shown only once.</p>
-            <dl className="grid gap-2 rounded-control border border-line bg-surface-container-low p-4">
-              <div><dt className="text-[13px] text-on-surface-variant">Login email</dt><dd className="font-semibold">{creds.email}</dd></div>
-              <div><dt className="text-[13px] text-on-surface-variant">One-time password</dt><dd className="font-mono text-lg font-bold">{creds.password}</dd></div>
-            </dl>
-            <Button variant="secondary" className="justify-self-start" onClick={() => navigator.clipboard?.writeText(`${creds.email} / ${creds.password}`)}>Copy login details</Button>
-          </div>
-        )}
-      </Modal>
       {form && <SchoolFormModal key={form.editing?.code ?? "new"} open editing={form.editing} all={schools} onClose={() => setForm(null)} onSave={save} />}
     </div>
   );

@@ -14,9 +14,8 @@
 | F2 | Quy trình quyết định: Approve / Override / Reject kèm kiểm tra hợp lệ | Cửa sổ Review |
 | F3 | Lịch sử quyết định: tab Granted và Declined | Các nút lọc phía trên bảng |
 | F4 | Ngữ cảnh phí theo từng đơn: Fee payable và Account balance (top-up) | Hai cột + khối thông tin trong cửa sổ Review |
-| F5 | Nộp đơn family-level từ parent e-Service: sinh per-child application vào queue admin; tracker + thẻ FAS phía parent cập nhật theo quyết định | Parent portal → FAS; Admin → FAS queue |
-| F6 | Kết quả SBFAS phản ánh vào phí phải đóng (subsidy trên charge đã phát hành) | Fee → Student fees; modal charge |
-| F7 | Ghi nhận thanh toán cho charge được giảm trợ | Modal charge → *Record a payment* |
+| F5 | Kết quả SBFAS phản ánh vào phí phải đóng (subsidy trên charge đã phát hành) | Fee → Student fees; modal charge |
+| F6 | Xem thanh toán đã nhận của charge được giảm trợ (chỉ đọc; phụ huynh mới là người thanh toán) | Modal charge → *Payments received* |
 
 ---
 
@@ -26,7 +25,7 @@
 
 | Trường | Kiểu | Giá trị / định dạng | Ghi chú |
 |---|---|---|---|
-| `id` | string | `SBFASXXXX` | Số tham chiếu, sinh bởi `nextSbfasId()`: chuỗi tự tăng padding 4 chữ số tính từ số cao nhất hiện có (mock bắt đầu từ `SBFAS0001`; queue rỗng cũng bắt đầu từ `SBFAS0001`). Vượt 9999 thì chuỗi số tự dài thêm (`SBFAS10000`) — không bao giờ so khớp bằng regex cố định độ dài; sắp xếp theo giá trị số. Hiển thị dưới tên học sinh |
+| `id` | string | `SBFASXXXX` | Số tham chiếu, sinh bởi `nextSbfasId()`: chuỗi tự tăng padding 4 chữ số tính từ số cao nhất hiện có (không có sàn, hạt giống đầu tiên là SBFAS0001). Vượt 9999 thì chuỗi số tự dài thêm (`SBFAS10000`) — không bao giờ so khớp bằng regex cố định độ dài; sắp xếp theo giá trị số. Hiển thị dưới tên học sinh |
 | `student` | string | Họ tên đầy đủ | Phải khớp chính xác hồ sơ học sinh |
 | `studentId` | string | `S2026xxxx` | Liên kết đơn với tài khoản, charge và subsidy của học sinh |
 | `level` | string | vd `P5`, `Sec 2` | Lấy từ hồ sơ học sinh |
@@ -100,7 +99,7 @@ Hằng số liên quan (R4):
 
 ## 4. Danh mục kiểm tra nhanh (smoke test) cho QA
 
-1. Hàng đợi: MOE HQ thấy 12 đơn seed; school user chỉ thấy đơn của trường mình (BR15: S001 — 5 đơn Sec; S002 — 7 đơn Tiểu học). Tên mọi học sinh đều link sang trang fees của học sinh đó.
+1. Hàng đợi: MOE HQ thấy 18 đơn seed; school user chỉ thấy đơn của trường mình (BR15: S001 — 7 đơn Sec; S002 — 11 đơn Tiểu học). Tên mọi học sinh đều link sang trang fees của học sinh đó.
 1b. Mở review đơn của học sinh Singapore PR (vd SBFAS0004) → cảnh báo vàng; thử tạo kịch bản quốc tịch nước ngoài nếu có dữ liệu.
 1c. Phía parent: nộp đơn family-level (band SBFAS) → quay lại admin: mỗi em một đơn Pending xuất hiện đúng queue trường của em (BR14).
 2. Mở review → khối hiển thị **Fee payable** (đỏ) + **Account balance (top-ups)** + ghi chú "hai khoản khác nhau".
@@ -108,7 +107,7 @@ Hằng số liên quan (R4):
 4. Override không có lý do → bị chặn, focus nhảy sang ô lý do. Override trùng tier khuyến nghị → bị chặn. Override hợp lệ → `Overridden - Tier n`.
 5. Reject một đơn → tab **Declined** +1, badge `Rejected`.
 6. Tìm một học sinh đã được SBFAS-approved trong Fee → Student fees: cột FAS hiển thị `SBFAS − S$x`; modal charge hiển thị khối subsidy và ghi chú subsidy ≠ top-up.
-7. Ghi nhận thanh toán cho charge đó (thử số tiền vượt phần còn nợ → bị từ chối; đúng bằng phần còn nợ → trạng thái thành *paid*, tham chiếu `CH-…-P1` xuất hiện).
+7. Mở modal charge: chỉ xem được *Payments received*, không có form thanh toán (phụ huynh thanh toán ở e-Service Portal).
 8. Tải lại trang — mọi thứ reset (mock trong bộ nhớ): hàng đợi về 12 Pending.
 
 **Vấn đề đã biết (không phải lỗi):** tier được chọn (Tier 1–4) chưa thay đổi mức subsidy (phẳng 50% — BR10); quyết định chưa ghi ngược field `sbfas` của học sinh ngay; MOEFAS auto-grant và API dải thu nhập là story riêng.

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { navFor } from "./nav";
-import { STAFF, createSchoolUser, principalOf, saveSchoolUser, updateSchoolUser, usersOfSchool, validateUser } from "./users";
+import { STAFF, type StaffAccount, assignPrincipal, createSchoolUser, principalOf, unassignedStaff, updateSchoolUser, usersOfSchool, validateUser } from "./users";
 
 describe("school users", () => {
   test("a school has one Principal and several admins", () => {
@@ -21,28 +21,47 @@ describe("school users", () => {
   });
 
   test("admins get only the modules they were assigned; the Principal gets all", () => {
-    const admin = createSchoolUser({ schoolCode: "S002", name: "Test Admin", email: "test.admin@school.example", position: "School Admin", modules: ["Top-up"] });
-    expect(admin.modules).toEqual(["Top-up"]);
-    updateSchoolUser(admin, { name: "Test Admin", email: admin.email, position: "School Admin", modules: ["FAS", "Top-up"] });
-    expect(admin.modules).toEqual(["FAS", "Top-up"]);
-    const principal = saveSchoolUser("S002", "Test Principal", "test.principal@school.example");
-    expect(principal.modules).toEqual(["FAS", "Top-up"]);
-    expect(principalOf("S002")).toBe(principal);
+    const admin = createSchoolUser({ schoolCode: "S002", name: "Test Admin", email: "test.admin@school.example", position: "School Admin", modules: [] });
+    expect(admin.modules).toEqual([]);
+    updateSchoolUser(admin, { name: "Test Admin", email: admin.email, position: "School Admin", modules: ["FAS"] });
+    expect(admin.modules).toEqual(["FAS"]);
     STAFF.splice(STAFF.indexOf(admin), 1);
-    STAFF.splice(STAFF.indexOf(principal), 1);
+  });
+
+  test("assigning a Principal reuses the existing account and demotes the old one", () => {
+    const mk = (n: string): StaffAccount => ({ role: "school", name: n, initials: "TT", title: "Teacher", email: `${n}@school.example`, password: "x", modules: [], active: false });
+    const [first, second] = [mk("tmp.one"), mk("tmp.two")];
+    STAFF.push(first, second);
+    const before = STAFF.length;
+    const p = assignPrincipal("S002", first.email);
+    expect(p).toBe(first);
+    expect(STAFF).toHaveLength(before);
+    expect(p).toMatchObject({ schoolCode: "S002", title: "Principal", modules: ["FAS"], active: true });
+    expect(unassignedStaff()).not.toContain(first);
+    assignPrincipal("S002", second.email);
+    expect(first.title).toBe("School Admin");
+    expect(principalOf("S002")).toBe(second);
+    for (const a of [first, second]) STAFF.splice(STAFF.indexOf(a), 1);
+    expect(STAFF).toHaveLength(before - 2);
   });
 });
 
 describe("navigation follows module permissions", () => {
-  const labels = (can: (m: "FAS" | "Top-up") => boolean, manage = false) => navFor("school", { can, canManageUsers: manage }).map((n) => n.label);
-  test("FAS-only admin sees FAS but not Top-up or User", () => {
+  const labels = (can: (m: "FAS") => boolean, manage = false) => navFor("school", { can, canManageUsers: manage }).map((n) => n.label);
+  test("FAS admin sees FAS but not Top-up or User", () => {
     const l = labels((m) => m === "FAS");
     expect(l).toContain("FAS");
     expect(l).not.toContain("Top-up");
     expect(l).not.toContain("User");
   });
   test("Principal sees every module and User", () => {
-    expect(labels(() => true, true)).toEqual(expect.arrayContaining(["FAS", "Top-up", "User"]));
+    expect(labels(() => true, true)).toEqual(expect.arrayContaining(["FAS", "User"]));
+    expect(labels(() => true, true)).not.toContain("Top-up");
+  });
+  test("Budget is shown to HQ and to school users with the FAS module only", () => {
+    expect(navFor("hq").map((n) => n.label)).toContain("Budget");
+    expect(labels((m) => m === "FAS")).toContain("Budget");
+    expect(labels(() => false)).not.toContain("Budget");
   });
   test("HQ sees User management", () => {
     expect(navFor("hq").map((n) => n.label)).toContain("User");

@@ -7,16 +7,18 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { SCHOOLS, type School } from "../../../data/schools";
+import { useRegistry } from "../../../data/registryStore";
+import type { School } from "../../../data/schools";
 import { useSession } from "../../../session";
 import { filterSchools } from "./logic";
 
 export default function SchoolRegistry() {
   const { startSimulation } = useSession();
+  const { state: reg } = useRegistry();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
   // Memoised: DataTable resets to page 1 whenever the rows reference changes.
-  const rows = useMemo(() => filterSchools(SCHOOLS, q), [q]);
+  const rows = useMemo(() => filterSchools(reg.schools, q), [reg.schools, q]);
 
   const simulate = (as: "school" | "parent", name?: string) => {
     startSimulation(as, name);

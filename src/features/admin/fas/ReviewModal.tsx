@@ -5,10 +5,10 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import type { SbfasRule } from "../../../data/sbfasRule";
 import { isMoefasEligible, isSbfasEligible } from "../../../data/students";
-import { formatSGD } from "../../../lib/format";
+import { formatDate, formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
@@ -66,11 +66,14 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
           </Link>
         </Dt>
         <Dt label="Nationality">{app.nationality}</Dt>
-        <Dt label="Household income band (monthly)">{app.householdBand}</Dt>
+        <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
         <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
       </dl>
+      {app.incomeSyncedOn && (
+        <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
+      )}
 
       {!isSbfasEligible(app.nationality) ? (
         <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">

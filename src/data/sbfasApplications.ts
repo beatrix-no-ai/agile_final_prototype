@@ -11,10 +11,10 @@ export type SbfasApplication = {
   level: string;
   /** Per-capita household income BAND only; the third-party income API never returns exact income. */
   incomeBand: string;
-  /** R4: gross household income band (bigger households can sit in a higher band with the same per-capita band). */
-  householdBand: string;
-  /** R4: when the third-party income API last synced this application's bands. */
-  incomeSyncedOn: string;
+  /** Gross household income band; a big household can sit in a higher band than its per-capita band. Absent on family-submitted applications. */
+  householdBand?: string;
+  /** ISO date the third-party income API last synced this application's bands. */
+  incomeSyncedOn?: string;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
   riskScore: number;
   recommendedTier: SbfasTier;
@@ -24,7 +24,12 @@ export type SbfasApplication = {
   status: SbfasStatus;
   sbfasTier?: SbfasTier;
   justification?: string;
+  /** ISO timestamp of the decision; set when the application is decided. */
+  decidedAt?: string;
 };
+
+/** Income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
+export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 
 // ASSUMPTION: tier names (Tier 1 = highest subsidy), band edges and SLA length are invented; confirm with MOE.
 export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"];
@@ -49,9 +54,6 @@ export function applyDecision(apps: SbfasApplication[], id: string, action: Acti
         },
   );
 }
-
-/** R4: income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
-export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 
 /**
  * Next application reference in the SBFASXXXX format: 4-digit zero-padded sequence continuing from the
@@ -78,6 +80,7 @@ const H4 = "Above S$4,000";
 // Applications are seeded against real student records so the queue can show each family's fee payable.
 const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
 
+// ASSUMPTION: risk scores, recommended tiers and explanations are mock AI output.
 const p = (
   id: string, student: string, incomeBand: string, householdBand: string, incomeSyncedOn: string,
   riskScore: number, recommendedTier: SbfasTier, slaDays: number, explanation: string,
@@ -86,6 +89,7 @@ const p = (
   return { id, student, studentId: s.id, level: s.level, incomeBand, householdBand, incomeSyncedOn, riskScore, recommendedTier, slaDays, explanation, status: "Pending" };
 };
 
+// Foreign nationals cannot apply for either scheme, so none is seeded. Daniel Koh is the dual-citizen (Singapore + British) case.
 // Handoff examples: High 89 / Medium 54 / Low 18.
 export const SBFAS_APPLICATIONS: SbfasApplication[] = [
   p("SBFAS0001", "Kavitha d/o Raman", B1, H2, "2026-10-05", 89, "Tier 1", 1,
@@ -110,7 +114,19 @@ export const SBFAS_APPLICATIONS: SbfasApplication[] = [
     "No arrears, healthy balance, and a recent top-up. Very low predicted difficulty; kept in the queue only because the family applied."),
   p("SBFAS0011", "Sim Hui Min", B2, H3, "2026-10-11", 63, "Tier 2", 2,
     "Low income band with a recent medical expense flagged by the family. Balance is low. The model is less confident because the income band was updated this month."),
+  p("SBFAS0012", "Arjun s/o Krishnan", B2, H2, "2026-10-06", 68, "Tier 2", 4,
+    "Low income band and two school-going children. Balance covers about one term of fees. One late payment in the last 12 months."),
+  p("SBFAS0013", "Meera d/o Ramasamy", B1, H1, "2026-10-06", 85, "Tier 1", 3,
+    "Lowest income band in a single-income household. Balance would not cover this term and the application includes a flagged income drop."),
+  p("SBFAS0014", "Siti Nurhaliza binte Osman", B3, H3, "2026-10-09", 47, "Tier 3", 6,
+    "Moderate income band with on-time fee history. Balance is adequate for this term but trending down."),
+  p("SBFAS0015", "Aqil Zafran bin Salleh", B2, H2, "2026-10-07", 72, "Tier 2", 1,
+    "Low income band with 3 dependants. Exam fees fall due this term and the balance is below the expected total."),
+  p("SBFAS0016", "Mohamed Danish bin Yusof", B3, H3, "2026-10-09", 45, "Tier 3", 7,
+    "Moderate income band and stable fee history. Balance covers about two months of fees; partial support recommended."),
+  p("SBFAS0017", "Deepa d/o Govindasamy", B2, H2, "2026-10-07", 66, "Tier 2", 5,
+    "Low income band. No arrears, but the balance is thin and a CCA camp fee is due next month."),
   // Dual-citizen test case (Singapore + British) for the R4 nationality field on the review screen.
-  p("SBFAS0012", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 58, "Tier 3", 3,
-    "Dual citizen (Singapore + British) in a moderate income band. Both parents moved to part-time work after a recent relocation back to Singapore. No arrears and the balance covers about one month of fees. The model recommends partial support while the household settles."),
+  p("SBFAS0018", "Daniel Koh Jun Wei", B3, H3, "2026-10-12", 52, "Tier 3", 3,
+    "Moderate income band. Dual citizenship does not affect SBFAS eligibility. Fee history is on time and the balance is adequate."),
 ];

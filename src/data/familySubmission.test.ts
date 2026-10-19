@@ -6,11 +6,11 @@ test("buildFamilyApps: only the SBFAS band creates per-child applications in the
   expect(buildFamilyApps(SBFAS_APPLICATIONS, "b1", "2026-10-18", "")).toEqual([]); // MOEFAS band: decided at MOE level
   expect(buildFamilyApps(SBFAS_APPLICATIONS, "b4", "2026-10-18", "")).toEqual([]); // above both schemes
   const apps = buildFamilyApps(SBFAS_APPLICATIONS, "b3", "2026-10-18", "Second child started Sec school");
-  expect(apps.map((a) => a.student)).toEqual(["Ethan Lim", "Chloe Lim"]);
+  expect(apps.map((a) => a.student)).toEqual(["Ethan Lim Jun Hao", "Chloe Lim Wen Xin"]);
   expect(apps.every((a) => a.status === "Pending")).toBe(true);
   // Ids continue the shared SBFASXXXX sequence after the highest existing one
-  expect(apps[0].id).toBe("SBFAS0013");
-  expect(apps[1].id).toBe("SBFAS0014");
+  expect(apps[0].id).toBe("SBFAS0019");
+  expect(apps[1].id).toBe("SBFAS0020");
   // Each application links to the child's admin student record
   expect(apps.every((a) => a.studentId.startsWith("S2026"))).toBe(true);
   expect(apps[0].explanation).toContain("Second child started Sec school");

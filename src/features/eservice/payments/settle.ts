@@ -1,7 +1,7 @@
 import { splitSettlement } from "../../../lib/settlement";
 import type { Child, Invoice, Transaction } from "../../../data/parent";
 
-// ASSUMPTION: two payment modes. "account-first" spends each child's Education Account first and sends the
+// Two payment modes (split rule confirmed). "account-first" spends each child's Education Account first and sends the
 // remainder to the card/bank gateway; "gateway" pays everything through the gateway. A child's account only pays that child's invoices.
 export type Mode = "account-first" | "gateway";
 export type Line = { child: Child; total: number; fromAccount: number; fromGateway: number };

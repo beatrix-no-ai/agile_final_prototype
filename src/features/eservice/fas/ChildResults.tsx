@@ -1,55 +1,45 @@
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
-import { children } from "../../../data/parent";
-import type { Band } from "../../../data/familyFas";
-import { assess } from "./logic";
-import { AssumptionTag } from "../../../components/ui/AssumptionTag";
-import type { SbfasApplication } from "../../../data/sbfasApplications";
+import type { ChildFas } from "../../../data/fasStore";
+import type { Child } from "../../../data/parent";
+import type { SbfasTier } from "../../../data/sbfasApplications";
+import { SBFAS_TIER_RATE } from "../../../lib/fees";
 
-const tone: Record<string, BadgeTone> = { Indicative: "success", "School decides": "warning", "Not eligible": "neutral", "In review": "warning", Granted: "success", Declined: "alert" };
+/** Parent-facing wording: Pending / Granted / Declined. */
+const LABEL: Record<ChildFas["status"], string> = { Granted: "Granted", "Awaiting school decision": "Pending", "Not granted": "Declined" };
+const tone: Record<ChildFas["status"], BadgeTone> = { Granted: "success", "Awaiting school decision": "warning", "Not granted": "alert" };
 
-/** After the family submission, each child's row shows the school's live decision instead of the band preview. */
-export function ChildResults({ band, appFor, submitted }: { band: Band | undefined; appFor: (childName: string) => SbfasApplication | undefined; submitted: boolean }) {
-  const r = band ? assess(band) : null;
+/** The one-line explanation shown under each child's result. */
+export function resultNote(o: ChildFas | null): string {
+  if (!o) return "No assistance: the household income band is above both schemes. Speak to your school if your situation has changed.";
+  if (o.status === "Awaiting school decision") return "Not in a MOEFAS band, so your child's school decides on SBFAS.";
+  if (o.status === "Not granted") return o.reason ? `The school did not grant SBFAS: ${o.reason}` : "The school did not grant SBFAS.";
+  if (o.scheme === "MOEFAS") return "Granted automatically by criteria. School and miscellaneous fees are waived in full.";
+  return `${Math.round((SBFAS_TIER_RATE[o.tier as SbfasTier] ?? 0.5) * 100)}% of each school fee is waived. Unpaid fees have been updated.`;
+}
+
+/** What happened to each child's application, as decided on the school side. */
+export function ChildResults({ children, outcomes }: { children: Child[]; outcomes: Record<string, ChildFas | null> }) {
   return (
     <Card title="Result per child">
       <ul className="space-y-3">
-        {children.map((c) => (
-          <li key={c.id} className="rounded-control border border-line px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold">{c.name}</p>
-                <p className="text-[13px] text-on-surface-variant">{c.level}, {c.school}</p>
+        {children.map((c) => {
+          const o = outcomes[c.id] ?? null;
+          return (
+            <li key={c.id} className="rounded-control border border-line px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold">{c.name}</p>
+                  <p className="text-[13px] text-on-surface-variant">{c.level}, {c.school}</p>
+                </div>
+                {o ? <Badge tone={tone[o.status]}>{o.scheme}{o.tier ? ` ${o.tier}` : ""} - {LABEL[o.status]}</Badge> : <Badge tone="neutral">Not eligible</Badge>}
               </div>
-              <ChildBadge r={r} app={appFor(c.name)} submitted={submitted} />
-            </div>
-            <ChildNote r={r} app={appFor(c.name)} submitted={submitted} />
-          </li>
-        ))}
+              <p className="mt-2 text-[13px] text-on-surface-variant">{resultNote(o)}</p>
+            </li>
+          );
+        })}
       </ul>
-      <p className="mt-3 flex flex-wrap items-center gap-2 text-[13px] text-on-surface-variant">
-        <AssumptionTag /> Results are indicative until review ends. MOEFAS takes precedence: SBFAS is only considered when MOEFAS is not granted.
-      </p>
+      <p className="mt-3 text-[13px] text-on-surface-variant">MOEFAS takes precedence: SBFAS is only considered when MOEFAS is not granted.</p>
     </Card>
   );
-}
-
-function ChildBadge({ r, app, submitted }: { r: ReturnType<typeof assess> | null; app: SbfasApplication | undefined; submitted: boolean }) {
-  if (submitted && app) {
-    if (app.status === "Pending") return <Badge tone="warning">SBFAS - In review</Badge>;
-    if (app.status === "Approved" || app.status === "Overridden") return <Badge tone="success">SBFAS {app.sbfasTier} - Granted</Badge>;
-    return <Badge tone="alert">SBFAS - Declined</Badge>;
-  }
-  if (r) return <Badge tone={tone[r.status]}>{r.scheme ? `${r.scheme}${r.tier ? ` ${r.tier}` : ""} - ` : ""}{r.status}</Badge>;
-  return <Badge tone="neutral">{submitted ? "No school application" : "Not synced"}</Badge>;
-}
-
-function ChildNote({ r, app, submitted }: { r: ReturnType<typeof assess> | null; app: SbfasApplication | undefined; submitted: boolean }) {
-  if (submitted && app) {
-    if (app.status === "Pending") return <p className="mt-2 text-[13px] text-on-surface-variant">Application {app.id} is in the school&apos;s SBFAS queue awaiting a decision.</p>;
-    if (app.status === "Approved" || app.status === "Overridden") return <p className="mt-2 text-[13px] text-on-surface-variant">Application {app.id} granted — the subsidy applies to newly issued charges.</p>;
-    return <p className="mt-2 text-[13px] text-on-surface-variant">Application {app.id} was declined{app.justification ? `: ${app.justification}` : "."}</p>;
-  }
-  if (submitted && !app) return <p className="mt-2 text-[13px] text-on-surface-variant">This child did not need a school application (MOE-level or not eligible from the synced band).</p>;
-  return <p className="mt-2 text-[13px] text-on-surface-variant">{r ? r.note : "Sync your household income band to see a result."}</p>;
 }

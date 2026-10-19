@@ -1,8 +1,10 @@
+import { initialRegistry } from "../data/registryStore";
+import { studentsOfClass } from "./registry";
 import { describe, expect, test } from "vitest";
 import { feeReducer, initialFeeState } from "../data/feeStore";
 import { FEE_TYPES, type FeeType } from "../data/fees";
 import { STUDENTS, type Student } from "../data/students";
-import { addDays, aggregate, balanceOf, chargeStatus, currentTerm, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, studentsOfClass, subsidyOf, subsidyRate, termOf, TERMS, validateFeeType } from "./fees";
+import { addDays, aggregate, balanceOf, chargeStatus, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, subsidyOf, subsidyRate, validateFeeType } from "./fees";
 
 const draft = (o = {}) => ({ name: "Trip", level: "", components: [{ name: "Bus", amount: "12.50", on: true }], ...o });
 
@@ -36,19 +38,20 @@ describe("generate (no term: one charge per student per fee type per issue date)
   const school = "S002";
   const ft = FEE_TYPES.find((f) => f.school === school)!;
   const klass = STUDENTS.find((s) => s.level === "P1")!.class;
-  const students = studentsOfClass(school, klass);
-  const issued = "2026-10-12", due = "2026-11-11", term = "2026 Term 4";
+  const reg = initialRegistry();
+  const students = studentsOfClass(reg.students, reg.classes, school, klass);
+  const issued = "2026-10-12", due = "2026-11-11";
   test("creates one outstanding charge per student and skips repeats for the same issue date", () => {
     const s0 = { ...initialFeeState(), charges: [] };
-    const s1 = feeReducer(s0, { type: "generate", fee: ft, students, issued, due, term });
+    const s1 = feeReducer(s0, { type: "generate", fee: ft, students, issued, due });
     expect(s1.charges).toHaveLength(students.length);
     expect(s1.charges.every((c) => chargeStatus(c) === "outstanding" && c.components.length === ft.components.length)).toBe(true);
     expect(s1.charges.every((c) => c.issued === issued && c.due === due)).toBe(true);
-    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued, due, term }).charges).toHaveLength(students.length);
-    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued: "2026-11-12", due: "2026-12-12", term: "2026 Term 1" }).charges).toHaveLength(students.length * 2);
+    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued, due }).charges).toHaveLength(students.length);
+    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued: "2026-11-12", due: "2026-12-12" }).charges).toHaveLength(students.length * 2);
   });
   test("editing a fee type does not change issued charges", () => {
-    const s1 = feeReducer({ ...initialFeeState(), charges: [] }, { type: "generate", fee: ft, students, issued, due, term });
+    const s1 = feeReducer({ ...initialFeeState(), charges: [] }, { type: "generate", fee: ft, students, issued, due });
     const s2 = feeReducer(s1, { type: "saveType", fee: { ...ft, components: [{ name: "New", amount: 1 }] } });
     expect(s2.charges[0].components).toHaveLength(ft.components.length);
     expect(s2.types.find((f) => f.id === ft.id)!.components).toHaveLength(1);
@@ -131,15 +134,6 @@ describe("makeCharge — stamps the scheme and deducts its subsidy", () => {
     expect(subsidyOf(c)).toBe(0);
     expect(subsidyRate(fasStudent("Not applied", "Not applied"))).toBe(0);
   });
-  test("sbfasRate overrides the flat SBFAS rate with the school's tier rate; MOEFAS never takes an override", () => {
-    const sbfas = makeCharge("CH-2", fasFee, fasStudent("Not applied", "Approved"), { sbfasRate: 0.8 });
-    expect(sbfas.fas).toBe("SBFAS");
-    expect(subsidyOf(sbfas)).toBe(120);        // 80% of 150 — the school's Tier 1 rule
-    expect(subsidyOf(makeCharge("CH-3", fasFee, fasStudent("Not applied", "Approved")))).toBe(75); // no rate → flat 50%
-    const moefas = makeCharge("CH-4", fasFee, fasStudent("Approved", "Not applied"), { sbfasRate: 0.8 });
-    expect(moefas.fas).toBe("MOEFAS");
-    expect(subsidyOf(moefas)).toBe(150);       // national full waiver, override ignored
-  });
 });
 
 describe("seed invariants", () => {
@@ -152,7 +146,7 @@ describe("seed invariants", () => {
   });
 });
 
-test("seed charges: unique ids, aggregate splits collected and outstanding by derived status", () => {
+test("seed charges: unique ids, no term, aggregate splits collected and outstanding by derived status", () => {
   const rows = seedCharges();
   expect(new Set(rows.map((c) => c.id)).size).toBe(rows.length);
   const a = aggregate(rows);
@@ -163,26 +157,54 @@ test("seed charges: unique ids, aggregate splits collected and outstanding by de
   expect(nextChargeId(rows)).toBe(`CH-${1000 + rows.length + 1}`);
 });
 
-describe("terms (4 per school year)", () => {
-  test("a date falls into its term", () => {
-    expect(termOf("2026-02-10")).toBe("2026 Term 1");
-    expect(termOf("2026-05-20")).toBe("2026 Term 2");
-    expect(termOf("2026-08-20")).toBe("2026 Term 3");
-    expect(termOf("2026-10-12")).toBe("2026 Term 4");
-    expect(termOf("2026-12-31")).toBe("2026 Term 4");
+describe("SBFAS tier sets the fee waiver", () => {
+  const stu = (sbfasTier?: Student["sbfasTier"], moefas: Student["moefas"] = "Not applied"): Student => ({
+    id: "S1", nric: "T1800001A", name: "Test", level: "P1", class: "P1 Courage", status: "Active", balance: 0, moefas, sbfas: "Approved", sbfasTier,
   });
-  test("the assign form pre-selects the term today falls in (TODAY is 2026-10-12)", () => {
-    expect(TERMS).toHaveLength(4);
-    expect(currentTerm()).toBe("2026 Term 4");
+  test("Tier 1 waives everything, then 75%, 50%, 25%", () => {
+    expect(fasOf(stu("Tier 1"))).toEqual({ scheme: "SBFAS", rate: 1 });
+    expect(fasOf(stu("Tier 2"))?.rate).toBe(0.75);
+    expect(fasOf(stu("Tier 3"))?.rate).toBe(0.5);
+    expect(fasOf(stu("Tier 4"))?.rate).toBe(0.25);
   });
-  test("makeCharge derives the term from its issue date and lets the caller override it", () => {
-    const ft = FEE_TYPES[0], s = STUDENTS[0];
-    expect(makeCharge("CH-T1", ft, s, { issued: "2026-08-20" }).term).toBe("2026 Term 3");
-    expect(makeCharge("CH-T2", ft, s, { issued: "2026-08-20", term: "2026 Term 1" }).term).toBe("2026 Term 1");
+  test("an approved student with no tier on record keeps the school default", () => {
+    expect(fasOf(stu())?.rate).toBe(SBFAS_RATE);
   });
-  test("the generate action stores the assigned term on every charge", () => {
-    const ft = FEE_TYPES[0], s = STUDENTS[0];
-    const st = feeReducer(initialFeeState(), { type: "generate", fee: ft, students: [s], issued: "2026-10-12", due: "2026-11-11", term: "2026 Term 1" });
-    expect(st.charges.at(-1)!.term).toBe("2026 Term 1");
+  test("MOEFAS still wins over any SBFAS tier", () => {
+    expect(fasOf(stu("Tier 1", "Approved"))).toEqual({ scheme: "MOEFAS", rate: MOEFAS_RATE });
+  });
+});
+
+describe("applyFas re-prices a student's unpaid charges only", () => {
+  const ft = FEE_TYPES[0]; // components total 141
+  const base = initialFeeState();
+  const mk = (id: string, studentId: string) => ({ ...makeCharge(id, ft, { ...STUDENTS[0], id: studentId, sbfas: "Not applied", moefas: "Not applied" }), });
+  const unpaid = mk("CH-1", "A");
+  const partly = { ...mk("CH-2", "A"), payments: [{ id: "CH-2-P1", on: "2026-10-10", amount: 20, method: "Card / PayNow" as const }] };
+  const paid = { ...mk("CH-3", "A"), payments: [{ id: "CH-3-P1", on: "2026-10-10", amount: 141, method: "Card / PayNow" as const }] };
+  const other = mk("CH-4", "B");
+  const state = { ...base, charges: [unpaid, partly, paid, other] };
+  const out = feeReducer(state, { type: "applyFas", studentId: "A", fas: { scheme: "SBFAS", rate: 0.5 }, on: "2026-10-18" });
+  const get = (id: string) => out.charges.find((c) => c.id === id)!;
+
+  test("unpaid and part-paid charges get the subsidy and the scheme", () => {
+    expect(subsidyOf(get("CH-1"))).toBe(70.5);
+    expect(get("CH-1").fas).toBe("SBFAS");
+    expect(subsidyOf(get("CH-2"))).toBe(70.5);
+  });
+  test("the change is recorded on the charge, not made silently", () => {
+    expect(get("CH-1").fasAdjusted).toEqual({ on: "2026-10-18", amount: 70.5 });
+  });
+  test("a settled charge and other students' charges are untouched", () => {
+    expect(get("CH-3")).toEqual(paid);
+    expect(get("CH-4")).toEqual(other);
+  });
+  test("clearing FAS (null) removes the subsidy again", () => {
+    const back = feeReducer(out, { type: "applyFas", studentId: "A", fas: null, on: "2026-10-19" });
+    expect(subsidyOf(back.charges.find((c) => c.id === "CH-1")!)).toBe(0);
+    expect(back.charges.find((c) => c.id === "CH-1")!.fas).toBeUndefined();
+  });
+  test("applying the same FAS twice changes nothing", () => {
+    expect(feeReducer(out, { type: "applyFas", studentId: "A", fas: { scheme: "SBFAS", rate: 0.5 }, on: "2026-10-20" })).toEqual(out);
   });
 });

@@ -1,5 +1,6 @@
 import { schoolOfLevel } from "../data/schoolMgmt";
 import { DEFAULT_DUE_DAYS, FEE_TYPES, type Charge, type ChargeComponent, type ChargeStatus, type FasScheme, type FeeComponent, type FeeType, type Payment } from "../data/fees";
+import type { SbfasTier } from "../data/sbfasApplications";
 import { STUDENTS, type Student } from "../data/students";
 
 /** Mock "today" for issue and paid dates. */
@@ -36,15 +37,17 @@ export function fundingOf(c: Charge) {
 // SBFAS is school-defined (typically a 50-75% reduction or a full waiver) — 50% is this build's default school package.
 export const MOEFAS_RATE = 1;
 export const SBFAS_RATE = 0.5;
+// ASSUMPTION: the share of each fee SBFAS waives, by tier (Tier 1 = full waiver, Tier 4 = smallest); confirm with MOE.
+export const SBFAS_TIER_RATE: Record<SbfasTier, number> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
 
 /** The single scheme whose subsidy applies to this student's charges: MOEFAS takes precedence over SBFAS — a student never receives both. */
-export function fasOf(s: Pick<Student, "moefas" | "sbfas">): { scheme: FasScheme; rate: number } | null {
+export function fasOf(s: Pick<Student, "moefas" | "sbfas" | "sbfasTier">): { scheme: FasScheme; rate: number } | null {
   if (s.moefas === "Approved") return { scheme: "MOEFAS", rate: MOEFAS_RATE };
-  if (s.sbfas === "Approved") return { scheme: "SBFAS", rate: SBFAS_RATE };
+  if (s.sbfas === "Approved") return { scheme: "SBFAS", rate: s.sbfasTier ? SBFAS_TIER_RATE[s.sbfasTier] : SBFAS_RATE };
   return null;
 }
 
-export const subsidyRate = (s: Pick<Student, "moefas" | "sbfas">) => fasOf(s)?.rate ?? 0;
+export const subsidyRate = (s: Pick<Student, "moefas" | "sbfas" | "sbfasTier">) => fasOf(s)?.rate ?? 0;
 
 export const nextChargeId = (rows: { id: string }[]) => `CH-${rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 1000) + 1}`;
 export const nextFeeTypeId = (rows: { id: string }[]) => `FT-${String(rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(2, "0")}`;
@@ -90,7 +93,6 @@ export const nextPaymentId = (c: Charge) => `${c.id}-P${c.payments.length + 1}`;
 export const makePayment = (c: Charge, amount: number, method: Payment["method"]): Payment => ({ id: nextPaymentId(c), on: TODAY, amount: Math.round(amount * 100) / 100, method });
 
 /** Students of one class in one school. */
-export const studentsOfClass = (school: string, klass: string) => STUDENTS.filter((s) => s.class === klass && schoolOfLevel(s.level) === school);
 
 /**
  * Mock history without terms — three issuance waves per school fee type:

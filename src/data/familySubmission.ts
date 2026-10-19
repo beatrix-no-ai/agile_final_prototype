@@ -1,6 +1,6 @@
 // R4 parent story: one family-level application, decided per child by the school.
 // Pure helpers shared by the parent e-Service (submission + status) and the admin SBFAS store.
-import { children, profile } from "./parent";
+import { FAMILY_STUDENT_NAMES, profile } from "./parent";
 import { BANDS } from "./familyFas";
 import { nextSbfasId, type SbfasApplication } from "./sbfasApplications";
 import { STUDENTS } from "./students";
@@ -25,8 +25,8 @@ export function buildFamilyApps(base: Pick<SbfasApplication, "id">[], bandId: st
   if (!band || band.tier !== "SBFAS") return [];
   const apps = [...base];
   const out: SbfasApplication[] = [];
-  for (const child of children) {
-    const s = STUDENTS.find((x) => x.name === child.name);
+  for (const name of FAMILY_STUDENT_NAMES) {
+    const s = STUDENTS.find((x) => x.name === name);
     if (!s) continue;
     const app: SbfasApplication = {
       id: nextSbfasId(apps),

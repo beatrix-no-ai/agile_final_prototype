@@ -1,6 +1,5 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { CheckCircle, CircleNotch, WarningOctagon } from "@phosphor-icons/react";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Modal } from "../../../components/ui/Modal";
 import { formatSGD } from "../../../lib/format";
@@ -8,6 +7,24 @@ import type { Summary } from "./settle";
 
 type Phase = "review" | "processing" | "success" | "failed";
 type Props = { open: boolean; summary: Summary; onClose: () => void; onPaid: () => void };
+
+const TITLE: Record<Phase, string> = {
+  review: "Confirm your payment",
+  processing: "Processing payment",
+  success: "Payment successful",
+  failed: "Payment not completed",
+};
+
+/** Big centred icon + headline + detail, shared by the processing / success / failed states. */
+function Outcome({ icon, title, children, role, big }: { icon: ReactNode; title: string; children?: ReactNode; role?: "status" | "alert"; big?: boolean }) {
+  return (
+    <div role={role} className="flex flex-col items-center px-2 py-4 text-center">
+      {icon}
+      <p className={`mt-4 font-semibold text-on-surface ${big ? "text-3xl font-bold tracking-tight tabular-nums" : "text-base"}`}>{title}</p>
+      {children && <p className="mt-1.5 max-w-xs text-sm">{children}</p>}
+    </div>
+  );
+}
 
 /** Simulated payment gateway. ASSUMPTION: no real gateway; processing takes 1.5s and can be forced to fail. */
 export function GatewayModal({ open, summary, onClose, onPaid }: Props) {
@@ -37,7 +54,7 @@ export function GatewayModal({ open, summary, onClose, onPaid }: Props) {
     phase === "review" ? (
       <>
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => setPhase("processing")}>{viaGateway ? `Pay ${formatSGD(snap.fromGateway)}` : "Confirm payment"}</Button>
+        <Button className="min-h-12 px-6" onClick={() => setPhase("processing")}>{viaGateway ? `Pay ${formatSGD(snap.fromGateway)}` : "Confirm payment"}</Button>
       </>
     ) : phase === "failed" ? (
       <>
@@ -45,43 +62,41 @@ export function GatewayModal({ open, summary, onClose, onPaid }: Props) {
         <Button onClick={() => { setFail(false); setPhase("review"); }}>Try again</Button>
       </>
     ) : phase === "success" ? (
-      <Button onClick={onClose}>Done</Button>
+      <Button className="w-full" onClick={onClose}>Done</Button>
     ) : null;
 
   return (
-    <Modal open={open} onClose={() => !busy && onClose()} title="Mock payment gateway" footer={footer}>
+    <Modal open={open} onClose={() => !busy && onClose()} title={TITLE[phase]} footer={footer}>
       <div aria-live="polite">
         {phase === "review" && (
           <>
-            <p className="flex items-center gap-2"><Badge tone="neutral">Simulated</Badge> No real money moves.</p>
+            <div className="rounded-control bg-primary-fixed/40 px-4 py-4 text-center">
+              <p className="text-[13px] font-medium">Total</p>
+              <p className="mt-1 text-[32px] font-bold leading-none tracking-tight tabular-nums text-primary">{formatSGD(snap.total)}</p>
+            </div>
             <dl className="mt-3 divide-y divide-line text-on-surface">
-              <div className="flex justify-between py-1.5"><dt className="text-on-surface-variant">Education Account</dt><dd className="tabular-nums">{formatSGD(snap.fromAccount)}</dd></div>
-              <div className="flex justify-between py-1.5"><dt className="text-on-surface-variant">Card or bank</dt><dd className="tabular-nums">{formatSGD(snap.fromGateway)}</dd></div>
-              <div className="flex justify-between py-1.5 font-bold"><dt>Total</dt><dd className="tabular-nums">{formatSGD(snap.total)}</dd></div>
+              <div className="flex justify-between py-2.5"><dt className="text-on-surface-variant">From Education Account</dt><dd className="font-medium tabular-nums">{formatSGD(snap.fromAccount)}</dd></div>
+              <div className="flex justify-between py-2.5"><dt className="text-on-surface-variant">By card or bank</dt><dd className="font-medium tabular-nums">{formatSGD(snap.fromGateway)}</dd></div>
             </dl>
             {!viaGateway && <p className="mt-2">Fully covered by the Education Account, so no card or bank payment is needed.</p>}
-            <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-3">
+            <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 rounded-control border border-dashed border-line px-3 text-[13px]">
               <input type="checkbox" className="size-5 accent-primary" checked={fail} onChange={(e) => setFail(e.target.checked)} />
-              Simulate a failed payment
+              Demo only: simulate a failed payment
             </label>
           </>
         )}
         {phase === "processing" && (
-          <p role="status" className="flex items-center gap-3 py-4 font-medium text-on-surface">
-            <CircleNotch size={24} className="motion-safe:animate-spin text-primary" aria-hidden="true" /> Processing payment, please wait...
-          </p>
+          <Outcome role="status" icon={<CircleNotch size={48} className="text-primary motion-safe:animate-spin" aria-hidden="true" />} title="Processing payment, please wait...">
+            Please don't close this window.
+          </Outcome>
         )}
         {phase === "success" && (
-          <p className="flex items-start gap-3 py-2 font-medium text-on-surface">
-            <CheckCircle size={24} weight="fill" className="shrink-0 text-success" aria-hidden="true" />
-            Payment of {formatSGD(snap.total)} successful. The invoices are marked paid and the Education Account balance is updated.
-          </p>
+          <Outcome big icon={<CheckCircle size={96} weight="fill" className="text-success" aria-hidden="true" />} title={`${formatSGD(snap.total)} paid`} />
         )}
         {phase === "failed" && (
-          <p role="alert" className="flex items-start gap-3 py-2 font-medium text-on-surface">
-            <WarningOctagon size={24} weight="fill" className="shrink-0 text-alert" aria-hidden="true" />
-            The payment was declined by the gateway. Nothing was charged and your invoices are unchanged.
-          </p>
+          <Outcome role="alert" icon={<WarningOctagon size={56} weight="fill" className="text-alert" aria-hidden="true" />} title="The gateway declined this payment">
+            Nothing was charged and your invoices are unchanged.
+          </Outcome>
         )}
       </div>
     </Modal>

@@ -21,7 +21,7 @@ type Row = { id: string; charge: Charge; title: string; issued: string; due: str
 /** Req 3: every charge issued to one student, with the per-component breakdown on demand. */
 export default function StudentFees() {
   const student = useStudent();
-  const { state, dispatch } = useFees();
+  const { state } = useFees();
   const [openId, setOpenId] = useState<string | null>(null);
   // Re-resolve from state so the modal reflects a payment recorded while it is open.
   const open = state.charges.find((c) => c.id === openId) ?? null;
@@ -39,7 +39,7 @@ export default function StudentFees() {
   const total = rows.filter((r) => r.status !== "paid").reduce((t, r) => t + r.balance, 0);
   const fas = fasOf(student);
   const columns: Column<Row>[] = [
-    { key: "title", header: "Charge", sortable: true, render: (r) => (<><span className="font-medium">{r.title}</span><span className="block text-[13px] text-on-surface-variant">Due {formatDate(r.due)} · issued {formatDate(r.issued)}</span></>) },
+    { key: "title", header: "Charge", sortable: true, render: (r) => (<><span className="font-medium">{r.title}</span><span className="block text-[13px] text-on-surface-variant">Due {formatDate(r.due)} · issued {formatDate(r.issued)}</span>{r.charge.fasAdjusted && <span className="block text-[13px] text-success">{r.charge.fas ?? "FAS"} re-priced {formatDate(r.charge.fasAdjusted.on)}: {r.charge.fasAdjusted.amount > 0 ? "−" : "+"} {formatSGD(Math.abs(r.charge.fasAdjusted.amount))}</span>}</>) },
     { key: "fee", header: "Fee", sortable: true, align: "right", render: (r) => formatSGD(r.fee) },
     { key: "subsidy", header: "Subsidy", align: "right", render: (r) => (r.subsidy ? <span className="text-success">− {formatSGD(r.subsidy)}</span> : <span className="text-on-surface-variant">—</span>) },
     { key: "paid", header: "Paid", sortable: true, align: "right", render: (r) => (r.paid ? formatSGD(r.paid) : <span className="text-on-surface-variant">—</span>) },
@@ -61,7 +61,7 @@ export default function StudentFees() {
         { label: "Still to pay", value: formatSGD(total), note: `${rows.filter((r) => r.status !== "paid").length} unpaid ${rows.filter((r) => r.status !== "paid").length === 1 ? "charge" : "charges"}`, alert: rows.some((r) => r.status === "overdue") },
         { label: "Paid so far", value: formatSGD(rows.reduce((t, r) => t + r.paid, 0)), note: `${rows.filter((r) => r.status === "paid").length} ${rows.filter((r) => r.status === "paid").length === 1 ? "charge" : "charges"} settled`, good: true },
         { label: "Education Account balance", value: formatSGD(student.balance), note: total > student.balance ? "Not enough to cover what is due" : "Covers what is due" },
-        { label: "Financial assistance", value: fas ? fas.scheme : "None", note: fas ? `${Math.round(fas.rate * 100)}% off each new charge` : `MOEFAS ${statusLabel(student.moefas).toLowerCase()} · SBFAS ${statusLabel(student.sbfas).toLowerCase()}` },
+        { label: "Financial assistance", value: fas ? `${fas.scheme}${fas.scheme === "SBFAS" && student.sbfasTier ? ` · ${student.sbfasTier}` : ""}` : "None", note: fas ? `${Math.round(fas.rate * 100)}% off each new charge` : `MOEFAS ${statusLabel(student.moefas).toLowerCase()} · SBFAS ${statusLabel(student.sbfas).toLowerCase()}` },
       ]} />
       <Card title="Charges">
         {fas && (
@@ -88,8 +88,7 @@ export default function StudentFees() {
         )}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} large="md" empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
       </Card>
-      <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)}
-        onPay={(chargeId, amount, method) => dispatch({ type: "recordPayment", chargeId, amount, method })} />
+      <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)} />
     </div>
   );
 }

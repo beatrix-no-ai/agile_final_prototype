@@ -1,4 +1,5 @@
 import { makeNric } from "../lib/nric";
+import type { SbfasTier } from "./sbfasApplications";
 
 export const LEVELS = ["P1", "P2", "P3", "P4", "P5", "P6", "Sec 1", "Sec 2", "Sec 3", "Sec 4"] as const;
 export type Level = (typeof LEVELS)[number];
@@ -27,6 +28,10 @@ export type Student = {
   /** Education Account balance in SGD. */
   balance: number;
   sbfas: SbfasStatus;
+  /** Set by lib/studentFas.withBalance: the balance before what was paid out of the account since the start. */
+  baseBalance?: number;
+  /** Tier the school approved SBFAS at; it sets how much of each fee is waived (see lib/fees.fasOf). */
+  sbfasTier?: SbfasTier;
   /** MOE-level FAS status. A student never receives both schemes: MOEFAS takes precedence over SBFAS (see lib/fees.fasOf). */
   moefas: SbfasStatus;
   /** Defaults to Singapore Citizen; unset only on records not yet enriched. */
@@ -60,6 +65,8 @@ const ROWS: Row[] = [
   ["Meera d/o Ramasamy", "P2", 0, "Active", 574.5, "Pending", "Not applied"],
   ["Ong Zi Han", "P3", 0, "Active", 1043.2, "Not applied", "Not applied"],
   ["Priya d/o Subramaniam", "P3", 0, "Active", 986.75, "Not applied", "Approved"],
+  ["Ethan Lim Jun Hao", "P5", 0, "Active", 0, "Not applied", "Not applied"],
+  ["Chloe Lim Wen Xin", "Sec 2", 0, "Active", 100, "Not applied", "Not applied"],
   ["Ethan Teo Kai Ming", "P3", 1, "Active", 1127.05, "Not applied", "Not applied"],
   ["Siti Nurhaliza binte Osman", "P3", 1, "Active", 902.3, "Pending", "Not applied"],
   ["Goh Yu Xuan", "P4", 0, "Active", 1568.9, "Not applied", "Not applied"],
@@ -68,7 +75,7 @@ const ROWS: Row[] = [
   ["Haziq bin Abdullah", "P4", 1, "Active", 1431.6, "Not applied", "Approved"],
   ["Sim Hui Min", "P5", 0, "Active", 2036.55, "Not applied", "Not applied"],
   ["Daniel Koh Jun Wei", "P5", 0, "Active", 1978.2, "Pending", "Not applied"],
-  ["Kavitha d/o Raman", "P5", 1, "Active", 2112.8, "Approved", "Not applied"],
+  ["Kavitha d/o Raman", "P5", 1, "Active", 2112.8, "Pending", "Not applied"],
   ["Aqil Zafran bin Salleh", "P5", 1, "Inactive", 1895.35, "Pending", "Not applied"],
   ["Yeo Rui En", "P6", 0, "Active", 2587.9, "Not applied", "Not applied"],
   ["Isabelle Ng Pei Shan", "P6", 0, "Active", 2641.15, "Not applied", "Not applied"],
@@ -115,7 +122,7 @@ export const isMoefasEligible = (n: string): boolean =>
   n === "Singapore Citizen" || n.startsWith("Dual (Singapore") || n === "—";
 
 /** BR12: SBFAS covers SC, dual citizens and PRs. Foreign-national students are not eligible for either scheme. */
-export const isSbfasEligible = (n: string): boolean => isMoefasEligible(n) || n === "Singapore PR";;
+export const isSbfasEligible = (n: string): boolean => isMoefasEligible(n) || n === "Singapore PR";
 
 // Ordered by name (a visible column), not by level/class, so the list does not look sorted by hidden fields.
 export const STUDENTS: Student[] = [...ROWS].sort((a, b) => a[0].localeCompare(b[0])).map(([name, level, c, status, balance, sbfas, moefas], i) => ({

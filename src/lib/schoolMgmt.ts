@@ -3,7 +3,7 @@ import { LEVELS } from "../data/students";
 type Errors<K extends string> = Partial<Record<K, string>>;
 const clean = (s: string) => s.trim().replace(/\s+/g, " ");
 
-export type SchoolInput = { code: string; name: string; level: string; address: string; principal: string; email: string; phone: string; userName?: string; userEmail?: string };
+export type SchoolInput = { code: string; name: string; level: string; address: string; principal: string; email: string; phone: string; userEmail?: string };
 /** `others` = the other records (exclude the one being edited) for uniqueness checks. */
 export function validateSchool(v: SchoolInput, others: { code: string; name: string }[], withUser = false): Errors<keyof SchoolInput> {
   const e: Errors<keyof SchoolInput> = {};
@@ -17,10 +17,7 @@ export function validateSchool(v: SchoolInput, others: { code: string; name: str
   if (!clean(v.address)) e.address = "Enter the address.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())) e.email = "Enter a valid email address.";
   if (!/^(\+65)?[689]\d{7}$/.test(v.phone.replace(/\s/g, ""))) e.phone = "Enter an 8-digit Singapore number starting 6, 8 or 9.";
-  if (withUser) {
-    if (!clean(v.userName ?? "")) e.userName = "Enter the school user's name.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((v.userEmail ?? "").trim())) e.userEmail = "Enter a valid email address.";
-  }
+  if (withUser && !(v.userEmail ?? "").trim()) e.userEmail = "Select the Principal.";
   if (!clean(v.principal)) e.principal = "Enter the principal's name.";
   return e;
 }

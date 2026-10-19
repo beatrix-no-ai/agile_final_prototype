@@ -9,20 +9,20 @@ test("assess: MOEFAS tiers first, SBFAS only when MOEFAS is not granted, never b
   expect(assess(BANDS[3])).toMatchObject({ scheme: null, status: "Not eligible" });
 });
 
-test("trackerSteps follows submission, income sync and the school's review", () => {
-  const s = (sync: "idle" | "loading" | "success" | "error", hasBand: boolean, review: "not-submitted" | "pending" | "decided") =>
-    trackerSteps(sync, hasBand, review).map((x) => x.state);
-  expect(s("idle", true, "pending")).toEqual(["Done", "Done", "In progress", "Waiting"]);
-  expect(s("idle", false, "not-submitted")).toEqual(["To do", "To do", "Waiting", "Waiting"]);
-  expect(s("idle", true, "not-submitted")).toEqual(["To do", "Done", "Waiting", "Waiting"]);
-  expect(s("loading", true, "pending")).toEqual(["Done", "In progress", "Waiting", "Waiting"]);
-  expect(s("error", false, "pending")).toEqual(["Done", "Failed", "Waiting", "Waiting"]);
-  expect(s("success", true, "pending")).toEqual(["Done", "Done", "In progress", "Waiting"]);
-  expect(s("idle", true, "decided")).toEqual(["Done", "Done", "Done", "Waiting"]);
-  expect(trackerSteps("idle", true, "decided", true).map((x) => x.state)).toEqual(["Done", "Done", "Done", "In progress"]);
+test("disbursement is done once every child's application has been decided", () => {
+  expect(trackerSteps("submitted", true).map((x) => `${x.name}:${x.state}`)).toEqual(["Prepare info:Done", "Submission:Done", "Disbursement:Done"]);
+  expect(trackerSteps("preparing", true)[2].state).toBe("Waiting");
 });
 
-const ok = { contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };
+test("trackerSteps has three stages: prepare info, submission, disbursement", () => {
+  const s = (stage: "not-started" | "preparing" | "submitted") => trackerSteps(stage).map((x) => `${x.name}:${x.state}`);
+  expect(s("not-started")).toEqual(["Prepare info:To do", "Submission:Waiting", "Disbursement:Waiting"]);
+  expect(s("preparing")).toEqual(["Prepare info:In progress", "Submission:To do", "Disbursement:Waiting"]);
+  expect(s("submitted")).toEqual(["Prepare info:Done", "Submission:Done", "Disbursement:Waiting"]);
+});
+
+const hh = { extraIncome: "0", residents: "4" };
+const ok = { ...hh, contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };
 
 test("validateForm requires fields, a valid SG number and consent", () => {
   expect(validateForm(ok, true)).toEqual({});
@@ -33,17 +33,25 @@ test("validateForm requires fields, a valid SG number and consent", () => {
   expect(validateForm(ok, false).consent).toBeTruthy();
 });
 
+test("validateForm checks extra money and residents (for GHI and PCI)", () => {
+  expect(validateForm({ ...ok, extraIncome: "350.50" }, true)).toEqual({});
+  expect(validateForm({ ...ok, extraIncome: "" }, true).extraIncome).toBeTruthy();
+  expect(validateForm({ ...ok, extraIncome: "-5" }, true).extraIncome).toBeTruthy();
+  expect(validateForm({ ...ok, residents: "0" }, true).residents).toBeTruthy();
+  expect(validateForm({ ...ok, residents: "2.5" }, true).residents).toBeTruthy();
+});
+
 test("autoFill fills only empty fields and counts them", () => {
-  const empty = { contact: "", mailingAddress: "", note: "" };
-  expect(autoFill(empty)).toEqual({ values: autoFillSource, count: 3 });
+  const empty = { ...hh, contact: "", mailingAddress: "", note: "" };
+  expect(autoFill(empty)).toEqual({ values: { ...hh, ...autoFillSource }, count: 3 });
   expect(validateForm(autoFill(empty).values, true)).toEqual({});
   const typed = { ...empty, note: "my own words", contact: "9000 0000" };
-  expect(autoFill(typed)).toEqual({ values: { ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 1 });
-  expect(autoFill(autoFillSource).count).toBe(0);
+  expect(autoFill(typed)).toEqual({ values: { ...hh, ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 1 });
+  expect(autoFill({ ...hh, ...autoFillSource }).count).toBe(0);
 });
 
 test("answersToForm maps picks and keeps the typed value when the parent will type their own", () => {
-  const empty = { contact: "", mailingAddress: "", note: "" };
+  const empty = { ...hh, contact: "", mailingAddress: "", note: "" };
   expect(answersToForm({ mailing: "same", contact: "same" }, empty)).toMatchObject({
     contact: autoFillSource.contact,
     mailingAddress: autoFillSource.mailingAddress,

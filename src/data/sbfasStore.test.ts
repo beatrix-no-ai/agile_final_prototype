@@ -25,7 +25,7 @@ test("submitFamily appends the per-child applications and allows only one submis
   const apps = buildFamilyApps(s0.apps, "b3", "2026-10-18", "");
   const s1 = sbfasReducer(s0, { type: "submitFamily", submittedOn: "2026-10-18", apps });
   expect(s1.apps).toHaveLength(SBFAS_APPLICATIONS.length + 2);
-  expect(s1.family).toEqual({ submittedOn: "2026-10-18", appIds: ["SBFAS0013", "SBFAS0014"] });
+  expect(s1.family).toEqual({ submittedOn: "2026-10-18", appIds: ["SBFAS0019", "SBFAS0020"] });
 
   // A second submit while the first is undecided changes nothing.
   const again = buildFamilyApps(s1.apps, "b3", "2026-10-18", "");
@@ -33,7 +33,7 @@ test("submitFamily appends the per-child applications and allows only one submis
   expect(s2).toBe(s1);
 
   // Deciding one child leaves the family under review; deciding both finishes it.
-  const s3 = sbfasReducer(s2, { type: "decide", id: "SBFAS0013", action: "approve", draft: { justification: "", tier: "Tier 3" } });
-  expect(s3.apps.find((a) => a.id === "SBFAS0013")?.status).toBe("Approved");
-  expect(s3.family?.appIds).toEqual(["SBFAS0013", "SBFAS0014"]);
+  const s3 = sbfasReducer(s2, { type: "decide", id: "SBFAS0019", action: "approve", draft: { justification: "", tier: "Tier 3" } });
+  expect(s3.apps.find((a) => a.id === "SBFAS0019")?.status).toBe("Approved");
+  expect(s3.family?.appIds).toEqual(["SBFAS0019", "SBFAS0020"]);
 });

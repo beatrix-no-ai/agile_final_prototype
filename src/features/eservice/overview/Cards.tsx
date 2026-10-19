@@ -2,12 +2,17 @@
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import type { Child, Invoice } from "../../../data/parent";
+import { settle } from "../payments/settle";
 import { formatSGD } from "../../../lib/format";
-import { PayLink, fmtDate } from "./shared";
+import { Button } from "../../../components/ui/Button";
+import { fmtDate } from "./shared";
 import { childOutstanding, nextDue, outstanding, paidThisYear } from "./summary";
 
 /** The one thing a parent comes here for: what is owed, and a clear way to pay it. */
-export function Summary({ invoices }: { invoices: Invoice[] }) {
+export function Summary({ invoices, children, onPay }: { invoices: Invoice[]; children: Child[]; onPay: (ids: string[]) => void }) {
+  const openIds = invoices.filter((i) => i.status !== "paid").map((i) => i.id);
+  // Education Account balances are used first automatically; only the shortfall goes to card or bank.
+  const split = settle(invoices, children, new Set(openIds), "account-first");
   const owed = outstanding(invoices);
   const unpaid = invoices.filter((i) => i.status !== "paid").length;
   const overdue = invoices.filter((i) => i.status === "overdue").length;
@@ -23,8 +28,15 @@ export function Summary({ invoices }: { invoices: Invoice[] }) {
             {overdue > 0 && <span className="font-semibold text-alert"> · {overdue} overdue</span>}
           </p>
         </div>
-        {owed > 0 && <PayLink large label="Pay now for all open invoices" text="Pay now" />}
+        {owed > 0 && <Button className="min-h-12 px-6 text-base" aria-label="Pay now for all open invoices" onClick={() => onPay(openIds)}>Pay now</Button>}
       </div>
+      {owed > 0 && (
+        <p className="mt-4 rounded-control bg-primary-fixed/40 px-4 py-3 text-sm">
+          {split.fromAccount > 0
+            ? <>Your children's Education Accounts cover <strong className="tabular-nums">{formatSGD(split.fromAccount)}</strong> automatically. {split.fromGateway > 0 ? <>You pay the remaining <strong className="tabular-nums">{formatSGD(split.fromGateway)}</strong> by card or bank.</> : "Nothing more to pay."}</>
+            : <>No Education Account balance available, so the full <strong className="tabular-nums">{formatSGD(split.fromGateway)}</strong> is paid by card or bank.</>}
+        </p>
+      )}
       <dl className="mt-5 grid divide-y divide-line border-t border-line sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         <div className="pt-4 sm:pr-6">
           <dt className="text-[13px] text-on-surface-variant">Next payment due</dt>

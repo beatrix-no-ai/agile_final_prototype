@@ -4,17 +4,17 @@ import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import type { Child, Invoice, Transaction } from "../../../data/parent";
 import { formatSGD } from "../../../lib/format";
-import { Link } from "react-router";
-import { fmtDate, linkClass } from "./shared";
+import { Button } from "../../../components/ui/Button";
+import { GoLink, fmtDate } from "./shared";
 
 const firstName = (children: Child[], id: string) => children.find((c) => c.id === id)?.name.split(" ")[0] ?? "";
 
-export function UpcomingInvoices({ invoices, children }: { invoices: Invoice[]; children: Child[] }) {
-  // Only what still needs paying: overdue first, then by due date. Paid invoices live on the Payments and Transactions pages.
+export function UpcomingInvoices({ invoices, children, onPay }: { invoices: Invoice[]; children: Child[]; onPay: (ids: string[]) => void }) {
+  // Only what still needs paying: overdue first, then by due date. Paid invoices show on the Transactions page.
   const open = invoices.filter((i) => i.status !== "paid").sort((a, b) => Number(b.status === "overdue") - Number(a.status === "overdue") || a.dueDate.localeCompare(b.dueDate));
   const shown = open.slice(0, 5);
   return (
-    <Card title="Invoices to pay" action={open.length > shown.length ? <Link to="/parent/payments" className={linkClass}>View all {open.length}</Link> : undefined}>
+    <Card title="Invoices to pay" action={open.length > shown.length ? <span className="text-[13px] text-on-surface-variant">Showing {shown.length} of {open.length}</span> : undefined}>
       {open.length === 0 ? (
         <EmptyState title="Nothing to pay" hint="New school invoices will appear here." />
       ) : (
@@ -28,6 +28,7 @@ export function UpcomingInvoices({ invoices, children }: { invoices: Invoice[]; 
               <div className="flex items-center gap-3">
                 <Badge tone={i.status === "overdue" ? "alert" : "neutral"}>{i.status === "overdue" ? "Overdue" : "Unpaid"}</Badge>
                 <span className="w-24 text-right text-[15px] font-semibold tabular-nums">{formatSGD(i.amount)}</span>
+                <Button size="sm" variant="secondary" aria-label={`Pay ${i.title}`} onClick={() => onPay([i.id])}>Pay</Button>
               </div>
             </li>
           ))}
@@ -39,7 +40,7 @@ export function UpcomingInvoices({ invoices, children }: { invoices: Invoice[]; 
 export function RecentTransactions({ transactions, children }: { transactions: Transaction[]; children: Child[] }) {
   const recent = transactions.slice(0, 5);
   return (
-    <Card title="Recent transactions" action={<Link to="/parent/transactions" className={linkClass}>View all</Link>}>
+    <Card title="Recent transactions" action={<GoLink to="/parent/transactions" label="Transactions" />}>
       {recent.length === 0 ? (
         <EmptyState title="No transactions yet" hint="Payments and top-ups on your children's education accounts will be listed here." />
       ) : (

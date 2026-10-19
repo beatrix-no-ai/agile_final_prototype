@@ -1,7 +1,9 @@
 import { autoFillSource, type Band } from "../../../data/familyFas";
+import type { FasStage } from "../../../data/parentStore";
 
 export type SyncStatus = "idle" | "loading" | "success" | "error";
-export type FormValues = { contact: string; mailingAddress: string; note: string };
+/** extraIncome and residents feed the GHI (gross household income) and PCI (per capita income) calculation later. */
+export type FormValues = { extraIncome: string; residents: string; contact: string; mailingAddress: string; note: string };
 export type FormErrors = Partial<Record<keyof FormValues | "consent", string>>;
 
 export type ChildResult = { scheme: "MOEFAS" | "SBFAS" | null; tier?: string; status: "Indicative" | "School decides" | "Not eligible"; note: string };
@@ -23,29 +25,22 @@ export function assess(band: Band): ChildResult {
 export type StepState = "Done" | "In progress" | "To do" | "Waiting" | "Failed";
 export type Step = { name: string; state: StepState };
 
-/**
- * Tracker states follow the income sync and the school's review. Review phase: "not-submitted" (no family
- * application yet), "pending" (the school is deciding the per-child SBFAS applications) or "decided"
- * (every child application has a decision). Disbursement only moves once something is granted.
- */
-export function trackerSteps(sync: SyncStatus, hasBand: boolean, review: "not-submitted" | "pending" | "decided", granted = false): Step[] {
-  const income: StepState = sync === "loading" ? "In progress" : sync === "error" ? "Failed" : hasBand ? "Done" : "To do";
-  const submission: StepState = review === "not-submitted" ? "To do" : "Done";
-  const reviewState: StepState = review === "decided" ? "Done" : review === "pending" && income === "Done" ? "In progress" : "Waiting";
-  const disbursement: StepState = review === "decided" && granted ? "In progress" : "Waiting";
+/** Three stages for the parent: prepare the information, submit, then disbursement (which only starts after MOE has reviewed the application, and is done once every child's application is decided). */
+export function trackerSteps(stage: FasStage, decided = false): Step[] {
   return [
-    { name: "Submission", state: submission },
-    { name: "Income sync", state: income },
-    { name: "Review", state: reviewState },
-    { name: "Disbursement", state: disbursement },
+    { name: "Prepare info", state: stage === "submitted" ? "Done" : stage === "preparing" ? "In progress" : "To do" },
+    { name: "Submission", state: stage === "submitted" ? "Done" : stage === "preparing" ? "To do" : "Waiting" },
+    { name: "Disbursement", state: stage === "submitted" && decided ? "Done" : "Waiting" },
   ];
 }
-
 // ASSUMPTION: Singapore mobile/landline, 8 digits starting 3, 6, 8 or 9, optional +65.
 const sgNumber = /^(\+?65)?[\s-]?[3689]\d{3}[\s-]?\d{4}$/;
 
 export function validateForm(v: FormValues, consent: boolean): FormErrors {
-  const e: FormErrors = {};
+  const e: FormErrors = {}; // key order = field order on screen
+  if (!/^\d+(\.\d{1,2})?$/.test(v.extraIncome.trim())) e.extraIncome = "Enter an amount in dollars, or 0 if none.";
+  const n = Number(v.residents.trim());
+  if (!Number.isInteger(n) || n < 1 || n > 20) e.residents = "Enter a whole number from 1 to 20.";
   if (!v.contact.trim()) e.contact = "Enter a contact number.";
   else if (!sgNumber.test(v.contact.trim())) e.contact = "Enter a valid Singapore number, e.g. +65 9123 4567.";
   if (!v.mailingAddress.trim()) e.mailingAddress = "Enter a mailing address.";
@@ -57,7 +52,7 @@ export function validateForm(v: FormValues, consent: boolean): FormErrors {
 export function autoFill(cur: FormValues): { values: FormValues; count: number } {
   const values = { ...cur };
   let count = 0;
-  for (const k of Object.keys(autoFillSource) as (keyof FormValues)[]) {
+  for (const k of Object.keys(autoFillSource) as (keyof typeof autoFillSource)[]) {
     if (!cur[k].trim()) {
       values[k] = autoFillSource[k];
       count++;

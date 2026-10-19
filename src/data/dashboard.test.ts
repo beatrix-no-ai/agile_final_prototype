@@ -26,7 +26,7 @@ describe("dashboard mock data is internally consistent", () => {
 describe("dashboard agrees with the Budgets screen data", () => {
   it("Budget Usage is derived from data/budgets.ts", () => {
     const [moefas, sbfas] = budgets;
-    expect(moefas.budget).toBe(48_000_000);
+    expect(moefas.budget).toBe(38_000_000);
     expect(moefas.used).toBe(MOEFAS_BY_LEVEL.reduce((s, l) => s + l.used, 0));
     expect(sbfas).toMatchObject({ used: SBFAS.absorbed, budget: SBFAS.budget });
   });

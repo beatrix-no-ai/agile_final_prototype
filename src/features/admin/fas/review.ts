@@ -1,4 +1,4 @@
-import type { SbfasApplication, SbfasTier } from "../../../data/sbfasApplications";
+import type { SbfasApplication, SbfasStatus, SbfasTier } from "../../../data/sbfasApplications";
 // applyDecision now lives in the data layer so the session store can record decisions without importing UI code.
 export { applyDecision, type Action, type Draft } from "../../../data/sbfasApplications";
 
@@ -15,7 +15,7 @@ export const isGranted = (a: Pick<SbfasApplication, "status">) => a.status === "
 export const isDeclined = (a: Pick<SbfasApplication, "status">) => a.status === "Rejected";
 
 /** Status chip vocabulary, kept in sync with the queue tabs: Pending / Granted / Declined ("Not applied" stays). */
-export const statusLabel = (s: "Pending" | "Approved" | "Overridden" | "Rejected" | "Not applied"): "Pending" | "Granted" | "Declined" | "Not applied" =>
+export const statusLabel = (s: SbfasStatus | "Not applied"): "Pending" | "Granted" | "Declined" | "Not applied" =>
   s === "Approved" || s === "Overridden" ? "Granted" : s === "Rejected" ? "Declined" : s;
 
 /** Review Focus 3: an override needs a non-blank justification and a tier different from the recommendation. */

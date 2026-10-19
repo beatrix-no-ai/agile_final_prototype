@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { BANDS, household, initialBandId } from "../../../data/familyFas";
+import { BANDS, householdOf, initialBandId } from "../../../data/familyFas";
+import { useParent } from "../../../data/parentStore";
 import { fmtDate } from "../overview/shared";
 import type { SyncStatus } from "./logic";
 import { AssumptionTag } from "../../../components/ui/AssumptionTag";
@@ -12,14 +13,16 @@ import type { Outcome } from "./useSync";
 type Props = { status: SyncStatus; bandId: string; syncedOn: string; onSync: (o: Outcome) => void };
 
 const message: Partial<Record<SyncStatus, string>> = {
-  loading: "Syncing your income band via SingPass...",
-  success: "Income band synced via SingPass.",
-  error: "SingPass did not respond. Your previous band is kept. Try again.",
+  loading: "Syncing your income band via HOMES...",
+  success: "Income band synced via HOMES.",
+  error: "HOMES did not respond. Your previous band is kept. Try again.",
 };
 
 export function Household({ status, bandId, syncedOn, onSync }: Props) {
   const [outcome, setOutcome] = useState<Outcome>(initialBandId);
   const [after, setAfter] = useState<Outcome>(initialBandId); // band the retry returns after a demo failure
+  const { state } = useParent();
+  const household = householdOf(state.children);
   const band = BANDS.find((b) => b.id === bandId);
   const loading = status === "loading";
 
@@ -42,7 +45,7 @@ export function Household({ status, bandId, syncedOn, onSync }: Props) {
         ))}
       </ul>
       <div className="mt-2 rounded-control border border-line bg-surface-container-low p-4">
-        <p className="text-[13px] font-semibold text-on-surface-variant">Household income band (via SingPass)</p>
+        <p className="text-[13px] font-semibold text-on-surface-variant">Household income band (via HOMES)</p>
         <p className="mt-1 text-lg font-bold">{band?.label ?? "Not synced"}</p>
         <p className="text-[13px] text-on-surface-variant">Only a band is shared with MOE, never exact income. Last synced {fmtDate(syncedOn)}.</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -53,23 +56,25 @@ export function Household({ status, bandId, syncedOn, onSync }: Props) {
             {message[status]}
           </p>
         </div>
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <Field label="Demo: next sync outcome" className="w-full max-w-80">
-            <select
-              className={inputClass}
-              value={outcome}
-              onChange={(e) => {
-                setOutcome(e.target.value);
-                if (e.target.value !== "fail") setAfter(e.target.value);
-              }}
-            >
-              {BANDS.map((b) => <option key={b.id} value={b.id}>Succeeds - band {b.label}</option>)}
-              <option value="fail">Fails once, then Retry succeeds</option>
-            </select>
-          </Field>
-          <span className="pb-3"><AssumptionTag /></span>
-        </div>
-      </div>
+        <details className="mt-3 text-[13px] text-on-surface-variant">
+          <summary className="cursor-pointer font-medium">Demo options</summary>
+          <div className="mt-2 flex flex-wrap items-end gap-3">
+            <Field label="Next sync outcome" className="w-full max-w-80">
+              <select
+                className={inputClass}
+                value={outcome}
+                onChange={(e) => {
+                  setOutcome(e.target.value);
+                  if (e.target.value !== "fail") setAfter(e.target.value);
+                }}
+              >
+                {BANDS.map((b) => <option key={b.id} value={b.id}>Succeeds - band {b.label}</option>)}
+                <option value="fail">Fails once, then Retry succeeds</option>
+              </select>
+            </Field>
+            <span className="pb-3"><AssumptionTag /></span>
+          </div>
+        </details>      </div>
     </Card>
   );
 }

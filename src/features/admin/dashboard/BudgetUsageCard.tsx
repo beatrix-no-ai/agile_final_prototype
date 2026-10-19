@@ -2,7 +2,8 @@ import { CurrencyCircleDollar } from "@phosphor-icons/react";
 import { AssumptionTag } from "../../../components/ui/AssumptionTag";
 import { Badge } from "../../../components/ui/Badge";
 import { BUDGET_ALERT_PCT, budgets, budgetsUpdated } from "../../../data/dashboard";
-import { budgetUsage } from "../../../lib/budget";
+import { selectBudgets, useFas } from "../../../data/fasStore";
+import { budgetStatus, budgetUsage } from "../../../lib/budget";
 import { formatSGD } from "../../../lib/format";
 import { CardFoot, DashCard, Loadable, Skeleton, useDashQuery } from "./DashCard";
 
@@ -11,6 +12,7 @@ const money = (n: number) => formatSGD(n, { compact: true });
 
 function BudgetRow({ b, primary }: { b: Budget; primary: boolean }) {
   const { pct, over, barPct } = budgetUsage(b.used, b.budget);
+  const status = budgetStatus(b.used, b.budget);
   const label = `${b.name} - ${b.owner}`;
   const left = Math.max(0, b.budget - b.used);
   return (
@@ -18,10 +20,12 @@ function BudgetRow({ b, primary }: { b: Budget; primary: boolean }) {
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="flex items-center gap-2 text-[13px] font-semibold">
           {label}
-          {over ? (
+          {status === "over" ? (
             <Badge tone="alert">Over budget</Badge>
+          ) : status === "reached" ? (
+            <Badge tone="alert">Fully used</Badge>
           ) : (
-            pct >= BUDGET_ALERT_PCT && <Badge tone="alert">{BUDGET_ALERT_PCT}% alert</Badge>
+            status === "near" && <Badge tone="alert">{BUDGET_ALERT_PCT}% alert</Badge>
           )}
         </span>
         <span className="text-[13px] font-medium text-on-surface-variant">
@@ -51,7 +55,8 @@ function BudgetRow({ b, primary }: { b: Budget; primary: boolean }) {
 }
 
 export function BudgetUsageCard() {
-  const q = useDashQuery(budgets);
+  const { state } = useFas();
+  const q = useDashQuery(selectBudgets(state)); // same live figures as the Budgets pages
   return (
     <DashCard title="Budget Usage" icon={CurrencyCircleDollar} to="/admin/budgets">
       <Loadable

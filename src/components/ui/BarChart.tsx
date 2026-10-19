@@ -18,7 +18,7 @@ export function BarChart({
       viewBox={`0 0 ${W} ${H}`}
       role="img"
       aria-label={data.length === 0 ? "No data" : data.map((d, i) => `${d.label} ${format(vals[i])}`).join(", ")}
-      className="w-full max-w-xl"
+      className="w-full"
     >
       <line x1="0" x2={W} y1={H - bottom} y2={H - bottom} className="stroke-line" />
       {data.map((d, i) => {
