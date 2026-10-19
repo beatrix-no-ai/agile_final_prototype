@@ -7,7 +7,7 @@ import { initialSbfasState, sbfasReducer } from "./sbfasStore";
 describe("SBFAS school rule: defaults and lookup", () => {
   it("the default package mirrors the national reference rates, all tiers offered", () => {
     const rule = defaultSbfasRule("S001");
-    expect(rule.tiers.map((t) => t.rate)).toEqual([75, 65, 55, 50]);
+    expect(rule.tiers.map((t) => t.rate)).toEqual([100, 75, 50, 25]);
     expect(rule.tiers.every((t) => t.active)).toBe(true);
   });
 
@@ -16,7 +16,7 @@ describe("SBFAS school rule: defaults and lookup", () => {
     expect(ruleForSchool(rules, "S002").school).toBe("S002");
     const saved = toSbfasRule({ tiers: [{ active: true, rate: "80" }, { active: true, rate: "60" }, { active: false, rate: "0" }, { active: true, rate: "40" }] }, "S002");
     expect(ruleForSchool({ S002: saved }, "S002")).toBe(saved);
-    expect(ruleForSchool({ S002: saved }, "S001").tiers[0].rate).toBe(75); // other schools untouched
+    expect(ruleForSchool({ S002: saved }, "S001").tiers[0].rate).toBe(100); // other schools untouched
   });
 
   it("tierRate converts percent to a fraction, also for a tier later switched off", () => {

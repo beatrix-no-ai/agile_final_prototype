@@ -35,7 +35,7 @@ export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"];
 
 /** R4: subsidy rate per tier. Real SBFAS is school-managed within 50–75%; Tier 1 is the strongest package. */
-export const SBFAS_TIER_RATES: Record<SbfasTier, number> = { "Tier 1": 0.75, "Tier 2": 0.65, "Tier 3": 0.55, "Tier 4": 0.5 };
+export const SBFAS_TIER_RATES: Record<SbfasTier, number> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
 
 export type Action = "approve" | "override" | "reject";
 export type Draft = { justification: string; tier: SbfasTier };
