@@ -15,7 +15,7 @@
 | F3 | Lịch sử quyết định: tab Granted và Declined | Các nút lọc phía trên bảng |
 | F4 | Ngữ cảnh phí theo từng đơn: Fee payable và Account balance (top-up) | Hai cột + khối thông tin trong cửa sổ Review |
 | F5 | Kết quả SBFAS phản ánh vào phí phải đóng (subsidy trên charge đã phát hành) | Fee → Student fees; modal charge |
-| F6 | Ghi nhận thanh toán cho charge được giảm trợ | Modal charge → *Record a payment* |
+| F6 | Xem thanh toán đã nhận của charge được giảm trợ (chỉ đọc; phụ huynh mới là người thanh toán) | Modal charge → *Payments received* |
 
 ---
 
@@ -92,7 +92,7 @@
 4. Override không có lý do → bị chặn, focus nhảy sang ô lý do. Override trùng tier khuyến nghị → bị chặn. Override hợp lệ → `Overridden - Tier n`.
 5. Reject một đơn → tab **Declined** +1, badge `Rejected`.
 6. Tìm một học sinh đã được SBFAS-approved trong Fee → Student fees: cột FAS hiển thị `SBFAS − S$x`; modal charge hiển thị khối subsidy và ghi chú subsidy ≠ top-up.
-7. Ghi nhận thanh toán cho charge đó (thử số tiền vượt phần còn nợ → bị từ chối; đúng bằng phần còn nợ → trạng thái thành *paid*, tham chiếu `CH-…-P1` xuất hiện).
+7. Mở modal charge: chỉ xem được *Payments received*, không có form thanh toán (phụ huynh thanh toán ở e-Service Portal).
 8. Tải lại trang — mọi thứ reset (mock trong bộ nhớ): hàng đợi về 12 Pending.
 
 **Vấn đề đã biết (không phải lỗi):** tier được chọn (Tier 1–4) chưa thay đổi mức subsidy (phẳng 20% — BR10); quyết định chưa ghi ngược field `sbfas` của học sinh ngay; MOEFAS auto-grant và API dải thu nhập là story riêng.

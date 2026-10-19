@@ -17,7 +17,7 @@
 | F3 | Decision history: Granted and Declined tabs | Filter buttons above the table |
 | F4 | Fee context per application: Fee payable and Account balance (top-up) | Two columns + an info block in the Review window |
 | F5 | SBFAS outcome reflected in the fee payable (subsidy on issued charges) | Fee → Student fees; charge modal |
-| F6 | Recording a payment against a subsidised charge | Charge modal → *Record a payment* |
+| F6 | Viewing payments received on a subsidised charge (read-only; parents pay, not school users) | Charge modal → *Payments received* |
 
 ---
 
@@ -94,7 +94,7 @@
 4. Override with no reason → blocked, focus jumps to the reason field. Override with the same tier as recommended → blocked. A valid Override → `Overridden - Tier n`.
 5. Reject an application → the **Declined** tab goes up by 1, the badge is `Rejected`.
 6. Find a student with SBFAS approved in Fee → Student fees: the FAS column shows `SBFAS − S$x`; the charge modal shows the subsidy block and the note that subsidy ≠ top-up.
-7. Record a payment for that charge (try an amount above what is owed → rejected; exactly the amount owed → status becomes *paid*, reference `CH-…-P1` appears).
+7. Open the charge modal: it shows *Payments received* only, with no payment form (parents pay in the e-Service Portal).
 8. Reload the page — everything resets (in-memory mock): the queue returns to 12 Pending.
 
 **Known issues (not bugs):** the chosen tier (Tier 1–4) does not yet change the subsidy level (flat 20% — BR10); a decision does not yet write back to the student's `sbfas` field immediately; MOEFAS auto-grant and the income-band API are separate stories.

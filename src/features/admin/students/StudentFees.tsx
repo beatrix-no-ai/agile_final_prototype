@@ -21,7 +21,7 @@ type Row = { id: string; charge: Charge; title: string; issued: string; due: str
 /** Req 3: every charge issued to one student, with the per-component breakdown on demand. */
 export default function StudentFees() {
   const student = useStudent();
-  const { state, dispatch } = useFees();
+  const { state } = useFees();
   const [openId, setOpenId] = useState<string | null>(null);
   // Re-resolve from state so the modal reflects a payment recorded while it is open.
   const open = state.charges.find((c) => c.id === openId) ?? null;
@@ -88,8 +88,7 @@ export default function StudentFees() {
         )}
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={12} large="md" empty={<EmptyState title="No charges yet" hint="The school generates charges under Fee, Assign and generate." />} />
       </Card>
-      <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)}
-        onPay={(chargeId, amount, method) => dispatch({ type: "recordPayment", chargeId, amount, method })} />
+      <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)} />
     </div>
   );
 }

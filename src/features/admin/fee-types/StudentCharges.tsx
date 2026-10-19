@@ -18,7 +18,7 @@ type Row = { id: string; charge: Charge; student: string; studentId: string; lev
 
 /** School user: every charge issued to the school's students, with search and filters. */
 export default function StudentCharges({ school }: { school: string }) {
-  const { state, dispatch } = useFees();
+  const { state } = useFees();
   const [q, setQ] = useState("");
   const [level, setLevel] = useState("");
   const [status, setStatus] = useState<"" | "outstanding" | "overdue" | "paid">("");
@@ -81,8 +81,7 @@ export default function StudentCharges({ school }: { school: string }) {
         </div>
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id} pageSize={10} large="md" empty={<EmptyState title="No charges match" hint="Change the filters, or generate charges in Assign and generate." />} />
       </Card>
-      <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)}
-        onPay={(chargeId, amount, method) => dispatch({ type: "recordPayment", chargeId, amount, method })} />
+      <ChargeModal charge={open} feeName={open ? state.types.find((f) => f.id === open.ftId)?.name : undefined} onClose={() => setOpenId(null)} />
     </div>
   );
 }
