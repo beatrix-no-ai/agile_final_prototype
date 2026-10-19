@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { feeReducer, initialFeeState } from "../data/feeStore";
 import { FEE_TYPES, type FeeType } from "../data/fees";
 import { STUDENTS, type Student } from "../data/students";
-import { addDays, aggregate, balanceOf, chargeStatus, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, studentsOfClass, subsidyOf, subsidyRate, validateFeeType } from "./fees";
+import { addDays, aggregate, balanceOf, chargeStatus, currentTerm, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, studentsOfClass, subsidyOf, subsidyRate, termOf, TERMS, validateFeeType } from "./fees";
 
 const draft = (o = {}) => ({ name: "Trip", level: "", components: [{ name: "Bus", amount: "12.50", on: true }], ...o });
 
@@ -37,18 +37,18 @@ describe("generate (no term: one charge per student per fee type per issue date)
   const ft = FEE_TYPES.find((f) => f.school === school)!;
   const klass = STUDENTS.find((s) => s.level === "P1")!.class;
   const students = studentsOfClass(school, klass);
-  const issued = "2026-10-12", due = "2026-11-11";
+  const issued = "2026-10-12", due = "2026-11-11", term = "2026 Term 4";
   test("creates one outstanding charge per student and skips repeats for the same issue date", () => {
     const s0 = { ...initialFeeState(), charges: [] };
-    const s1 = feeReducer(s0, { type: "generate", fee: ft, students, issued, due });
+    const s1 = feeReducer(s0, { type: "generate", fee: ft, students, issued, due, term });
     expect(s1.charges).toHaveLength(students.length);
     expect(s1.charges.every((c) => chargeStatus(c) === "outstanding" && c.components.length === ft.components.length)).toBe(true);
     expect(s1.charges.every((c) => c.issued === issued && c.due === due)).toBe(true);
-    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued, due }).charges).toHaveLength(students.length);
-    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued: "2026-11-12", due: "2026-12-12" }).charges).toHaveLength(students.length * 2);
+    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued, due, term }).charges).toHaveLength(students.length);
+    expect(feeReducer(s1, { type: "generate", fee: ft, students, issued: "2026-11-12", due: "2026-12-12", term: "2026 Term 1" }).charges).toHaveLength(students.length * 2);
   });
   test("editing a fee type does not change issued charges", () => {
-    const s1 = feeReducer({ ...initialFeeState(), charges: [] }, { type: "generate", fee: ft, students, issued, due });
+    const s1 = feeReducer({ ...initialFeeState(), charges: [] }, { type: "generate", fee: ft, students, issued, due, term });
     const s2 = feeReducer(s1, { type: "saveType", fee: { ...ft, components: [{ name: "New", amount: 1 }] } });
     expect(s2.charges[0].components).toHaveLength(ft.components.length);
     expect(s2.types.find((f) => f.id === ft.id)!.components).toHaveLength(1);
@@ -143,7 +143,7 @@ describe("seed invariants", () => {
   });
 });
 
-test("seed charges: unique ids, no term, aggregate splits collected and outstanding by derived status", () => {
+test("seed charges: unique ids, aggregate splits collected and outstanding by derived status", () => {
   const rows = seedCharges();
   expect(new Set(rows.map((c) => c.id)).size).toBe(rows.length);
   const a = aggregate(rows);
@@ -152,4 +152,28 @@ test("seed charges: unique ids, no term, aggregate splits collected and outstand
   expect(a.paid).toBeGreaterThan(0);
   expect(a.fromAccount).toBeGreaterThan(0);
   expect(nextChargeId(rows)).toBe(`CH-${1000 + rows.length + 1}`);
+});
+
+describe("terms (4 per school year)", () => {
+  test("a date falls into its term", () => {
+    expect(termOf("2026-02-10")).toBe("2026 Term 1");
+    expect(termOf("2026-05-20")).toBe("2026 Term 2");
+    expect(termOf("2026-08-20")).toBe("2026 Term 3");
+    expect(termOf("2026-10-12")).toBe("2026 Term 4");
+    expect(termOf("2026-12-31")).toBe("2026 Term 4");
+  });
+  test("the assign form pre-selects the term today falls in (TODAY is 2026-10-12)", () => {
+    expect(TERMS).toHaveLength(4);
+    expect(currentTerm()).toBe("2026 Term 4");
+  });
+  test("makeCharge derives the term from its issue date and lets the caller override it", () => {
+    const ft = FEE_TYPES[0], s = STUDENTS[0];
+    expect(makeCharge("CH-T1", ft, s, { issued: "2026-08-20" }).term).toBe("2026 Term 3");
+    expect(makeCharge("CH-T2", ft, s, { issued: "2026-08-20", term: "2026 Term 1" }).term).toBe("2026 Term 1");
+  });
+  test("the generate action stores the assigned term on every charge", () => {
+    const ft = FEE_TYPES[0], s = STUDENTS[0];
+    const st = feeReducer(initialFeeState(), { type: "generate", fee: ft, students: [s], issued: "2026-10-12", due: "2026-11-11", term: "2026 Term 1" });
+    expect(st.charges.at(-1)!.term).toBe("2026 Term 1");
+  });
 });

@@ -49,12 +49,20 @@ export const subsidyRate = (s: Pick<Student, "moefas" | "sbfas">) => fasOf(s)?.r
 export const nextChargeId = (rows: { id: string }[]) => `CH-${rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 1000) + 1}`;
 export const nextFeeTypeId = (rows: { id: string }[]) => `FT-${String(rows.reduce((m, r) => Math.max(m, Number(r.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(2, "0")}`;
 
-export const makeCharge = (id: string, ft: FeeType, s: Student, opts?: { issued?: string; due?: string }): Charge => {
+/** The school year runs in 4 terms (this mock's year is 2026). */
+export const TERMS = ["2026 Term 1", "2026 Term 2", "2026 Term 3", "2026 Term 4"] as const;
+export type Term = (typeof TERMS)[number];
+/** Term an ISO date falls into (Jan–Mar → 1, Apr–Jun → 2, Jul–Sep → 3, Oct–Dec → 4). */
+export const termOf = (iso: string): Term => `2026 Term ${Math.min(4, Math.floor(new Date(`${iso}T00:00:00`).getMonth() / 3) + 1)}` as Term;
+/** The term the assign form pre-selects: the term today falls in. */
+export const currentTerm = (): Term => termOf(TODAY);
+
+export const makeCharge = (id: string, ft: FeeType, s: Student, opts?: { issued?: string; due?: string; term?: string }): Charge => {
   const fas = fasOf(s);
   const issued = opts?.issued ?? TODAY;
   const due = opts?.due ?? addDays(issued, DEFAULT_DUE_DAYS);
   return {
-    id, studentId: s.id, ftId: ft.id, title: ft.name, issued, due,
+    id, studentId: s.id, ftId: ft.id, title: ft.name, issued, due, term: opts?.term ?? termOf(issued),
     fas: fas?.scheme, payments: [],
     components: ft.components.map((c) => ({ name: c.name, amount: c.amount, subsidy: Math.round(c.amount * (fas?.rate ?? 0) * 100) / 100 })),
   };

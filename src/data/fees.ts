@@ -20,7 +20,7 @@ export type Payment = { id: string; on: string; amount: number; method: PayMetho
  */
 export type Charge = {
   id: string; studentId: string; ftId: string; title: string;
-  issued: string; due: string; components: ChargeComponent[]; fas?: FasScheme; payments: Payment[];
+  issued: string; due: string; term?: string; components: ChargeComponent[]; fas?: FasScheme; payments: Payment[];
 };
 
 /** Default payment window when a charge is generated (no term to derive it from). */

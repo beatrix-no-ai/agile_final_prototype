@@ -9,7 +9,7 @@ import StudentCharges from "./StudentCharges";
 
 const TABS = [
   { id: "dash", label: "Student fees & dashboard", hint: "Collected vs outstanding" },
-  { id: "assign", label: "Assign fees", hint: "Issue charges to a class" },
+  { id: "assign", label: "Assign fees", hint: "MOE Bill · School Bill · history" },
   { id: "types", label: "School Bill catalogue", hint: "Set up what the school charges" },
   { id: "stu", label: "Student fees", hint: "Review every charge" },
 ] as const;
