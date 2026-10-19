@@ -27,7 +27,6 @@ export default function Users() {
   const [q, setQ] = useState("");
   const [form, setForm] = useState<{ editing: StaffAccount | null } | null>(null);
   const [notice, setNotice] = useState("");
-  const [creds, setCreds] = useState<{ name: string; email: string; password: string } | null>(null);
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -54,7 +53,7 @@ export default function Users() {
       </div>
       <Card>
         <p className="mb-4 text-sm text-on-surface-variant">
-          {hq ? "Each school has one Principal and any number of School Admins. MOE HQ creates the accounts." : "Give each School Admin the modules they can use. You can also add admins, reset passwords and deactivate accounts."}
+          {hq ? "Each school has one Principal and any number of School Admins. MOE HQ creates the accounts." : "Give each School Admin the modules they can use. You can also add admins and deactivate accounts."}
         </p>
         <div role="group" aria-label="Filters" className="grid gap-4 sm:grid-cols-2 sm:items-end">
           <Field label="Search by name or email">
@@ -89,27 +88,16 @@ export default function Users() {
           mySchool={mySchool}
           self={staff}
           onClose={() => setForm(null)}
-          onDone={(msg, c) => { setNotice(msg); if (c) setCreds(c); bump((n) => n + 1); setForm(null); }}
+          onDone={(msg) => { setNotice(msg); bump((n) => n + 1); setForm(null); }}
         />
       )}
-      <Modal open={!!creds} onClose={() => setCreds(null)} title="User login" footer={<Button onClick={() => setCreds(null)}>I have noted it</Button>}>
-        {creds && (
-          <div className="grid gap-3 text-sm">
-            <p>Give these details to <strong>{creds.name}</strong>. The password is shown only once.</p>
-            <dl className="grid gap-2 rounded-control border border-line bg-surface-container-low p-4">
-              <div><dt className="text-[13px] text-on-surface-variant">Login email</dt><dd className="font-semibold">{creds.email}</dd></div>
-              <div><dt className="text-[13px] text-on-surface-variant">One-time password</dt><dd className="font-mono text-lg font-bold">{creds.password}</dd></div>
-            </dl>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
 
 type FormProps = {
   editing: StaffAccount | null; hq: boolean; mySchool: string; self: StaffAccount | null;
-  onClose: () => void; onDone: (msg: string, creds?: { name: string; email: string; password: string }) => void;
+  onClose: () => void; onDone: (msg: string) => void;
 };
 
 function UserFormModal({ editing, hq, mySchool, self, onClose, onDone }: FormProps) {
@@ -119,7 +107,6 @@ function UserFormModal({ editing, hq, mySchool, self, onClose, onDone }: FormPro
     ? { schoolCode: editing.schoolCode ?? "", name: editing.name, email: editing.email, position: editing.title as Position, modules: [...editing.modules] }
     : { ...EMPTY, schoolCode: hq ? "" : mySchool });
   const [active, setActive] = useState(editing?.active ?? true);
-  const [reset, setReset] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const errors = submitted ? validateUser(v, editing ?? undefined) : {};
   // Only MOE HQ can create or reassign a Principal; a Principal's own record is read-only for them.
@@ -135,12 +122,12 @@ function UserFormModal({ editing, hq, mySchool, self, onClose, onDone }: FormPro
     setSubmitted(true);
     if (Object.keys(validateUser(v, editing ?? undefined)).length) return;
     if (editing) {
-      updateSchoolUser(editing, v, reset);
+      updateSchoolUser(editing, v);
       if (!isSelf) editing.active = active;
-      onDone(`${editing.name} was updated.`, reset ? { name: editing.name, email: editing.email, password: editing.password } : undefined);
+      onDone(`${editing.name} was updated.`);
     } else {
       const acct = createSchoolUser(v);
-      onDone(`${acct.name} was added to ${schoolName(acct.schoolCode)}.`, { name: acct.name, email: acct.email, password: acct.password });
+      onDone(`${acct.name} was added to ${schoolName(acct.schoolCode)}.`);
     }
   };
 
@@ -194,10 +181,6 @@ function UserFormModal({ editing, hq, mySchool, self, onClose, onDone }: FormPro
                 Account is active
               </label>
             )}
-            <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input type="checkbox" className="size-5 accent-primary" checked={reset} onChange={(e) => setReset(e.target.checked)} />
-              Issue a new one-time password
-            </label>
           </>
         )}
       </form>

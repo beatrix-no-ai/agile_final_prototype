@@ -77,11 +77,11 @@ export function validateUser(v: UserInput, editing?: StaffAccount): UserErrors {
   return e;
 }
 
-/** Creates a school user (MOE HQ or the Principal); the app generates a one-time password. */
+/** Creates a school user (MOE HQ or the Principal). Sign-in comes from the third-party system, so no password is issued. */
 export function createSchoolUser(v: UserInput): StaffAccount {
   const acct: StaffAccount = {
     role: "school", name: v.name.trim(), initials: initialsOf(v.name), title: v.position, email: v.email.trim().toLowerCase(),
-    password: `Tmp-${crypto.randomUUID().slice(0, 8)}`, schoolCode: v.schoolCode,
+    password: "", schoolCode: v.schoolCode,
     modules: v.position === "Principal" ? [...MODULES] : MODULES.filter((m) => v.modules.includes(m)), active: true,
   };
   STAFF.push(acct);
@@ -89,13 +89,12 @@ export function createSchoolUser(v: UserInput): StaffAccount {
 }
 
 /** Updates name, email, position and modules. The Principal always has every module. */
-export function updateSchoolUser(acct: StaffAccount, v: Omit<UserInput, "schoolCode">, resetPassword = false): StaffAccount {
+export function updateSchoolUser(acct: StaffAccount, v: Omit<UserInput, "schoolCode">): StaffAccount {
   acct.name = v.name.trim();
   acct.initials = initialsOf(v.name);
   acct.email = v.email.trim().toLowerCase();
   acct.title = v.position;
   acct.modules = v.position === "Principal" ? [...MODULES] : MODULES.filter((m) => v.modules.includes(m));
-  if (resetPassword) acct.password = `Tmp-${crypto.randomUUID().slice(0, 8)}`;
   return acct;
 }
 
