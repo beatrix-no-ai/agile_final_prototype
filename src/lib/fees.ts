@@ -57,14 +57,20 @@ export const termOf = (iso: string): Term => `2026 Term ${Math.min(4, Math.floor
 /** The term the assign form pre-selects: the term today falls in. */
 export const currentTerm = (): Term => termOf(TODAY);
 
-export const makeCharge = (id: string, ft: FeeType, s: Student, opts?: { issued?: string; due?: string; term?: string }): Charge => {
+/**
+ * Builds one charge for one student. `sbfasRate` overrides the flat national SBFAS rate with the
+ * school's tier rate when the student holds a decided SBFAS tier (school-defined package); MOEFAS is
+ * always the national full waiver and never takes an override.
+ */
+export const makeCharge = (id: string, ft: FeeType, s: Student, opts?: { issued?: string; due?: string; term?: string; sbfasRate?: number }): Charge => {
   const fas = fasOf(s);
+  const rate = fas ? (fas.scheme === "MOEFAS" ? fas.rate : opts?.sbfasRate ?? fas.rate) : 0;
   const issued = opts?.issued ?? TODAY;
   const due = opts?.due ?? addDays(issued, DEFAULT_DUE_DAYS);
   return {
     id, studentId: s.id, ftId: ft.id, title: ft.name, issued, due, term: opts?.term ?? termOf(issued),
     fas: fas?.scheme, payments: [],
-    components: ft.components.map((c) => ({ name: c.name, amount: c.amount, subsidy: Math.round(c.amount * (fas?.rate ?? 0) * 100) / 100 })),
+    components: ft.components.map((c) => ({ name: c.name, amount: c.amount, subsidy: Math.round(c.amount * rate * 100) / 100 })),
   };
 };
 

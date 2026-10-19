@@ -9,6 +9,8 @@ import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { useFees } from "../../../data/feeStore";
 import { DEFAULT_DUE_DAYS, MASTER, type Charge, type FeeType } from "../../../data/fees";
+import { ruleForSchool, tierRate } from "../../../data/sbfasRule";
+import { useSbfas } from "../../../data/sbfasStore";
 import { SCHOOLS } from "../../../data/schools";
 import { CLASS_RECORDS } from "../../../data/schoolMgmt";
 import { formatSGD } from "../../../lib/format";
@@ -43,6 +45,7 @@ export default function AssignCharges({ school, presetFee }: { school: string; p
 
 function Assign({ school, presetFee, source }: { school: string; presetFee?: string; source: "moe" | "school" }) {
   const { state, dispatch } = useFees();
+  const { state: sbfas } = useSbfas();
   const [picked, setPicked] = useState<string[]>(presetFee ? [presetFee] : []);
   const [level, setLevel] = useState("");
   const [scope, setScope] = useState<Scope>("level");
@@ -79,11 +82,22 @@ function Assign({ school, presetFee, source }: { school: string; presetFee?: str
   const fasSummary = ["MOEFAS", "SBFAS"].map((k) => `${withFas.filter((f) => f.scheme === k).length} ${k}`).filter((x) => !x.startsWith("0")).join(" + ") || "FAS";
 
   const add = (id: string) => { if (id && !picked.includes(id)) { setPicked([...picked, id]); setResult(null); } };
+  // SBFAS students follow the school's own rule: the rate of the tier their approved application decided.
+  const sbfasRateOf = (studentId: string): number | undefined => {
+    const app = sbfas.apps.find((a) => a.studentId === studentId && (a.status === "Approved" || a.status === "Overridden") && a.sbfasTier);
+    return app?.sbfasTier ? tierRate(ruleForSchool(sbfas.rules, school), app.sbfasTier) : undefined;
+  };
   const generate = () => {
     const due = addDays(TODAY, DEFAULT_DUE_DAYS);   // no due-date input anymore: every charge carries the standard 30-day window
     for (const fee of chosen) {
       const s = todo.filter((p) => p.fee.id === fee.id).map((p) => p.s);
-      if (s.length) dispatch({ type: "generate", fee, students: s, issued: TODAY, due, term });
+      if (!s.length) continue;
+      const rates: Record<string, number> = {};
+      for (const st of s) {
+        const r = sbfasRateOf(st.id);
+        if (r != null) rates[st.id] = r;
+      }
+      dispatch({ type: "generate", fee, students: s, issued: TODAY, due, term, ...(Object.keys(rates).length ? { rates } : {}) });
     }
     setResult({ created: todo.length, skipped: plan.length - todo.length, level: target, term });
   };
@@ -212,7 +226,7 @@ function Assign({ school, presetFee, source }: { school: string; presetFee?: str
         <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-on-surface-variant">
           <Badge tone="primary">FAS</Badge>
           <span>
-            {withFas.length} of {students.length} students receive {fasSummary} — for them the subsidy is deducted from the fee when the charge is generated, so their payable is lower than {formatSGD(perStudent)}. A student never receives both schemes: MOEFAS takes precedence over SBFAS.
+            {withFas.length} of {students.length} students receive {fasSummary} — for them the subsidy is deducted from the fee when the charge is generated, so their payable is lower than {formatSGD(perStudent)}. MOEFAS is the national full waiver; SBFAS students are subsidised at their decided tier's rate from your SBFAS rules. A student never receives both schemes: MOEFAS takes precedence over SBFAS.
           </span>
         </p>
       ) : null}

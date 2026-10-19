@@ -6,6 +6,7 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
+import { ruleForSchool } from "../../../data/sbfasRule";
 import { useFees } from "../../../data/feeStore";
 import { useSbfas } from "../../../data/sbfasStore";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
@@ -31,7 +32,8 @@ function Sla({ days }: { days: number }) {
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
 
-export default function SbfasApplications() {
+/** SBFAS review queue (Requirement 4, school side): shown to schools with the FAS module and read-only at HQ. */
+export function SbfasReview() {
   const query = useMockQuery(SBFAS_APPLICATIONS);
   const fees = useFees();
   // Decisions live in the app-level store, so they survive navigating between features.
@@ -81,6 +83,11 @@ export default function SbfasApplications() {
     dispatchSbfas({ type: "decide", id, action, draft });
     setOpenId(null);
   };
+
+  // The rule of the school that owns the opened application — SBFAS packages are school-defined.
+  const openApp = enriched.find((a) => a.id === openId) ?? null;
+  const openStudent = openApp ? STUDENTS.find((s) => s.id === openApp.studentId) : undefined;
+  const openRule = openApp ? ruleForSchool(sbfas.rules, openStudent ? schoolOfLevel(openStudent.level) : mySchool ?? "S001") : null;
 
   const columns: Column<Row>[] = [
     { key: "student", header: "Student", sortable: true, render: (a) => (
@@ -149,7 +156,7 @@ export default function SbfasApplications() {
           />
         )}
       </Card>
-      <ReviewModal app={enriched.find((a) => a.id === openId) ?? null} onClose={() => setOpenId(null)} onDecide={decide} />
+      <ReviewModal app={openApp} rule={openRule} onClose={() => setOpenId(null)} onDecide={decide} />
     </div>
   );
 }

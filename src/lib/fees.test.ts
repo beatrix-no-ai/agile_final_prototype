@@ -131,6 +131,15 @@ describe("makeCharge — stamps the scheme and deducts its subsidy", () => {
     expect(subsidyOf(c)).toBe(0);
     expect(subsidyRate(fasStudent("Not applied", "Not applied"))).toBe(0);
   });
+  test("sbfasRate overrides the flat SBFAS rate with the school's tier rate; MOEFAS never takes an override", () => {
+    const sbfas = makeCharge("CH-2", fasFee, fasStudent("Not applied", "Approved"), { sbfasRate: 0.8 });
+    expect(sbfas.fas).toBe("SBFAS");
+    expect(subsidyOf(sbfas)).toBe(120);        // 80% of 150 — the school's Tier 1 rule
+    expect(subsidyOf(makeCharge("CH-3", fasFee, fasStudent("Not applied", "Approved")))).toBe(75); // no rate → flat 50%
+    const moefas = makeCharge("CH-4", fasFee, fasStudent("Approved", "Not applied"), { sbfasRate: 0.8 });
+    expect(moefas.fas).toBe("MOEFAS");
+    expect(subsidyOf(moefas)).toBe(150);       // national full waiver, override ignored
+  });
 });
 
 describe("seed invariants", () => {

@@ -7,7 +7,7 @@ import type { Student } from "./students";
 export type FeeState = { types: FeeType[]; charges: Charge[] };
 export type FeeAction =
   | { type: "saveType"; fee: FeeType }
-  | { type: "generate"; fee: FeeType; students: Student[]; issued: string; due: string; term: string }
+  | { type: "generate"; fee: FeeType; students: Student[]; issued: string; due: string; term: string; rates?: Record<string, number> }
   | { type: "recordPayment"; chargeId: string; amount: number; method: PayMethod };
 
 export const initialFeeState = (): FeeState => ({ types: FEE_TYPES, charges: seedCharges() });
@@ -31,7 +31,8 @@ export function feeReducer(state: FeeState, a: FeeAction): FeeState {
   const all = [...state.charges];
   for (const s of a.students) {
     if (alreadyCharged(all, s.id, a.fee, a.issued)) continue;
-    all.push(makeCharge(nextChargeId(all), a.fee, s, { issued: a.issued, due: a.due, term: a.term }));
+    // rates: per-student SBFAS tier rates from the school's own rule (absent → flat national rate).
+    all.push(makeCharge(nextChargeId(all), a.fee, s, { issued: a.issued, due: a.due, term: a.term, sbfasRate: a.rates?.[s.id] }));
   }
   return { ...state, charges: all };
 }

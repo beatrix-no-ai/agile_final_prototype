@@ -19,6 +19,7 @@ const HQ: NavItem[] = [
   { to: "/admin/students", label: "Student", desc: "Student records and Education Accounts.", icon: GraduationCap },
   { to: "/admin/top-up", label: "Top-up", desc: "Credit accounts one by one or in batches by rule.", icon: Bank },
   { to: "/admin/fee-types", label: "Fee", desc: "Fee rates against the national ceilings.", icon: Tag },
+  { to: "/admin/fas", label: "FAS", desc: "MOEFAS rules, applications and SBFAS review.", icon: HandHeart },
 ];
 
 // School users: the FAS and Top-up screens are modules the Principal assigns (see SCHOOL_MODULES below).
@@ -54,7 +55,7 @@ export function navGroupsFor(role: Role, access?: Access): NavGroup[] {
   if (role === "hq") {
     return [
       { group: "School Management", items: pick(HQ, ["/admin/school-maintenance", "/admin/users", "/admin/classes", "/admin/students"]) },
-      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types"]) },
+      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types", "/admin/fas"]) },
     ];
   }
   const extra = SCHOOL_MODULES.filter((i) => (i.module ? access?.can(i.module) : access?.canManageUsers)).map(({ module: _m, manage: _g, ...item }) => item);
