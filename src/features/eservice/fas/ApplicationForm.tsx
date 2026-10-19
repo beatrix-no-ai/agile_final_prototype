@@ -8,7 +8,7 @@ import { TODAY } from "./shared";
 
 type Props = { values: FormValues; onChange: (v: FormValues) => void; applicant: string; onSubmit: () => void };
 
-/** The family application: contact details, an optional note, the declaration and consent. Household and income come from the section above. */
+/** The family application: extra income and residents (for GHI and PCI), contact details, an optional note, the declaration and consent. The household and income band come from HOMES in the section above. */
 export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props) {
   const [tried, setTried] = useState(false);
   const [consent, setConsent] = useState(false);
@@ -28,8 +28,16 @@ export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props
 
   return (
     <Card title="Your FAS application">
-      <p className="text-sm text-on-surface-variant">One application covers the whole family. Check your contact details, then submit.</p>
+      <p className="text-sm text-on-surface-variant">One application covers the whole family. Tell us about your household, check your contact details, then submit.</p>
       <form ref={formRef} noValidate onSubmit={submit} className="mt-4 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field required label="Extra monthly money (S$)" error={errors.extraIncome} hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none.">
+            <input name="extraIncome" inputMode="decimal" className={inputClass} value={values.extraIncome} onChange={set("extraIncome")} />
+          </Field>
+          <Field required label="People currently living in your home" error={errors.residents} hint="Everyone who lives with you now, including you.">
+            <input name="residents" type="number" min={1} max={20} step={1} inputMode="numeric" className={inputClass} value={values.residents} onChange={set("residents")} />
+          </Field>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field required label="Contact number" error={errors.contact} hint="Singapore number, e.g. +65 9123 4567">
             <input name="contact" type="tel" autoComplete="tel" className={inputClass} value={values.contact} onChange={set("contact")} />
@@ -61,7 +69,7 @@ export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props
               onChange={(e) => setConsent(e.target.checked)}
               className="mt-0.5 size-5 shrink-0 accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             />
-            I agree to MOE retrieving my household income band from SingPass and sharing this application with my children's schools for assessment. <span aria-hidden className="text-alert">*</span>
+            I agree to MOE retrieving my household income from HOMES and sharing this application with my children's schools for assessment. <span aria-hidden className="text-alert">*</span>
           </label>
           {errors.consent && <p id="consent-err" role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.consent}</p>}
         </div>

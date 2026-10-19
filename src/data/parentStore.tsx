@@ -15,14 +15,16 @@ import { useTopUp } from "./topupStore";
 // Everything else the parent sees is derived from the school side (fees, Education Accounts, FAS decisions), so both portals always agree.
 /** Where the family's FAS application stands: nothing started, being prepared, or submitted (then under review). */
 export type FasStage = "not-started" | "preparing" | "submitted";
-export type FasProgress = { stage: FasStage; submittedOn?: string };
+/** Extra monthly money and current residents, kept for the GHI / PCI calculation later. */
+export type FasDetails = { extraIncome: number; residents: number };
+export type FasProgress = { stage: FasStage; submittedOn?: string; details?: FasDetails };
 type Local = { profile: Profile; fas: FasProgress };
 export type ParentState = Local & { invoices: Invoice[]; children: Child[]; transactions: Transaction[]; outcomes: Record<string, ChildFas | null> };
 
 type LocalAction =
   | { type: "saveProfile"; form: ProfileForm }
   | { type: "startFas" }
-  | { type: "submitFas"; date: string; band: Band };
+  | { type: "submitFas"; date: string; band: Band; details?: FasDetails };
 export type ParentAction = LocalAction | { type: "pay"; ids: string[]; mode: Mode; date: string };
 
 export const initialParentState: Local = { profile, fas: { stage: "not-started" } };
@@ -35,7 +37,7 @@ export function parentReducer(state: Local, action: LocalAction): Local {
     case "startFas":
       return state.fas.stage === "not-started" ? { ...state, fas: { stage: "preparing" } } : state;
     case "submitFas":
-      return state.fas.stage === "preparing" ? { ...state, fas: { stage: "submitted", submittedOn: action.date } } : state;
+      return state.fas.stage === "preparing" ? { ...state, fas: { stage: "submitted", submittedOn: action.date, details: action.details } } : state;
   }
 }
 

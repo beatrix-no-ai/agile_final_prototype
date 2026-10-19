@@ -1,11 +1,9 @@
-import { ArrowRight } from "@phosphor-icons/react";
-import { Link } from "react-router";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Card } from "../../../components/ui/Card";
 import type { ChildFas } from "../../../data/fasStore";
 import { fasStatus, type Child } from "../../../data/parent";
 import type { FasProgress } from "../../../data/parentStore";
-import { fmtDate, linkClass } from "./shared";
+import { GoLink, fmtDate } from "./shared";
 
 type Overall = { label: "Pending" | "Granted" | "Declined"; tone: BadgeTone };
 
@@ -24,9 +22,7 @@ export function FasCard({ progress, children, outcomes }: { progress: FasProgres
         <p className="text-sm text-on-surface-variant">
           {started ? "You have started an application. Finish it and submit it to MOE." : "You have not applied yet. One application covers all your children."}
         </p>
-        <Link to="/parent/fas" className={`${linkClass} mt-3 gap-1`}>
-          {started ? "Continue application" : "Start FAS application"} <ArrowRight size={14} weight="bold" aria-hidden="true" />
-        </Link>
+        <div className="mt-3"><GoLink to="/parent/fas" label={started ? "Continue application" : "Start FAS application"} /></div>
       </Card>
     );
   }
@@ -45,9 +41,7 @@ export function FasCard({ progress, children, outcomes }: { progress: FasProgres
           );
         })}
       </ul>
-      <Link to="/parent/fas" className={`${linkClass} mt-3 gap-1`}>
-        View application <ArrowRight size={14} weight="bold" aria-hidden="true" />
-      </Link>
+      <div className="mt-3"><GoLink to="/parent/fas" label="View application" /></div>
     </Card>
   );
 }

@@ -4,12 +4,6 @@ import { application } from "../../../data/familyFas";
 import { fmtDate } from "../overview/shared";
 import type { Step } from "./logic";
 
-const HINT: Record<string, string> = {
-  "Prepare info": "Check your household details and fill in the form.",
-  Submission: "Send your application to MOE.",
-  Disbursement: "Assistance is paid out after MOE has reviewed your application.",
-};
-
 /** Three-stage progress: the first step that is not Done is the current one. */
 export function Tracker({ steps, submittedOn }: { steps: Step[]; submittedOn?: string }) {
   const current = steps.findIndex((s) => s.state !== "Done");
@@ -31,8 +25,7 @@ export function Tracker({ steps, submittedOn }: { steps: Step[]; submittedOn?: s
                 <span className={`hidden h-0.5 flex-1 sm:block ${i === steps.length - 1 ? "sm:hidden" : done ? "bg-success" : "bg-line"}`} aria-hidden="true" />
               </div>
               <p className="mt-2 text-[15px] font-semibold">{s.name}</p>
-              <p className="text-[13px] font-medium text-on-surface-variant">{done ? "Done" : now ? "In progress" : s.state === "To do" ? "Next step" : "Not started"}</p>
-              <p className="mt-1 text-[13px] text-on-surface-variant">{HINT[s.name]}</p>
+              <p className="sr-only">{done ? "Done" : now ? "In progress" : s.state === "To do" ? "Next step" : "Not started"}</p>
             </li>
           );
         })}

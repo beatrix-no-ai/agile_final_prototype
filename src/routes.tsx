@@ -87,7 +87,6 @@ export const router = createBrowserRouter([
         path: "parent",
         children: [
           { index: true, ...page(() => import("./features/eservice/overview/Overview")) },
-          { path: "payments", ...page(() => import("./features/eservice/payments/Payments")) },
           { path: "transactions", ...page(() => import("./features/eservice/transactions/Transactions")) },
           { path: "fas", ...page(() => import("./features/eservice/fas/FamilyApplication")) },
           { path: "settings", ...page(() => import("./features/eservice/settings/Settings")) },

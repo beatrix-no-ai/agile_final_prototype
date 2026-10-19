@@ -13,9 +13,9 @@ import type { Outcome } from "./useSync";
 type Props = { status: SyncStatus; bandId: string; syncedOn: string; onSync: (o: Outcome) => void };
 
 const message: Partial<Record<SyncStatus, string>> = {
-  loading: "Syncing your income band via SingPass...",
-  success: "Income band synced via SingPass.",
-  error: "SingPass did not respond. Your previous band is kept. Try again.",
+  loading: "Syncing your income band via HOMES...",
+  success: "Income band synced via HOMES.",
+  error: "HOMES did not respond. Your previous band is kept. Try again.",
 };
 
 export function Household({ status, bandId, syncedOn, onSync }: Props) {
@@ -45,7 +45,7 @@ export function Household({ status, bandId, syncedOn, onSync }: Props) {
         ))}
       </ul>
       <div className="mt-2 rounded-control border border-line bg-surface-container-low p-4">
-        <p className="text-[13px] font-semibold text-on-surface-variant">Household income band (via SingPass)</p>
+        <p className="text-[13px] font-semibold text-on-surface-variant">Household income band (via HOMES)</p>
         <p className="mt-1 text-lg font-bold">{band?.label ?? "Not synced"}</p>
         <p className="text-[13px] text-on-surface-variant">Only a band is shared with MOE, never exact income. Last synced {fmtDate(syncedOn)}.</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">

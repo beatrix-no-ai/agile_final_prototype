@@ -21,7 +21,8 @@ test("trackerSteps has three stages: prepare info, submission, disbursement", ()
   expect(s("submitted")).toEqual(["Prepare info:Done", "Submission:Done", "Disbursement:Waiting"]);
 });
 
-const ok = { contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };
+const hh = { extraIncome: "0", residents: "4" };
+const ok = { ...hh, contact: "+65 9123 4567", mailingAddress: "Blk 1", note: "" };
 
 test("validateForm requires fields, a valid SG number and consent", () => {
   expect(validateForm(ok, true)).toEqual({});
@@ -32,17 +33,25 @@ test("validateForm requires fields, a valid SG number and consent", () => {
   expect(validateForm(ok, false).consent).toBeTruthy();
 });
 
+test("validateForm checks extra money and residents (for GHI and PCI)", () => {
+  expect(validateForm({ ...ok, extraIncome: "350.50" }, true)).toEqual({});
+  expect(validateForm({ ...ok, extraIncome: "" }, true).extraIncome).toBeTruthy();
+  expect(validateForm({ ...ok, extraIncome: "-5" }, true).extraIncome).toBeTruthy();
+  expect(validateForm({ ...ok, residents: "0" }, true).residents).toBeTruthy();
+  expect(validateForm({ ...ok, residents: "2.5" }, true).residents).toBeTruthy();
+});
+
 test("autoFill fills only empty fields and counts them", () => {
-  const empty = { contact: "", mailingAddress: "", note: "" };
-  expect(autoFill(empty)).toEqual({ values: autoFillSource, count: 3 });
+  const empty = { ...hh, contact: "", mailingAddress: "", note: "" };
+  expect(autoFill(empty)).toEqual({ values: { ...hh, ...autoFillSource }, count: 3 });
   expect(validateForm(autoFill(empty).values, true)).toEqual({});
   const typed = { ...empty, note: "my own words", contact: "9000 0000" };
-  expect(autoFill(typed)).toEqual({ values: { ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 1 });
-  expect(autoFill(autoFillSource).count).toBe(0);
+  expect(autoFill(typed)).toEqual({ values: { ...hh, ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 1 });
+  expect(autoFill({ ...hh, ...autoFillSource }).count).toBe(0);
 });
 
 test("answersToForm maps picks and keeps the typed value when the parent will type their own", () => {
-  const empty = { contact: "", mailingAddress: "", note: "" };
+  const empty = { ...hh, contact: "", mailingAddress: "", note: "" };
   expect(answersToForm({ mailing: "same", contact: "same" }, empty)).toMatchObject({
     contact: autoFillSource.contact,
     mailingAddress: autoFillSource.mailingAddress,

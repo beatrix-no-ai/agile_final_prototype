@@ -3,7 +3,7 @@ import { fasStatus, profile, type Child } from "./parent";
 
 export type Member = { id: string; name: string; role: "Applicant" | "Spouse" | "Child"; detail: string };
 
-// ASSUMPTION: the spouse is invented; MOE would read household members from SingPass / MyInfo.
+// ASSUMPTION: the spouse is invented; MOE would read household members and income from HOMES.
 export const householdOf = (children: Child[]): Member[] => [
   { id: "m1", name: profile.name, role: "Applicant", detail: `NRIC ${profile.nric}` },
   { id: "m2", name: "David Lim", role: "Spouse", detail: "NRIC S****214C" },

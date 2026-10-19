@@ -23,8 +23,8 @@ export default function FamilyApplication() {
   const { stage, submittedOn } = state.fas;
   // Disbursement starts once the school has answered for every child that was waiting on it.
   const decided = !Object.values(state.outcomes).some((o) => o?.status === "Awaiting school decision");
-  // The form starts with the details already on the parent's profile.
-  const [values, setValues] = useState<FormValues>({ contact: state.profile.contact, mailingAddress: state.profile.mailingAddress, note: "" });
+  // The form starts with the details already on the parent's profile. Residents defaults to the household on file (parents + children), editable.
+  const [values, setValues] = useState<FormValues>({ extraIncome: "0", residents: String(state.children.length + 2), contact: state.profile.contact, mailingAddress: state.profile.mailingAddress, note: "" });
 
   if (query.status === "loading") {
     return (
@@ -50,7 +50,7 @@ export default function FamilyApplication() {
       <StartFas stage={stage} submittedOn={submittedOn} onStart={() => dispatch({ type: "startFas" })} />
       {stage === "submitted" && <ChildResults children={state.children} outcomes={state.outcomes} />}
       {stage === "preparing" && (
-        <ApplicationForm values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => dispatch({ type: "submitFas", date: TODAY, band: BANDS.find((b) => b.id === sync.bandId)! })} />
+        <ApplicationForm values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => dispatch({ type: "submitFas", date: TODAY, band: BANDS.find((b) => b.id === sync.bandId)!, details: { extraIncome: Number(values.extraIncome), residents: Number(values.residents) } })} />
       )}
     </div>
   );

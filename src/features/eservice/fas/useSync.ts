@@ -3,7 +3,7 @@ import { application, initialBandId } from "../../../data/familyFas";
 import { TODAY } from "./shared";
 import type { SyncStatus } from "./logic";
 
-/** ASSUMPTION: mock SingPass income sync. The outcome ("fail" or a band id) is chosen in the demo control; the sync returns a band id, never an exact income. */
+/** ASSUMPTION: mock HOMES income sync. The outcome ("fail" or a band id) is chosen in the demo control; the sync returns a band id, never an exact income. */
 export type Outcome = string;
 
 export function useSync() {
