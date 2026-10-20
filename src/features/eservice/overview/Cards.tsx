@@ -12,7 +12,7 @@ import { childOutstanding, nextDue, outstanding, paidThisYear } from "./summary"
 export function Summary({ invoices, children, onPay }: { invoices: Invoice[]; children: Child[]; onPay: (ids: string[]) => void }) {
   const openIds = invoices.filter((i) => i.status !== "paid").map((i) => i.id);
   // Education Account balances are used first automatically; only the shortfall goes to card or bank.
-  const split = settle(invoices, children, new Set(openIds), "account-first");
+  const split = settle(invoices, children, new Set(openIds));
   const owed = outstanding(invoices);
   const unpaid = invoices.filter((i) => i.status !== "paid").length;
   const overdue = invoices.filter((i) => i.status === "overdue").length;

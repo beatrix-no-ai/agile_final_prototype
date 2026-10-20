@@ -6,12 +6,15 @@ import { Field, inputClass } from "../../../components/ui/Field";
 import { validateForm, type FormValues } from "./logic";
 import { TODAY } from "./shared";
 
-type Props = { values: FormValues; onChange: (v: FormValues) => void; applicant: string; onSubmit: () => void };
+const MAX_BYTES = 5 * 1024 * 1024;
+
+type Props ={ values: FormValues; onChange: (v: FormValues) => void; applicant: string; onSubmit: () => void };
 
 /** The family application: extra income and residents (for GHI and PCI), contact details, an optional note, the declaration and consent. The household and income band come from HOMES in the section above. */
 export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props) {
   const [tried, setTried] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [docs, setDocs] = useState<File[]>([]); // ponytail: held in the form only, not sent anywhere (no backend)
   const formRef = useRef<HTMLFormElement>(null);
 
   // After the first submit attempt, errors re-evaluate live.
@@ -49,6 +52,29 @@ export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props
         <Field label="Anything else the bursar should know? (optional)">
           <textarea name="note" rows={3} className={`${inputClass} py-2`} value={values.note} onChange={set("note")} />
         </Field>
+        <Field label="Supporting documents (optional)" hint="e.g. payslips, retrenchment letter, medical bills. PDF, JPG or PNG, up to 5 MB each.">
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png"
+            className={`${inputClass} py-2 file:mr-3 file:rounded-control file:border-0 file:bg-surface-container-low file:px-3 file:py-1 file:font-medium file:text-primary`}
+            onChange={(e) => {
+              const picked = Array.from(e.target.files ?? []).filter((f) => f.size <= MAX_BYTES);
+              setDocs((d) => [...d, ...picked]);
+              e.target.value = ""; // allow re-picking the same file
+            }}
+          />
+        </Field>
+        {docs.length > 0 && (
+          <ul className="divide-y divide-line rounded-control border border-line text-[13px]">
+            {docs.map((f, i) => (
+              <li key={`${f.name}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2">
+                <span className="truncate">{f.name} <span className="text-on-surface-variant">({Math.max(1, Math.round(f.size / 1024))} KB)</span></span>
+                <button type="button" aria-label={`Remove ${f.name}`} className="min-h-8 px-2 font-medium text-primary" onClick={() => setDocs((d) => d.filter((_, j) => j !== i))}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        )}
         <section aria-labelledby="declaration" className="rounded-control border border-line bg-surface-container-low p-4">
           <h3 id="declaration" className="text-sm font-bold">Declaration</h3>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-[13px] text-on-surface-variant">
