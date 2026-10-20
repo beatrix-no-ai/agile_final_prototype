@@ -46,7 +46,7 @@ export default function FamilyApplication() {
   return (
     <div className="space-y-4">
       <Tracker steps={trackerSteps(stage, decided)} submittedOn={submittedOn} />
-      <Household status={sync.status} bandId={sync.bandId} syncedOn={sync.syncedOn} onSync={sync.run} />
+      <Household bandId={sync.bandId} syncedOn={sync.syncedOn} />
       <StartFas stage={stage} submittedOn={submittedOn} onStart={() => dispatch({ type: "startFas" })} />
       {stage === "submitted" && <ChildResults children={state.children} outcomes={state.outcomes} />}
       {stage === "preparing" && (
