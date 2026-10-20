@@ -4,6 +4,7 @@ import { sbfasUsage } from "../lib/budget";
 import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
 import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
+import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
 
 // ASSUMPTION: FAS decisions and budgets live in memory only and reset on reload (no backend), like the fee store.
@@ -14,7 +15,7 @@ export type MoefasGrant = { tier: SbfasTier; at: string };
 export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant> };
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
-  | { type: "submitFamily"; studentIds: string[]; band: Band; at: string }
+  | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, { level: RiskLevel | null; tier: SbfasTier | null }> }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {} });
@@ -36,7 +37,18 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       if (!student || moefas[id] || apps.some((x) => x.studentId === id)) continue; // one application and one grant per student
       if (a.band.tier === "MOEFAS Tier 1" || a.band.tier === "MOEFAS Tier 2") moefas[id] = { tier: a.band.tier.replace("MOEFAS ", "") as SbfasTier, at: a.at };
       // ASSUMPTION: the school has 10 working days to decide a new application.
-      else if (a.band.tier === "SBFAS") apps = [...apps, { id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), riskScore: 50, recommendedTier: "Tier 3", slaDays: 10, explanation: FAMILY_EXPLANATION, status: "Pending" }];
+      else if (a.band.tier === "SBFAS") {
+        const rec = a.recommend?.[id];
+        apps = [...apps, {
+          id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
+          incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), riskScore: 50,
+          recommendedTier: rec?.tier ?? "Tier 3", slaDays: 10,
+          explanation: rec?.level
+            ? `Submitted by the family through the FAS form. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
+            : FAMILY_EXPLANATION,
+          status: "Pending",
+        }];
+      }
     }
     return { ...state, apps, moefas };
   }

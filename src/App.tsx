@@ -16,13 +16,14 @@ export default function App() {
         <TopUpProvider>
           <FeeProvider>
             <FasProvider>
-              <ParentProvider>
-                <SbfasProvider>
+              {/* ParentProvider's useFasActions reads the SBFAS rules, so it must sit inside SbfasProvider. */}
+              <SbfasProvider>
+                <ParentProvider>
                   <MoefasProvider>
                     <RouterProvider router={router} />
                   </MoefasProvider>
-                </SbfasProvider>
-              </ParentProvider>
+                </ParentProvider>
+              </SbfasProvider>
             </FasProvider>
           </FeeProvider>
         </TopUpProvider>
