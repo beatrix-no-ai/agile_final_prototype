@@ -1,5 +1,5 @@
 import {
-  Bank, Buildings, ChalkboardTeacher, Coins, Gear,
+  Bank, Buildings, ChalkboardTeacher, Coins, CreditCard, Gear,
   GraduationCap, HandHeart, House, Receipt, Tag, UserGear, type Icon,
 } from "@phosphor-icons/react";
 import type { Role } from "../session";
@@ -32,6 +32,7 @@ const SCHOOL: NavItem[] = [
 
 const PARENT: NavItem[] = [
   { to: "/parent", label: "Overview", icon: House },
+  { to: "/parent/payments", label: "Payments", icon: CreditCard },
   { to: "/parent/transactions", label: "Transactions", icon: Receipt },
   { to: "/parent/fas", label: "Financial Assistance Scheme", icon: HandHeart },
   { to: "/parent/settings", label: "Settings", icon: Gear },
