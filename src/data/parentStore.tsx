@@ -1,5 +1,4 @@
 import { createContext, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
-import type { Mode } from "../features/eservice/payments/settle";
 import type { ProfileForm } from "../features/eservice/overview/summary";
 import { familyChildren, familyInvoices, familyTransactions, payActions } from "../lib/family";
 import { useFasActions } from "./fasActions";
@@ -25,7 +24,7 @@ type LocalAction =
   | { type: "saveProfile"; form: ProfileForm }
   | { type: "startFas" }
   | { type: "submitFas"; date: string; band: Band; details?: FasDetails };
-export type ParentAction = LocalAction | { type: "pay"; ids: string[]; mode: Mode; date: string };
+export type ParentAction = LocalAction | { type: "pay"; ids: string[]; date: string };
 
 export const initialParentState: Local = { profile, fas: { stage: "not-started" } };
 
@@ -67,7 +66,7 @@ export function ParentProvider({ children: kids }: { children: ReactNode }) {
   const dispatch: Dispatch<ParentAction> = (a) => {
     if (a.type === "pay") {
       // Paying writes to the school's fee records and the student's Education Account, so the school side sees it too.
-      for (const act of payActions(state.invoices, state.children, new Set(a.ids), a.mode)) fees.dispatch(act);
+      for (const act of payActions(state.invoices, state.children, new Set(a.ids))) fees.dispatch(act);
       return;
     }
     dispatchLocal(a);

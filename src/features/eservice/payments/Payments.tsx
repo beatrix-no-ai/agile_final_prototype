@@ -10,13 +10,12 @@ import { useMockQuery } from "../../../lib/useMockQuery";
 import { GatewayModal } from "./GatewayModal";
 import { InvoiceList } from "./InvoiceList";
 import { PaymentSummary } from "./PaymentSummary";
-import { isPayable, settle, type Mode } from "./settle";
+import { isPayable, settle } from "./settle";
 
 export default function Payments() {
   const query = useMockQuery(null);
   const { state: data, dispatch } = useParent();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  const [mode, setMode] = useState<Mode>("account-first");
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const msgRef = useRef<HTMLDivElement>(null);
@@ -24,7 +23,7 @@ export default function Payments() {
   const focusMsg = useRef(false);
   useEffect(() => { if (!open && focusMsg.current) { focusMsg.current = false; msgRef.current?.focus(); } }, [open]);
 
-  const summary = useMemo(() => settle(data.invoices, data.children, selected, mode), [data, selected, mode]);
+  const summary = useMemo(() => settle(data.invoices, data.children, selected), [data, selected]);
   const payable = data.invoices.filter(isPayable);
   const payableIds = payable.map((i) => i.id);
   const owed = payable.reduce((n, i) => n + i.amount, 0);
@@ -35,11 +34,11 @@ export default function Payments() {
   const toggleAll = () => setSelected((s) => (payableIds.every((id) => s.has(id)) ? new Set() : new Set(payableIds)));
 
   const onPaid = useCallback(() => {
-    dispatch({ type: "pay", ids: [...selected], mode, date: MOCK_TODAY });
+    dispatch({ type: "pay", ids: [...selected], date: MOCK_TODAY });
     setMessage(`Payment of ${formatSGD(summary.total)} received for ${selected.size} ${selected.size === 1 ? "invoice" : "invoices"}.`);
     setSelected(new Set());
     focusMsg.current = true;
-  }, [dispatch, selected, mode, summary.total]);
+  }, [dispatch, selected, summary.total]);
 
   return (
     <div className="space-y-4 pb-24 lg:pb-0">
@@ -64,7 +63,7 @@ export default function Payments() {
                     <span className="min-w-0">
                       <span className="block text-[13px] text-on-surface-variant">{c.name} - {c.level}</span>
                       <span className="block text-2xl font-bold tabular-nums text-primary">{formatSGD(c.educationBalance)}</span>
-                      {mode === "account-first" && (toUse.get(c.id) ?? 0) > 0 && <span className="block text-xs font-medium text-primary">Using {formatSGD(toUse.get(c.id)!)} for this payment</span>}
+                      {(toUse.get(c.id) ?? 0) > 0 && <span className="block text-xs font-medium text-primary">Using {formatSGD(toUse.get(c.id)!)} for this payment</span>}
                     </span>
                   </li>
                 ))}
@@ -84,7 +83,7 @@ export default function Payments() {
               )}
             </Card>
           </div>
-          <PaymentSummary summary={summary} mode={mode} onMode={setMode} onAuthorize={() => setOpen(true)} />
+          <PaymentSummary summary={summary} onAuthorize={() => setOpen(true)} />
         </div>
       )}
       <GatewayModal open={open} summary={summary} onClose={() => setOpen(false)} onPaid={onPaid} />

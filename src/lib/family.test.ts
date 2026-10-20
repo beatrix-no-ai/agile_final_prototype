@@ -104,44 +104,30 @@ describe("paying", () => {
     Math.round(acts.reduce((t, a) => t + (a.type === "recordPayment" && a.method === method ? a.amount : 0), 0) * 100) / 100;
 
   test("account first: the balance pays that child's invoices, the rest goes to the card", () => {
-    const acts = payActions(invoices, kids, ids, "account-first");
+    const acts = payActions(invoices, kids, ids);
     const total = Math.round(open.reduce((t, i) => t + i.amount, 0) * 100) / 100;
     expect(sumOf(acts, "Education account")).toBe(chloe.educationBalance);
     expect(Math.round((sumOf(acts, "Education account") + sumOf(acts, "Card / PayNow")) * 100) / 100).toBe(total);
   });
 
-  test("gateway only never touches the account", () => {
-    const acts = payActions(invoices, kids, ids, "gateway");
-    expect(acts.length).toBeGreaterThan(0);
-    expect(acts.every((a) => a.type === "recordPayment" && a.method === "Card / PayNow")).toBe(true);
-  });
-
   test("paying through the fee store settles the invoices and debits the account, so the admin side sees it too", () => {
     let s = fees;
-    for (const a of payActions(invoices, kids, ids, "account-first")) s = feeReducer(s, a);
+    for (const a of payActions(invoices, kids, ids)) s = feeReducer(s, a);
     expect(familyInvoices(s.charges, [chloe.id]).every((i) => i.status === "paid")).toBe(true);
     expect(s.debits[chloe.id]).toBe(chloe.educationBalance);
     expect(familyChildren(STUDENTS, { debits: s.debits, credits: {} }, SCHOOL_RECORDS, CLASS_RECORDS)[1].educationBalance).toBe(0);
-    expect(settle(familyInvoices(s.charges, [chloe.id]), kids, ids, "gateway").total).toBe(0);
+    expect(settle(familyInvoices(s.charges, [chloe.id]), kids, ids).total).toBe(0);
   });
 
-  test("a card payment leaves the account alone", () => {
-    let s = fees;
-    for (const a of payActions(invoices, kids, ids, "gateway")) s = feeReducer(s, a);
-    expect(s.debits[chloe.id] ?? 0).toBe(0);
-  });
 });
 
 describe("the account payments list", () => {
   const open = new Set(invoices.filter((i) => i.childId === chloe.id && i.status !== "paid").map((i) => i.id));
-  test("a payment from the Education Account is listed for the student, a card payment is not", () => {
+  test("a payment from the Education Account is listed for the student", () => {
     let s = fees;
-    for (const a of payActions(invoices, kids, open, "account-first")) s = feeReducer(s, a);
+    for (const a of payActions(invoices, kids, open)) s = feeReducer(s, a);
     expect(s.paidFromAccount.length).toBeGreaterThan(0);
     expect(s.paidFromAccount.every((p) => p.studentId === chloe.id)).toBe(true);
     expect(Math.round(s.paidFromAccount.reduce((t, p) => t + p.amount, 0) * 100) / 100).toBe(s.debits[chloe.id]);
-    let g = fees;
-    for (const a of payActions(invoices, kids, open, "gateway")) g = feeReducer(g, a);
-    expect(g.paidFromAccount).toEqual([]);
   });
 });

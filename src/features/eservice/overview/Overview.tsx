@@ -29,8 +29,8 @@ export default function Overview() {
   const { state, dispatch } = useParent();
   const [payIds, setPayIds] = useState<string[] | null>(null);
   // Pay always uses each child's Education Account first; only the shortfall goes to the gateway.
-  const summary = useMemo(() => settle(state.invoices, state.children, new Set(payIds ?? []), "account-first"), [state.invoices, state.children, payIds]);
-  const onPaid = useCallback(() => dispatch({ type: "pay", ids: payIds ?? [], mode: "account-first", date: MOCK_TODAY }), [dispatch, payIds]);
+  const summary = useMemo(() => settle(state.invoices, state.children, new Set(payIds ?? [])), [state.invoices, state.children, payIds]);
+  const onPaid = useCallback(() => dispatch({ type: "pay", ids: payIds ?? [], date: MOCK_TODAY }), [dispatch, payIds]);
 
   if (query.status === "loading") return <Skeleton />;
   if (query.status === "error" || !query.data) {

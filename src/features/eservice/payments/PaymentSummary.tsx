@@ -1,13 +1,8 @@
-import { Bank, CreditCard, GraduationCap, LockKey } from "@phosphor-icons/react";
+import { LockKey } from "@phosphor-icons/react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { formatSGD } from "../../../lib/format";
-import type { Mode, Summary } from "./settle";
-
-const OPTIONS: { value: Mode; title: string; hint: string; Icon: typeof Bank }[] = [
-  { value: "account-first", title: "Use Education Account first", hint: "Each child's balance pays that child's invoices. Any shortfall is paid by card or bank.", Icon: GraduationCap },
-  { value: "gateway", title: "Pay all by card or bank", hint: "Education Account balances stay untouched.", Icon: CreditCard },
-];
+import type { Summary } from "./settle";
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -18,9 +13,9 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-type Props = { summary: Summary; mode: Mode; onMode: (m: Mode) => void; onAuthorize: () => void };
+type Props = { summary: Summary; onAuthorize: () => void };
 
-export function PaymentSummary({ summary, mode, onMode, onAuthorize }: Props) {
+export function PaymentSummary({ summary, onAuthorize }: Props) {
   const { total, fromAccount, fromGateway, lines } = summary;
   const empty = total <= 0;
   const payLabel = empty ? "Choose invoices to pay" : `Pay ${formatSGD(total)}`;
@@ -34,21 +29,6 @@ export function PaymentSummary({ summary, mode, onMode, onAuthorize }: Props) {
             {empty ? "Tick an invoice to get started." : `For ${lines.map((l) => l.child.name.split(" ")[0]).join(" and ")}`}
           </p>
         </div>
-
-        <fieldset className="mt-5">
-          <legend className="mb-2 text-[13px] font-semibold">How would you like to pay?</legend>
-          <div className="space-y-2">
-            {OPTIONS.map(({ value, title, hint, Icon }) => (
-              <label key={value} className={`flex min-h-14 cursor-pointer items-start gap-3 rounded-control border p-3.5 motion-safe:transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${mode === value ? "border-primary bg-primary-fixed/40" : "border-line hover:border-primary-fixed-dim"}`}>
-                <input type="radio" name="pay-mode" className="mt-0.5 size-5 shrink-0 accent-primary" checked={mode === value} onChange={() => onMode(value)} />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 text-sm font-semibold"><Icon size={18} weight="bold" aria-hidden="true" className="text-primary" />{title}</span>
-                  <span className="mt-1 block text-[13px] text-on-surface-variant">{hint}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
 
         <dl className="mt-5 border-t border-line pt-3">
           {lines.map((l) => (

@@ -9,28 +9,25 @@ const ids = (...x: string[]) => new Set(x);
 
 describe("settle", () => {
   test("balance 0: everything goes to the gateway", () => {
-    const s = settle(invoices, [kid("c1", 0), kid("c2", 0)], ids("a", "c"), "account-first");
+    const s = settle(invoices, [kid("c1", 0), kid("c2", 0)], ids("a", "c"));
     expect(s).toMatchObject({ total: 57, fromAccount: 0, fromGateway: 57 });
   });
   test("balance > total: gateway share is 0", () => {
-    const s = settle(invoices, [kid("c1", 500), kid("c2", 0)], ids("a"), "account-first");
+    const s = settle(invoices, [kid("c1", 500), kid("c2", 0)], ids("a"));
     expect(s).toMatchObject({ total: 42, fromAccount: 42, fromGateway: 0 });
   });
   test("total 0: empty valid breakdown, paid invoices ignored", () => {
-    const s = settle(invoices, [kid("c1", 100), kid("c2", 100)], ids("p"), "account-first");
+    const s = settle(invoices, [kid("c1", 100), kid("c2", 100)], ids("p"));
     expect(s).toEqual({ lines: [], total: 0, fromAccount: 0, fromGateway: 0 });
   });
   test("partial balance is per child and rounded to cents", () => {
-    const s = settle(invoices, [kid("c1", 50), kid("c2", 5)], ids("a", "b", "c"), "account-first");
+    const s = settle(invoices, [kid("c1", 50), kid("c2", 5)], ids("a", "b", "c"));
     expect(s).toMatchObject({ total: 122.1, fromAccount: 55, fromGateway: 67.1 });
-  });
-  test("gateway only ignores the balance", () => {
-    expect(settle(invoices, [kid("c1", 500), kid("c2", 500)], ids("a"), "gateway")).toMatchObject({ fromAccount: 0, fromGateway: 42 });
   });
 });
 
 test("applyPayment marks invoices paid and decreases balances", () => {
-  const r = applyPayment(invoices, [kid("c1", 50), kid("c2", 0)], ids("a", "c"), "account-first");
+  const r = applyPayment(invoices, [kid("c1", 50), kid("c2", 0)], ids("a", "c"));
   expect(r.invoices.filter((i) => i.status === "paid").map((i) => i.id)).toEqual(["a", "c", "p"]);
   expect(r.children.map((c) => c.educationBalance)).toEqual([8, 0]);
 });

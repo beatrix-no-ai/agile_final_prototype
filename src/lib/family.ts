@@ -4,7 +4,7 @@ import type { ClassRecord, SchoolRecord } from "../data/schoolMgmt";
 import type { Charge } from "../data/fees";
 import type { TopUpEntry } from "../data/topup";
 import type { Level, Student } from "../data/students";
-import { isPayable, settle, type Mode } from "../features/eservice/payments/settle";
+import { isPayable, settle } from "../features/eservice/payments/settle";
 import { ledgerFor } from "./accounts";
 import { schoolOfStudent } from "./registry";
 import { withBalance, type Movements } from "./studentFas";
@@ -55,12 +55,12 @@ export function familyTransactions(charges: readonly Charge[], students: readonl
 }
 
 /**
- * The fee-store actions for paying the chosen invoices. Account first: each child's balance pays that child's invoices in order and the
- * rest goes to the card; gateway: everything by card. The fee store then updates the charge and the student's Education Account.
+ * The fee-store actions for paying the chosen invoices. Each child's balance pays that child's invoices in order and the
+ * rest goes to the card. The fee store then updates the charge and the student's Education Account.
  */
-export function payActions(invoices: Invoice[], children: Child[], ids: ReadonlySet<string>, mode: Mode): FeeAction[] {
+export function payActions(invoices: Invoice[], children: Child[], ids: ReadonlySet<string>): FeeAction[] {
   const out: FeeAction[] = [];
-  for (const line of settle(invoices, children, ids, mode).lines) {
+  for (const line of settle(invoices, children, ids).lines) {
     let left = line.fromAccount;
     for (const i of invoices.filter((x) => x.childId === line.child.id && isPayable(x) && ids.has(x.id))) {
       const account = Math.min(left, i.amount);
