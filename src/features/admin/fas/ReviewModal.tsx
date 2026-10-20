@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import type { SbfasRule } from "../../../data/sbfasRule";
+import type { SbfasRule, SubsidyBasis } from "../../../data/sbfasRule";
 import { isMoefasEligible, isSbfasEligible } from "../../../data/students";
 import { formatDate, formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
@@ -44,6 +44,10 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
   const tierRef = useRef<HTMLSelectElement>(null);
   const justRef = useRef<HTMLTextAreaElement>(null);
   const decided = app.status !== "Pending";
+  // The school decides how many tiers exist — list them from its rule, not a fixed national set.
+  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number }[] = rule
+    ? rule.tiers
+    : SBFAS_TIERS.map((t) => ({ tier: t }));
 
   const act = (action: Action) => {
     const draft = { justification, tier };
@@ -114,27 +118,18 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
             error={error?.field === "tier" ? error.message : undefined}
             hint={
               rule
-                ? `SBFAS rates set by the student's school: ${rule.tiers.map((t) => `Tier ${t.tier.slice(-1)} ${t.active ? `${t.rate}%` : "not offered"}`).join(" · ")}.`
+                ? `SBFAS subsidies set by the student's school: ${rule.tiers.map((t) => `${t.tier} ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}`).join(" · ")}.`
                 : undefined
             }
           >
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
-              {SBFAS_TIERS.map((t) => {
-                const def = rule?.tiers.find((x) => x.tier === t);
-                const off = def && !def.active && t !== app.recommendedTier;
-                return (
-                  <option key={t} value={t} disabled={off}>
-                    {t}{def?.active ? ` — ${def.rate}% subsidy` : ""}{t === app.recommendedTier ? " (AI recommended)" : ""}{off ? " — not offered" : ""}
-                  </option>
-                );
-              })}
+              {tierList.map((t) => (
+                <option key={t.tier} value={t.tier}>
+                  {t.tier}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (AI recommended)" : ""}
+                </option>
+              ))}
             </select>
           </Field>
-          {rule && !rule.tiers.find((x) => x.tier === app.recommendedTier)?.active && (
-            <p className="-mt-2 text-[13px] text-warning">
-              The AI-recommended {app.recommendedTier} is not offered by your school's current SBFAS rules — override to an offered tier or reject.
-            </p>
-          )}
           <Field
             label="Justification (required to override)"
             hint="Recorded in the audit log with your decision."

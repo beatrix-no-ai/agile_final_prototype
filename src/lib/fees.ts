@@ -38,12 +38,12 @@ export function fundingOf(c: Charge) {
 export const MOEFAS_RATE = 1;
 export const SBFAS_RATE = 0.5;
 // ASSUMPTION: the share of each fee SBFAS waives, by tier (Tier 1 = full waiver, Tier 4 = smallest); confirm with MOE.
-export const SBFAS_TIER_RATE: Record<SbfasTier, number> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
+export const SBFAS_TIER_RATE: Partial<Record<SbfasTier, number>> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
 
 /** The single scheme whose subsidy applies to this student's charges: MOEFAS takes precedence over SBFAS — a student never receives both. */
 export function fasOf(s: Pick<Student, "moefas" | "sbfas" | "sbfasTier">): { scheme: FasScheme; rate: number } | null {
   if (s.moefas === "Approved") return { scheme: "MOEFAS", rate: MOEFAS_RATE };
-  if (s.sbfas === "Approved") return { scheme: "SBFAS", rate: s.sbfasTier ? SBFAS_TIER_RATE[s.sbfasTier] : SBFAS_RATE };
+  if (s.sbfas === "Approved") return { scheme: "SBFAS", rate: s.sbfasTier ? SBFAS_TIER_RATE[s.sbfasTier] ?? SBFAS_RATE : SBFAS_RATE };
   return null;
 }
 

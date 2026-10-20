@@ -1,6 +1,7 @@
 import { STUDENTS } from "./students";
 
-export type SbfasTier = "Tier 1" | "Tier 2" | "Tier 3" | "Tier 4";
+/** Tier names are positional: the school decides HOW MANY tiers it offers, so any "Tier N" is valid. */
+export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
 
 export type SbfasApplication = {
@@ -34,8 +35,8 @@ export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 // ASSUMPTION: tier names (Tier 1 = highest subsidy), band edges and SLA length are invented; confirm with MOE.
 export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"];
 
-/** R4: subsidy rate per tier. Real SBFAS is school-managed within 50–75%; Tier 1 is the strongest package. */
-export const SBFAS_TIER_RATES: Record<SbfasTier, number> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
+/** R4: subsidy rate per default tier. Real SBFAS is school-managed within 50–75%; Tier 1 is the strongest package. */
+export const SBFAS_TIER_RATES: Partial<Record<SbfasTier, number>> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
 
 export type Action = "approve" | "override" | "reject";
 export type Draft = { justification: string; tier: SbfasTier };

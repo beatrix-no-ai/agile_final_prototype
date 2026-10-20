@@ -18,7 +18,7 @@ describe("SBFAS stats follow real decisions", () => {
 
   it("approving an application adds its tier amount and one student helped", () => {
     const s = selectSbfas(approve());
-    expect(s.used).toBe(SBFAS.absorbed + SBFAS_TIER_AMOUNT["Tier 1"]);
+    expect(s.used).toBe(SBFAS.absorbed + (SBFAS_TIER_AMOUNT["Tier 1"] ?? 0));
     expect(s.helped).toBe(148 + 1);
     expect(s.byTier.find((t) => t.label === "Tier 1")!.value).toBe(52 + 1);
   });
@@ -117,10 +117,10 @@ describe("a family application from the parent portal", () => {
   it("MOEFAS grants count in the HQ budget: amount, students helped and the child's level", () => {
     const before = selectMoefas(initialFasState());
     const after = selectMoefas(submit("MOEFAS Tier 2"));
-    expect(after.used).toBe(before.used + 2 * MOEFAS_TIER_AMOUNT["Tier 2"]);
+    expect(after.used).toBe(before.used + 2 * (MOEFAS_TIER_AMOUNT["Tier 2"] ?? 0));
     expect(after.helped).toBe(before.helped + 2);
     expect(after.levels.find((l) => l.id === "Primary")!.beneficiaries).toBe(before.levels.find((l) => l.id === "Primary")!.beneficiaries + 1);
-    expect(after.levels.find((l) => l.id === "Secondary")!.used).toBe(before.levels.find((l) => l.id === "Secondary")!.used + MOEFAS_TIER_AMOUNT["Tier 2"]);
+    expect(after.levels.find((l) => l.id === "Secondary")!.used).toBe(before.levels.find((l) => l.id === "Secondary")!.used + (MOEFAS_TIER_AMOUNT["Tier 2"] ?? 0));
     expect(after.byTier.find((t) => t.label === "Tier 2")!.value).toBe(before.byTier.find((t) => t.label === "Tier 2")!.value + 2);
   });
 

@@ -15,7 +15,7 @@ export type MoefasGrant = { tier: SbfasTier; at: string };
 export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant> };
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
-  | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, { level: RiskLevel | null; tier: SbfasTier | null }> }
+  | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, { level: RiskLevel | null; tier: SbfasTier | null; subsidy?: string }> }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {} });
@@ -44,7 +44,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
           incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), riskScore: 50,
           recommendedTier: rec?.tier ?? "Tier 3", slaDays: 10,
           explanation: rec?.level
-            ? `Submitted by the family through the FAS form. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
+            ? `Submitted by the family through the FAS form. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}${rec.subsidy ?? ""}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
             : FAMILY_EXPLANATION,
           status: "Pending",
         }];
@@ -85,7 +85,7 @@ export function selectMoefas(s: FasState) {
   });
   const levels = s.levels.map((l) => {
     const mine = grants.filter((x) => x.level === l.id);
-    return { ...l, used: l.used + sum(mine.map((x) => MOEFAS_TIER_AMOUNT[x.g.tier])), beneficiaries: l.beneficiaries + mine.length };
+    return { ...l, used: l.used + sum(mine.map((x) => MOEFAS_TIER_AMOUNT[x.g.tier] ?? 0)), beneficiaries: l.beneficiaries + mine.length };
   });
   const budget = sum(levels.map((l) => l.budget));
   const used = sum(levels.map((l) => l.used));
@@ -113,7 +113,7 @@ export function selectRecentGrants(s: FasState, limit = 5) {
     .filter((a) => isGranted(a) && a.sbfasTier && a.decidedAt)
     .sort((x, y) => y.decidedAt!.localeCompare(x.decidedAt!))
     .slice(0, limit)
-    .map((a) => ({ id: a.id, studentId: a.studentId, student: a.student, level: a.level, tier: a.sbfasTier!, amount: SBFAS_TIER_AMOUNT[a.sbfasTier!], at: a.decidedAt! }));
+    .map((a) => ({ id: a.id, studentId: a.studentId, student: a.student, level: a.level, tier: a.sbfasTier!, amount: SBFAS_TIER_AMOUNT[a.sbfasTier!] ?? 0, at: a.decidedAt! }));
 }
 
 /** Same shape the dashboard Budget Usage card always used. */

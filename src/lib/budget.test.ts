@@ -39,6 +39,6 @@ test("sbfasUsage: only approved and overridden applications count, at their tier
   ] as const;
   const u = sbfasUsage(apps);
   expect(u.count).toBe(2);
-  expect(u.amount).toBe(SBFAS_TIER_AMOUNT["Tier 1"] + SBFAS_TIER_AMOUNT["Tier 3"]);
+  expect(u.amount).toBe((SBFAS_TIER_AMOUNT["Tier 1"] ?? 0) + (SBFAS_TIER_AMOUNT["Tier 3"] ?? 0));
   expect(u.byTier).toEqual({ "Tier 1": 1, "Tier 2": 0, "Tier 3": 1, "Tier 4": 0 });
 });

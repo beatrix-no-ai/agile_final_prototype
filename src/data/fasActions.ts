@@ -5,7 +5,7 @@ import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
 import { useRegistry } from "./registryStore";
 import { useSbfas } from "./sbfasStore";
-import { levelForBands, ruleForSchool, type RiskLevel } from "./sbfasRule";
+import { levelForBands, ruleForSchool, tierSubsidy, type RiskLevel } from "./sbfasRule";
 import { schoolOfLevel } from "./schoolMgmt";
 import type { SbfasTier } from "./sbfasApplications";
 import type { Action, Draft } from "../features/admin/fas/review";
@@ -43,13 +43,19 @@ export function useFasActions() {
     submitFamily(studentIds: string[], band: Band) {
       // Each child is assessed against their OWN school's grouping — children may attend different schools.
       const pci = PCI_OF_BAND[band.id] ?? 3;
-      const recommend: Record<string, { level: RiskLevel | null; tier: SbfasTier | null }> = {};
+      const recommend: Record<string, { level: RiskLevel | null; tier: SbfasTier | null; subsidy?: string }> = {};
       for (const id of studentIds) {
         const student = reg.students.find((s) => s.id === id);
         if (!student) continue;
         const rule = ruleForSchool(sbfas.state.rules, schoolOfLevel(student.level));
         const level = levelForBands(rule, null, pci);
-        recommend[id] = { level, tier: level ? rule.levelTiers[level] ?? null : null };
+        const tier = level ? rule.levelTiers[level] ?? null : null;
+        // The explanation tells the reviewer what the suggested tier is worth — % of the fee or a fixed amount.
+        const sub = tier ? tierSubsidy(rule, tier) : undefined;
+        recommend[id] = {
+          level, tier,
+          subsidy: sub ? ` (${sub.basis === "fixed" ? `S$${sub.value}` : `${sub.value}%`} subsidy)` : undefined,
+        };
       }
       run({ type: "submitFamily", studentIds, band, at: new Date().toISOString(), recommend }, studentIds);
     },

@@ -30,7 +30,7 @@ export const MOEFAS_BY_LEVEL: LevelBudget[] = [
 ];
 
 // ASSUMPTION: yearly package value of MOEFAS by tier (fees, textbooks, uniform, meals, transport); mock values.
-export const MOEFAS_TIER_AMOUNT: Record<SbfasTier, number> = { "Tier 1": 4000, "Tier 2": 3000, "Tier 3": 2000, "Tier 4": 1000 };
+export const MOEFAS_TIER_AMOUNT: Partial<Record<SbfasTier, number>> = { "Tier 1": 4000, "Tier 2": 3000, "Tier 3": 2000, "Tier 4": 1000 };
 
 // ASSUMPTION: MOEFAS tier names and the split of the 9,300 students across them are mock values; confirm with MOE.
 export const MOEFAS_BY_TIER = [
@@ -45,4 +45,4 @@ export const MOEFAS_BY_TIER = [
 export const OVER_BUDGET_NOTE = "When spend exceeds budget it is shown for review only; payouts are not blocked.";
 
 // ASSUMPTION: the SBFAS amount for a tier is a fixed annual mock value (Tier 1 = most support); confirm with MOE.
-export const SBFAS_TIER_AMOUNT: Record<SbfasTier, number> = { "Tier 1": 3000, "Tier 2": 2200, "Tier 3": 1500, "Tier 4": 800 };
+export const SBFAS_TIER_AMOUNT: Partial<Record<SbfasTier, number>> = { "Tier 1": 3000, "Tier 2": 2200, "Tier 3": 1500, "Tier 4": 800 };
