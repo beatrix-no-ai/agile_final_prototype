@@ -1,37 +1,98 @@
 import { describe, expect, it } from "vitest";
-import { activateRule, blankRule, FAMILIES, nextRuleId, refreshIncome, ruleProblem, type Rule } from "./moefas";
+import {
+  activateRule, applicationStatus, blankRule, childResult, conditionProblem, defaultTiers, FAMILIES, nextRuleId, ruleProblem,
+  tierGaps, tierInUse, tierOverlap, tierProblem, type Rule,
+} from "./moefas";
 
 const rules = (): Rule[] => [
-  { ...blankRule("FASR0001"), status: "Active" },
-  { ...blankRule("FASR0002"), status: "Draft" },
-  { ...blankRule("FASR0003"), status: "Inactive" },
+  { ...blankRule("FASR26100001"), status: "Active" },
+  { ...blankRule("FASR26100002"), status: "Draft" },
+  { ...blankRule("FASR26100003"), status: "Inactive" },
 ];
+const tiers = defaultTiers();
 
 describe("moefas rules", () => {
   it("keeps exactly one Active rule", () => {
-    const next = activateRule(rules(), "FASR0002");
+    const next = activateRule(rules(), "FASR26100002");
     expect(next.map((r) => r.status)).toEqual(["Inactive", "Active", "Inactive"]);
   });
-  it("numbers new rules after the highest id", () => expect(nextRuleId(rules())).toBe("FASR0004"));
-  it("rejects a rule with no name, bad dates or an unpicked component", () => {
-    const r = { ...blankRule("FASR0009"), name: "X", components: [{ id: "MFC-001", type: "School fee" as const, basis: "percent" as const, amounts: [0, 0] }] };
-    expect(ruleProblem(r)).toBe("");
-    expect(ruleProblem({ ...r, name: " " })).toMatch(/name/);
-    expect(ruleProblem({ ...r, from: "2027-01-01" })).toMatch(/Effective to/);
-    expect(ruleProblem({ ...r, components: [{ ...r.components[0], id: "" }] })).toMatch(/component/);
-    expect(ruleProblem({ ...r, components: [] })).toMatch(/component/);
+  it("numbers new rules FASR + YYMM + sequence within the month", () => {
+    const now = new Date("2026-10-21T04:00:00Z");
+    expect(nextRuleId(rules(), now)).toBe("FASR26100004");
+    expect(nextRuleId([], now)).toBe("FASR26100001");
+    expect(nextRuleId(rules(), new Date("2026-11-02T04:00:00Z"))).toBe("FASR26110001");
+  });
+  it("rejects a rule with no name, unpicked tiers or an unpicked component", () => {
+    const r = { ...blankRule("X"), name: "X", components: [{ id: "MFC-001", type: "School fee" as const, basis: "percent" as const, amounts: [0, 0] }] };
+    expect(ruleProblem(r, tiers)).toBe("");
+    expect(ruleProblem({ ...r, name: " " }, tiers)).toMatch(/name/);
+    expect(ruleProblem({ ...r, components: [{ ...r.components[0], id: "" }] }, tiers)).toMatch(/component/);
+    expect(ruleProblem({ ...r, components: [] }, tiers)).toMatch(/component/);
+    expect(ruleProblem({ ...r, components: [{ ...r.components[0], amounts: [101, 0] }] }, tiers)).toMatch(/subsidy/);
+  });
+  it("lets a draft skip components and unpicked tiers but not a name", () => {
+    const r = { ...blankRule("X"), name: "X", conditions: [{ ghi: -1, pci: 0 }, { ghi: 1, pci: 1 }] };
+    expect(ruleProblem(r, tiers, true)).toBe("");
+    expect(ruleProblem(r, tiers)).toMatch(/select a GHI tier/);
+    expect(ruleProblem({ ...r, name: "" }, tiers, true)).toMatch(/name/);
   });
 });
 
-describe("refreshIncome", () => {
-  it("grants a family waiting on income data", () => {
-    const f = refreshIncome(FAMILIES[2]);
-    expect(f.status).toEqual(["Granted"]);
-    expect(f.outcome).toBe("MOEFAS granted");
+describe("rule conditions", () => {
+  it("allows each tier in only one condition", () => {
+    expect(conditionProblem([{ ghi: 0, pci: 0 }, { ghi: 0, pci: 1 }], tiers)).toMatch(/Condition 1 and Condition 2 both use GHI Tier 1/);
   });
-  it("leaves a child with an incomplete record waiting", () => {
-    const f = refreshIncome(FAMILIES[3]);
-    expect(f.status).toEqual(["Granted", "Awaiting data"]);
-    expect(f.outcome).toBe("MOEFAS granted");
+  it("rejects a tier that is not assigned to MOEFAS", () => {
+    expect(conditionProblem([{ ghi: 5, pci: 0 }], tiers)).toMatch(/not available for MOEFAS/);
+  });
+});
+
+describe("income tiers", () => {
+  it("ships valid defaults", () => expect(tierProblem(tiers)).toBe(""));
+  it("finds the tier a range overlaps", () => {
+    const { ranges } = tiers.ghi;
+    expect(tierOverlap(ranges, 1, 1500, 3000)).toBe(0);
+    expect(tierOverlap(ranges, 1, 2000.01, 3000)).toBe(-1);
+    expect(tierOverlap(ranges, 0, 0, 2000)).toBe(-1);
+    expect(tierOverlap(ranges, 1, NaN, 3000)).toBe(-1);
+  });
+  it("rejects overlapping ranges on save", () => {
+    const t = defaultTiers();
+    t.ghi.ranges[1][0] = 1999;
+    expect(tierProblem(t)).toMatch(/GHI Tier 2: overlaps Tier 1/);
+  });
+  it("rejects minimum above maximum and more than 2 decimals", () => {
+    const t = defaultTiers();
+    t.pci.ranges[0] = [600, 500];
+    expect(tierProblem(t)).toMatch(/PCI Tier 1/);
+    const u = defaultTiers();
+    u.pci.ranges[0][1] = 500.005;
+    expect(tierProblem(u)).toMatch(/2 decimal/);
+  });
+  it("reports uncovered amounts as gaps, not errors", () => {
+    expect(tierGaps(tiers)).toEqual([]);
+    const t = defaultTiers();
+    t.ghi.ranges[1][0] = 2000.25;
+    expect(tierProblem(t)).toBe("");
+    expect(tierGaps(t)).toEqual(["ghi"]);
+  });
+  it("blocks changes to a tier a saved rule uses", () => {
+    const t = defaultTiers();
+    t.ghi.ranges[0][1] = 1900;
+    expect(tierInUse(rules(), t, tiers)).toMatch(/FASR26100001/);
+    const s = defaultTiers();
+    s.ghi.ranges[7][0] = 10000.5;
+    expect(tierInUse(rules(), s, tiers)).toBe("");
+  });
+});
+
+describe("applications", () => {
+  const by = (id: string) => FAMILIES.find((f) => f.id === id)!;
+  it("matches on GHI OR PCI", () => {
+    expect(FAMILIES.map(applicationStatus)).toEqual(["MOEFAS Granted", "SBFAS review", "Mixed outcomes"]);
+  });
+  it("assesses each child against their own policy snapshot", () => {
+    const m = by("FAS20260004");
+    expect([0, 1].map((i) => childResult(m, i))).toEqual(["MOEFAS granted", "Pending SBFAS review"]);
   });
 });
