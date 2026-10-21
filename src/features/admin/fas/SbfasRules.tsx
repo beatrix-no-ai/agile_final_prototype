@@ -184,7 +184,10 @@ export default function SbfasRules() {
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Rank</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Basis</th>
                 {compNames.map((n) => (
-                  <th key={n} scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">{n}</th>
+                  <th key={n} scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">
+                    <span className="block">{n}</span>
+                    <span className="block text-xs font-normal">Amount</span>
+                  </th>
                 ))}
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Parent pays on a S$100 fee</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant"><span className="sr-only">Remove</span></th>
