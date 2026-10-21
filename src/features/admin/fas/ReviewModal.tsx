@@ -112,11 +112,6 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
           <Field
             label="Override rank"
             error={error?.field === "tier" ? error.message : undefined}
-            hint={
-              rule
-                ? `SBFAS subsidies set by the student's school: ${rule.tiers.map((t) => `${rankOf(t.tier)} ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}`).join(" · ")}.`
-                : undefined
-            }
           >
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
