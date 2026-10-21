@@ -99,7 +99,7 @@ function SbfasReview() {
         <span className="block text-[13px] text-on-surface-variant">{a.level} · {a.id}</span>
       </Link>
     ) },
-    { key: "riskScore", header: "AI risk", sortable: true, render: (a) => (
+    { key: "riskScore", header: "Risk", sortable: true, render: (a) => (
       <>
         <RiskBadge score={a.riskScore} />
         <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {a.recommendedTier}</span>
@@ -127,8 +127,8 @@ function SbfasReview() {
       <Tiles items={[
         { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
         { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
-        { label: "Granted", value: String(grantedCount), note: "Applications granted", good: grantedCount > 0 },
-        { label: "Declined", value: String(declinedCount), note: "Applications declined" },
+        { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
+        { label: "Declined", value: String(declinedCount), note: "Rejected" },
       ]} />
       <Card
         title="SBFAS review queue"

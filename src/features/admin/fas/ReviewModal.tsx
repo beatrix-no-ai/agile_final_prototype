@@ -72,8 +72,8 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
-        <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
-        <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
+        <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
+        <Dt label="Suggested rank">{app.recommendedTier}</Dt>
       </dl>
       {app.incomeSyncedOn && (
         <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
@@ -101,7 +101,7 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-on-surface">
-          <Sparkle size={16} aria-hidden="true" className="text-primary" /> AI explanation
+          <Sparkle size={16} aria-hidden="true" className="text-primary" /> Why this suggestion
         </p>
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
@@ -125,7 +125,7 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
                 <option key={t.tier} value={t.tier}>
-                  {t.tier}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (AI recommended)" : ""}
+                  {t.tier}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
                 </option>
               ))}
             </select>
