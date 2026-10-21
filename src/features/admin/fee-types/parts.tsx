@@ -33,9 +33,11 @@ export function useInSchool() {
     });
 }
 
-export function Tiles({ items }: { items: { label: string; value: ReactNode; note?: ReactNode; alert?: boolean; good?: boolean }[] }) {
+const TILE_COLS: Record<number, string> = { 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-4" };
+
+export function Tiles({ items, cols = 4 }: { items: { label: string; value: ReactNode; note?: ReactNode; alert?: boolean; good?: boolean }[]; cols?: number }) {
   return (
-    <div className="grid divide-y divide-line rounded-card border border-line bg-surface-container-lowest sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+    <div className={`grid divide-y divide-line rounded-card border border-line bg-surface-container-lowest sm:grid-cols-2 sm:divide-x sm:divide-y-0 ${TILE_COLS[cols] ?? TILE_COLS[4]}`}>
       {items.map((t) => (
         <div key={t.label} className="px-5 py-4">
           <div className="text-[13px] font-medium text-on-surface-variant">{t.label}</div>
