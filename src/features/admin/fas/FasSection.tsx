@@ -5,9 +5,9 @@ import SbfasRules from "./SbfasRules";
 import { MoefasHandbook } from "./MoefasHandbook";
 
 const SCHOOL_TABS = [
-  { id: "sbfas", label: "SBFAS review", hint: "Applications and decisions" },
-  { id: "sbfasRules", label: "SBFAS rules", hint: "Your school's tiers and subsidy rates" },
-  { id: "handbook", label: "MOEFAS Handbook", hint: "National income tiers, the Active MOE rule and the process" },
+  { id: "sbfas", label: "SBFAS review" },
+  { id: "sbfasRules", label: "SBFAS rules" },
+  { id: "handbook", label: "MOEFAS Handbook" },
 ] as const;
 
 type TabId = (typeof SCHOOL_TABS)[number]["id"];
@@ -35,7 +35,6 @@ export default function FasSection() {
               <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold ${on ? "bg-primary text-on-primary" : "bg-track text-on-surface-variant"}`}>{i + 1}</span>
               <span>
                 <span className={`block text-sm font-semibold ${on ? "text-primary" : "text-on-surface"}`}>{t.label}</span>
-                <span className="block text-[13px] text-on-surface-variant">{t.hint}</span>
               </span>
             </button>
           );
