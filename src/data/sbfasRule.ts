@@ -11,8 +11,9 @@ import { defaultTiers, type TierConfig, type TierKind } from "./moefas";
 
 /** What a tier's `rate` means: a percentage of each fee, or a fixed S$ amount off each fee. */
 export type SubsidyBasis = "percent" | "fixed";
-/** Per fee-component rates for a tier (same basis as the tier); absent = the flat `rate` applies to every component. */
-export type ComponentRates = Record<string, number>;
+/** One fee-component override: its own basis (a % of the component or a fixed S$ amount) and rate. */
+export type ComponentOverride = { basis: SubsidyBasis; rate: number };
+export type ComponentRates = Record<string, ComponentOverride>;
 export type SbfasRuleTier = { tier: SbfasTier; basis?: SubsidyBasis; rate: number; components?: ComponentRates };
 /** Need level a school assigns to an income band. Drives the AI suggestion; not a decision on its own. */
 export type RiskLevel = "HIGH" | "MED" | "LOW";
@@ -69,10 +70,12 @@ export const tierSubsidy = (rule: SbfasRule, tier: SbfasTier): { basis: SubsidyB
  */
 export const subsidySummary = (t: { basis?: SubsidyBasis; rate?: number; components?: ComponentRates }, covered?: string[]): string => {
   const entries = t.components && Object.keys(t.components).length ? Object.entries(t.components) : [];
-  // Component entries are sparse overrides — the tier's flat rate still covers everything not overridden.
-  let vals = (covered ? entries.filter(([n]) => covered.includes(n)) : entries).map(([, v]) => v);
+  const basis = t.basis ?? "percent";
+  // Sparse overrides in the tier's own unit join the flat rate in the summary; other-basis overrides have no shared unit.
+  let vals = (covered ? entries.filter(([n]) => covered.includes(n)) : entries)
+    .map(([, o]) => (o.basis === basis ? o.rate : NaN))
+    .filter((v) => Number.isFinite(v));
   if (t.rate != null) vals.push(t.rate);
-  vals = vals.filter((v) => Number.isFinite(v));
   if (!vals.length) return "";
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);
@@ -109,7 +112,7 @@ export function tierForBands(rule: SbfasRule, ghi: number | null, pci: number | 
 
 /** Editing state; rates stay strings until save. grouping/levelTiers are optional so tier-only callers keep compiling. */
 export type SbfasRuleDraft = {
-  tiers: { basis: SubsidyBasis; rate: string; components?: Record<string, string> }[];
+  tiers: { basis: SubsidyBasis; rate: string; components?: Record<string, { basis: SubsidyBasis; rate: string }> }[];
   coveredComponents?: string[];
   grouping?: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
   levelTiers?: Record<RiskLevel, SbfasTier | null>;
@@ -117,13 +120,14 @@ export type SbfasRuleDraft = {
 export type SbfasRuleErrors = { tiers?: string; grouping?: string; components?: string; rows: Record<number, string>; levelRows?: Record<RiskLevel, string> };
 
 /** Draft of a saved rule; per-component rates default to the tier's flat rate for any component it does not set. */
-export const draftOfSbfasRule = (rule: SbfasRule, compNames: string[] = []): SbfasRuleDraft => ({
+export const draftOfSbfasRule = (rule: SbfasRule): SbfasRuleDraft => ({
   tiers: rule.tiers.map((t) => ({
     basis: t.basis ?? "percent",
     rate: String(t.rate),
-    ...(compNames.length ? { components: Object.fromEntries(compNames.map((n) => [n, String(t.components?.[n] ?? t.rate)])) } : {}),
+    ...(t.components && Object.keys(t.components).length
+      ? { components: Object.fromEntries(Object.entries(t.components).map(([n, o]) => [n, { basis: o.basis, rate: String(o.rate) }])) }
+      : {}),
   })),
-  ...(compNames.length ? { coveredComponents: rule.coveredComponents ?? compNames } : {}),
   grouping: { ghi: [...rule.grouping.ghi], pci: [...rule.grouping.pci] },
   levelTiers: { ...rule.levelTiers },
 });
@@ -141,7 +145,7 @@ export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
     return re.test(v.trim()) && Number(v) >= 0 && (basis === "fixed" || Number(v) <= 100);
   };
   d.tiers.forEach((t, i) => {
-    const bad = [t.rate, ...Object.values(t.components ?? {})].some((v) => !valid(v, t.basis));
+    const bad = !valid(t.rate, t.basis) || Object.values(t.components ?? {}).some((o) => !valid(o.rate, o.basis));
     if (bad) {
       errors.rows[i] = t.basis === "fixed"
         ? "Enter an amount of at least 0 (max 2 decimals) for every component."
@@ -175,7 +179,9 @@ export function toSbfasRule(d: SbfasRuleDraft, school: string, updated = TODAY):
       tier: `Tier ${i + 1}` as SbfasTier,
       basis: t.basis,
       rate: Number(t.rate),
-      ...(t.components ? { components: Object.fromEntries(Object.entries(t.components).map(([n, v]) => [n, Number(v)])) } : {}),
+      ...(t.components && Object.keys(t.components).length
+        ? { components: Object.fromEntries(Object.entries(t.components).map(([n, o]) => [n, { basis: o.basis, rate: Number(o.rate) }])) }
+        : {}),
     })),
     ...(d.coveredComponents ? { coveredComponents: d.coveredComponents } : {}),
     grouping: d.grouping ?? DEFAULT_GROUPING(),

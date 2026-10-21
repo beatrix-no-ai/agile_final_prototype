@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import { rankOf, subsidySummary, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
+import { rankOf, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
@@ -39,7 +39,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
-  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: Record<string, number> }[] = rule
+  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
     : SBFAS_TIERS.map((t) => ({ tier: t }));
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
