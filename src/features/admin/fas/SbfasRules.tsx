@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { CaretRight } from "@phosphor-icons/react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { inputClass } from "../../../components/ui/Field";
+import { Modal } from "../../../components/ui/Modal";
 import { SCHOOLS } from "../../../data/schools";
 import {
   diffSbfasRule, draftOfSbfasRule, moefasCoveredBands, ruleForSchool, sbfasRuleOk, toSbfasRule, validateSbfasRule,
-  RISK_LEVELS, type RiskLevel, type SbfasRuleDraft, type SbfasRuleErrors, type SubsidyBasis,
+  RISK_LEVELS, type RiskLevel, type SbfasRuleChange, type SbfasRuleDraft, type SbfasRuleErrors, type SubsidyBasis,
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { useSbfas } from "../../../data/sbfasStore";
@@ -47,6 +49,8 @@ export default function SbfasRules() {
   const [note, setNote] = useState("");
   // Fee-component support rows: each picks a fee type + component; null = auto (first fee type, first component).
   const [rows, setRows] = useState<Array<{ ft: string; comp: string } | null>>([null]);
+  // The history entry whose change detail popup is open; null = closed.
+  const [openChange, setOpenChange] = useState<SbfasRuleChange | null>(null);
 
   if (!school || !rule) {
     return (
@@ -115,7 +119,8 @@ export default function SbfasRules() {
   };
 
   return (
-    <Card title={`SBFAS rules — ${schoolName}`}>
+    <>
+      <Card title={`SBFAS rules — ${schoolName}`}>
       <div className="space-y-4">
         {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
         <div className="grid items-start gap-4 lg:grid-cols-2">
@@ -356,27 +361,55 @@ export default function SbfasRules() {
         <section aria-label="Rule history" className="rounded-card border border-line bg-surface-container-lowest p-4 space-y-3">
           <h4 className="text-sm font-semibold text-on-surface">History</h4>
           {rule.history?.length ? (
-            <ol className="space-y-3">
+            <ul className="divide-y divide-line">
               {[...rule.history].reverse().map((h, i) => (
-                <li key={`${h.at}-${i}`} className="space-y-1">
-                  <p className="text-[13px] font-medium text-on-surface">{formatDateTime(h.at)} — {h.by}</p>
-                  {h.changes.length ? (
-                    <ul className="list-disc space-y-0.5 pl-5">
-                      {h.changes.map((c, j) => (
-                        <li key={j} className="text-[13px] text-on-surface-variant">{c}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-[13px] text-on-surface-variant">No effective change.</p>
-                  )}
+                <li key={`${h.at}-${i}`}>
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setOpenChange(h)}
+                    className="flex w-full items-center justify-between gap-3 rounded-control px-2 py-2.5 text-left hover:bg-surface-container-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <span className="text-[13px] font-medium text-on-surface">
+                      {formatDateTime(h.at)} — {h.by}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1 text-[13px] text-on-surface-variant">
+                      {h.changes.length ? `${h.changes.length} change${h.changes.length > 1 ? "s" : ""}` : "No effective change"}
+                      <CaretRight size={14} aria-hidden="true" />
+                    </span>
+                  </button>
                 </li>
               ))}
-            </ol>
+            </ul>
           ) : (
             <p className="text-[13px] text-on-surface-variant">No changes saved yet.</p>
           )}
         </section>
       </div>
     </Card>
+
+      <Modal
+        open={openChange !== null}
+        onClose={() => setOpenChange(null)}
+        title={openChange ? `Rule change — ${formatDateTime(openChange.at)}` : "Rule change"}
+      >
+        {openChange && (
+          <div className="space-y-3">
+            <p className="text-[13px] font-medium text-on-surface">Saved by {openChange.by}</p>
+            {openChange.changes.length ? (
+              <ul className="space-y-2">
+                {openChange.changes.map((c, j) => (
+                  <li key={j} className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-sm text-on-surface">
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No effective change.</p>
+            )}
+          </div>
+        )}
+      </Modal>
+    </>
   );
 }
