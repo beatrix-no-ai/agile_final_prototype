@@ -338,10 +338,6 @@ export default function SbfasRules() {
           );
         })()}
 
-        <p className="text-[13px] text-on-surface-variant">
-          Grouping and rates apply to new suggestions and newly generated charges. Issued charges keep the subsidy from
-          when they were generated.
-        </p>
         <div className="flex justify-end gap-3">
           <Button
             variant="secondary"
