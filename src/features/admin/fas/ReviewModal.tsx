@@ -5,10 +5,10 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { rankOf, subsidySummary, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
-import { formatDate, formatSGD } from "../../../lib/format";
+import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
@@ -75,9 +75,6 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
         <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
       </dl>
-      {app.incomeSyncedOn && (
-        <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
-      )}
 
       {!isSbfasEligible(app.nationality) && (
         <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">
@@ -123,7 +120,6 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
           </Field>
           <Field
             label="Justification (required to override)"
-            hint="Recorded in the audit log with your decision."
             error={error?.field === "justification" ? error.message : undefined}
           >
             <textarea
