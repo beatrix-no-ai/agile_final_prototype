@@ -13,26 +13,7 @@ import { useSbfas } from "../../../data/sbfasStore";
 import { useFees } from "../../../data/feeStore";
 import { useTiers } from "../../../data/moefas";
 import { useSession } from "../../../session";
-import { formatDate, formatSGD } from "../../../lib/format";
-
-/**
- * What a tier's subsidy means in money on a S$100 fee — the component rates weighted by each component's
- * share of the school's fee amounts, so per-component customization still previews as one honest number.
- */
-const onHundred = (
-  t: { basis: SubsidyBasis; rate: string; components?: Record<string, string> },
-  compNames: string[],
-  compAmount: Record<string, number>,
-) => {
-  const vals = compNames.map((n) => Number(t.components?.[n] ?? t.rate));
-  if (!vals.length || vals.some((v) => !Number.isFinite(v) || v < 0)) return "—";
-  if (t.basis === "percent" && vals.some((v) => v > 100)) return "—";
-  const total = compNames.reduce((s, n) => s + (compAmount[n] ?? 0), 0);
-  const eff = total > 0
-    ? vals.reduce((s, v, i) => s + v * (compAmount[compNames[i]] ?? 0), 0) / total
-    : vals.reduce((a, b) => a + b, 0) / vals.length;
-  return formatSGD(Math.max(0, 100 - eff));
-};
+import { formatDate } from "../../../lib/format";
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
 const BLOCK_LEVELS: RiskLevel[] = ["LOW", "MED", "HIGH"];
@@ -60,7 +41,6 @@ export default function SbfasRules() {
   // The fee components the school charges (its own fee types) — the per-component subsidy columns.
   const feeTypes = school ? feeState.types.filter((ft) => ft.school === school) : [];
   const compNames = [...new Set(feeTypes.flatMap((ft) => ft.components.map((c) => c.name)))];
-  const compAmount: Record<string, number> = Object.fromEntries(feeTypes.flatMap((ft) => ft.components).map((c) => [c.name, c.amount]));
   const rule = school ? ruleForSchool(state.rules, school) : null;
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
@@ -189,7 +169,6 @@ export default function SbfasRules() {
                     <span className="block text-xs font-normal">Amount</span>
                   </th>
                 ))}
-                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Parent pays on a S$100 fee</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant"><span className="sr-only">Remove</span></th>
               </tr>
             </thead>
@@ -228,7 +207,6 @@ export default function SbfasRules() {
                       />
                     </td>
                   ))}
-                  <td className="px-3 py-3 tabular-nums text-on-surface-variant">{onHundred(t, compNames, compAmount)}</td>
                   <td className="px-3 py-3">
                     <Button variant="ghost" disabled={draft.tiers.length <= 1} onClick={() => { setNote(""); rmTier(i); }}>
                       Remove
