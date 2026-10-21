@@ -124,8 +124,9 @@ function SbfasReview() {
   return (
     <div className="space-y-4">
       <HqPermissionNote />
-      <Tiles cols={3} items={[
+      <Tiles items={[
         { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
+        { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
         { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
         { label: "Declined", value: String(declinedCount), note: "Rejected" },
       ]} />
