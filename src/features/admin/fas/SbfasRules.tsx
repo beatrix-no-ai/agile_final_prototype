@@ -11,7 +11,7 @@ import {
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { useSbfas } from "../../../data/sbfasStore";
-import { useRules } from "../../../data/moefas";
+import { TIER_LIMIT, useTiers, type Range } from "../../../data/moefas";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import { formatDate, formatSGD } from "../../../lib/format";
@@ -28,14 +28,17 @@ const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: 
 /** Blocks run from the least to the most support, then the bands no level claims. */
 const BLOCK_LEVELS: (RiskLevel | null)[] = ["LOW", "MED", "HIGH", null];
 
-const PCI_BANDS = ["Up to S$450", "S$451 - S$750", "S$751 - S$1,000", "S$1,001 - S$1,500", "Above S$1,500"];
-const GHI_BANDS = ["Up to S$1,500", "S$1,501 - S$2,500", "S$2,501 - S$4,000", "Above S$4,000"];
+const money = (n: number) => `S$${n.toLocaleString("en-SG", { maximumFractionDigits: 2 })}`;
+/** HQ income tier range as a label: "Up to S$2,000", "S$2,000.01 – S$3,000", "Above S$10,000". */
+const rangeLabel = ([lo, hi]: Range) =>
+  lo <= 0 ? `Up to ${money(hi)}` : hi >= TIER_LIMIT ? `Above ${money(Math.round((lo - 0.01) * 100) / 100)}` : `${money(lo)} – ${money(hi)}`;
 
-/** One national-band panel (GHI or PCI): each row picks the school's need level; MOEFAS bands are locked. */
+/** One income-tier panel (GHI or PCI): each row picks the school's need level; MOEFAS tiers are locked. `ids` are the real tier indexes of the rows. */
 function BandPanel({
-  title, bands, covered, levels, onPick,
+  title, ids, bands, covered, levels, onPick,
 }: {
   title: string;
+  ids: number[];
   bands: readonly string[];
   covered: number[];
   levels: (RiskLevel | null)[];
@@ -46,11 +49,11 @@ function BandPanel({
       <h3 className="text-sm font-semibold text-on-surface">{title}</h3>
       <div className="mt-3 space-y-2">
         {bands.map((label, i) => {
-          const locked = covered.includes(i);
+          const locked = covered.includes(ids[i]);
           return (
             <div key={i} className="flex items-center justify-between gap-3 rounded-card border border-line px-3 py-2">
               <span className="text-sm">
-                <span className="font-medium">Tier {i + 1}</span>{" "}
+                <span className="font-medium">Tier {ids[i] + 1}</span>{" "}
                 <span className="text-on-surface-variant">{label}</span>
               </span>
               {locked ? (
@@ -91,8 +94,8 @@ export default function SbfasRules() {
   const { role } = useSession();
   const school = schoolCodeFor(role);
   const { state, dispatch } = useSbfas();
-  const [moefasRules] = useRules(); // the HQ module's rules, read from storage on mount
-  const covered = moefasCoveredBands(moefasRules);
+  const [tiers] = useTiers(); // HQ's central income tiers, read from storage on mount
+  const covered = moefasCoveredBands(tiers);
   const rule = school ? ruleForSchool(state.rules, school) : null;
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
@@ -106,7 +109,13 @@ export default function SbfasRules() {
     );
   }
 
-  const draft = d ?? draftOfSbfasRule(rule);
+  const base = d ?? draftOfSbfasRule(rule);
+  // HQ may have added or removed income tiers since this rule was saved: keep one level slot per current tier.
+  const fit = (g: (RiskLevel | null)[], n: number) => Array.from({ length: n }, (_, i) => g[i] ?? null);
+  const draft: SbfasRuleDraft = {
+    ...base,
+    grouping: { ghi: fit(base.grouping!.ghi, tiers.ghi.ranges.length), pci: fit(base.grouping!.pci, tiers.pci.ranges.length) },
+  };
   const schoolName = SCHOOLS.find((s) => s.code === school)?.name ?? school;
   const customized = Boolean(state.rules[school]);
   const upd = (i: number, patch: Partial<SbfasRuleDraft["tiers"][number]>) =>
@@ -174,16 +183,18 @@ export default function SbfasRules() {
                 )}
               </div>
               <BandPanel
-                title="Per-capita bands in this level"
-                bands={pcIdx.map((j) => PCI_BANDS[j])}
-                covered={pcIdx.filter((j) => covered.pci.includes(j))}
+                title="Per-capita tiers in this level"
+                ids={pcIdx}
+                bands={pcIdx.map((j) => rangeLabel(tiers.pci.ranges[j]))}
+                covered={covered.pci}
                 levels={pcIdx.map((j) => draft.grouping!.pci[j])}
                 onPick={(k, level) => pick("pci", pcIdx[k], level)}
               />
               <BandPanel
-                title="Gross household bands in this level"
-                bands={hhIdx.map((j) => GHI_BANDS[j])}
-                covered={hhIdx.filter((j) => covered.ghi.includes(j))}
+                title="Gross household tiers in this level"
+                ids={hhIdx}
+                bands={hhIdx.map((j) => rangeLabel(tiers.ghi.ranges[j]))}
+                covered={covered.ghi}
                 levels={hhIdx.map((j) => draft.grouping!.ghi[j])}
                 onPick={(k, level) => pick("ghi", hhIdx[k], level)}
               />

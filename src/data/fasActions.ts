@@ -10,8 +10,8 @@ import { schoolOfLevel } from "./schoolMgmt";
 import type { SbfasTier } from "./sbfasApplications";
 import type { Action, Draft } from "../features/admin/fas/review";
 
-/** The parent form's per-person band mapped onto the national per-capita bands (low → high). */
-const PCI_OF_BAND: Record<string, number> = { b1: 1, b2: 2, b3: 3, b4: 4 };
+/** The parent form's per-person band mapped onto HQ's default per-capita income tiers (0-based). b3 spans tiers 4-5 (S$1,001-S$1,500); only its SBFAS tier (5) reaches a school. */
+const PCI_OF_BAND: Record<string, number> = { b1: 1, b2: 2, b3: 4, b4: 5 };
 
 /**
  * The two things that change a student's FAS: the school deciding an SBFAS application, and the parent submitting the family application.
@@ -42,7 +42,7 @@ export function useFasActions() {
     },
     submitFamily(studentIds: string[], band: Band) {
       // Each child is assessed against their OWN school's grouping — children may attend different schools.
-      const pci = PCI_OF_BAND[band.id] ?? 3;
+      const pci = PCI_OF_BAND[band.id] ?? 4;
       const recommend: Record<string, { level: RiskLevel | null; tier: SbfasTier | null; fallback: SbfasTier; subsidy?: string }> = {};
       for (const id of studentIds) {
         const student = reg.students.find((s) => s.id === id);

@@ -3,7 +3,7 @@ import {
   defaultSbfasRule, draftOfSbfasRule, levelForBands, moefasCoveredBands, ruleForSchool, sbfasRuleOk,
   tierForBands, tierSubsidy, toSbfasRule, validateSbfasRule, type SbfasRuleDraft,
 } from "./sbfasRule";
-import { SEED } from "./moefas";
+import { defaultTiers } from "./moefas";
 import { initialSbfasState, sbfasReducer } from "./sbfasStore";
 
 describe("SBFAS school rule: defaults and lookup", () => {
@@ -83,18 +83,16 @@ describe("SBFAS school rule: store", () => {
 });
 
 describe("SBFAS grouping: MOEFAS-locked bands", () => {
-  it("bands inside the Active MOEFAS policy are covered; the rest stay open to the school", () => {
-    const covered = moefasCoveredBands(SEED); // Active rule: GHI ≤ band 2, PCI ≤ band 2
-    expect(covered.ghi).toEqual([0, 1, 2]);
-    expect(covered.pci).toEqual([0, 1, 2]);
+  it("tiers HQ assigns to MOEFAS are covered; the rest stay open to the school", () => {
+    const covered = moefasCoveredBands(defaultTiers()); // HQ default: the first 4 tiers of each kind are MOEFAS
+    expect(covered.ghi).toEqual([0, 1, 2, 3]);
+    expect(covered.pci).toEqual([0, 1, 2, 3]);
   });
 
   it("defaults leave the MOEFAS bands ungrouped and group the remaining bands by need", () => {
     const rule = defaultSbfasRule("S001");
-    expect(rule.grouping.ghi.slice(0, 3)).toEqual([null, null, null]);
-    expect(rule.grouping.pci.slice(0, 3)).toEqual([null, null, null]);
-    expect(rule.grouping.ghi[3]).toBe("LOW");
-    expect(rule.grouping.pci.slice(3)).toEqual(["HIGH", "MED"]);
+    expect(rule.grouping.ghi).toEqual([null, null, null, null, "LOW", "LOW", "LOW", "LOW"]);
+    expect(rule.grouping.pci).toEqual([null, null, null, null, "HIGH", "MED", "MED", "MED"]);
   });
 });
 
@@ -135,7 +133,7 @@ describe("SBFAS grouping: validation and round-trip", () => {
 
   it("toSbfasRule fills default grouping when omitted; draftOfSbfasRule round-trips it", () => {
     const rule = toSbfasRule({ tiers }, "S002");
-    expect(rule.grouping.pci[3]).toBe("HIGH");
+    expect(rule.grouping.pci[4]).toBe("HIGH");
     const draft = draftOfSbfasRule(rule);
     expect(draft.grouping).toEqual(rule.grouping);
     expect(draft.levelTiers).toEqual(rule.levelTiers);

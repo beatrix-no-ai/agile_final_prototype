@@ -6,13 +6,17 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { inputClass } from "../../../components/ui/Field";
-import { FAMILIES, OUTCOMES, refreshIncome, type Family } from "../../../data/moefas";
+import { Modal } from "../../../components/ui/Modal";
+import {
+  applicationStatus, CATALOGUE, childResult, FAMILIES, matchedCondition, matchRange, OUTCOMES, snapshotFor,
+  type Basis, type Family, type Range, type Rule,
+} from "../../../data/moefas";
 import { formatSGD } from "../../../lib/format";
 
 const TONE: Record<string, BadgeTone> = {
-  "MOEFAS granted": "success", Granted: "success", Matched: "success",
-  "Awaiting data": "warning",
-  "SBFAS review": "primary", "Pending school review": "primary",
+  "MOEFAS granted": "success", "MOEFAS Granted": "success", Granted: "success", Matched: "success",
+  "SBFAS review": "warning", "Mixed outcomes": "warning", "Pending SBFAS review": "warning",
+  "Not granted": "alert",
 };
 const Pill = ({ s }: { s: string }) => <Badge tone={TONE[s] ?? "neutral"}>{s}</Badge>;
 
@@ -25,30 +29,98 @@ function KV({ k, v }: { k: string; v: ReactNode }) {
   );
 }
 
-// Demo fee lines for the new-charge preview (percent subsidy of the fee).
-const FEES = [
-  { name: "Tuition", note: "MFC-001 · 100%", source: "MOE master", fee: 100, pct: 100 },
-  { name: "Standard miscellaneous", note: "MFC-002 · 50%", source: "MOE master", fee: 20, pct: 50 },
-  { name: "School activity", note: "No subsidy mapping", source: "School-created", fee: 30, pct: 0 },
-];
-
 const th = "whitespace-nowrap border-b border-line bg-surface-container-low px-3 py-3 text-left text-[13px] font-medium text-on-surface-variant";
 const td = "border-b border-line px-3 py-3 align-top";
+const spaced = (r: Range) => `${formatSGD(r[0])} – ${formatSGD(r[1])}`;
+const tight = (r: Range) => `${formatSGD(r[0])}–${formatSGD(r[1])}`;
 
-function Detail({ f, onBack, onRefresh }: { f: Family; onBack: () => void; onRefresh: () => void }) {
+/** Demo fee lines used when the assessed rule is no longer in the rule list. */
+const FALLBACK: { id: string; basis: Basis; amounts: number[] }[] = [{ id: "MFC-001", basis: "percent", amounts: [80, 50] }, { id: "MFC-002", basis: "fixed", amounts: [20, 10] }];
+
+const DOCS = ["Income_statement.png", "Supporting_letter.png"];
+const docImage = (f: Family, i: number) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Supporting document · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="17">${f.parent}</text><text x="75" y="190" font-family="Arial" font-size="15">Application: ${f.id}</text><text x="75" y="250" font-family="Arial" font-size="16">${i === 0 ? "Income statement" : "Supporting letter"}</text><text x="75" y="300" font-family="Arial" font-size="14">Mock attachment for reviewing the document viewer.</text><text x="75" y="330" font-family="Arial" font-size="14">This is not an actual document submitted by a parent.</text></svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+};
+
+function Criteria({ f, child, matched }: { f: Family; child: number; matched: number }) {
+  const snap = snapshotFor(f, child);
+  const rows = (ci: number) => ([["g", "GHI band"], ["p", "PCI band"]] as const).map(([k, label]) => {
+    const policy = snap.conditions[ci][k], ok = matchRange(f.income[k], policy);
+    return { ci, label, income: f.income[k], policy, ok };
+  });
+  const list = matched >= 0 ? rows(matched) : snap.conditions.flatMap((_, ci) => rows(ci));
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[560px] border-collapse text-sm">
+        <thead>
+          <tr>
+            {matched < 0 && <th className={th}>Condition</th>}
+            <th className={th}>Criterion</th><th className={th}>Income used for assessment</th>
+            <th className={th}>Policy rule{matched >= 0 ? ` · Condition ${matched + 1}` : ""}</th><th className={th}>Check</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((r) => (
+            <tr key={`${r.ci}-${r.label}`}>
+              {matched < 0 && <td className={td}>Condition {r.ci + 1}</td>}
+              <td className={td}>{r.label}</td><td className={td}>{tight(r.income)}</td><td className={td}>{tight(r.policy)}</td>
+              <td className={td}><Pill s={r.ok ? "Matched" : "Not matched"} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-[13px] text-on-surface-variant">{matched >= 0 ? "Matching either GHI or PCI is enough for this condition." : "No condition matched on GHI or PCI."}</p>
+    </div>
+  );
+}
+
+function FeeImpact({ f, child, rules, snapId, matched }: { f: Family; child: number; rules: Rule[]; snapId: string; matched: number }) {
+  const rule = rules.find((r) => r.id === snapId);
+  const comps = rule ? rule.components.filter((c) => c.id) : FALLBACK;
+  const rows = comps.flatMap((c) => {
+    const m = CATALOGUE.find((x) => x.id === c.id);
+    if (!m) return [];
+    const v = Number(c.amounts[matched] ?? 0), sub = Math.min(m.fee, c.basis === "percent" ? Math.round(m.fee * v) / 100 : v);
+    return [{ m, c, v, sub, pay: m.fee - sub }];
+  });
+  const total = rows.reduce((t, r) => ({ fee: t.fee + r.m.fee, sub: t.sub + r.sub, pay: t.pay + r.pay }), { fee: 0, sub: 0, pay: 0 });
+  const sub = (v: number) => (v > 0 ? `− ${formatSGD(v)}` : formatSGD(v));
+  return (
+    <Card title="Fee impact · New charge preview" action={<Badge tone="success">MOEFAS · Condition {matched + 1}</Badge>}>
+      <p className="mb-3 text-[13px] text-on-surface-variant">Fees for {f.children[child]} · Not an issued charge</p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] border-collapse text-sm">
+          <thead><tr><th className={th}>Fee component</th><th className={`${th} text-right`}>Fee</th><th className={`${th} text-right`}>Subsidy</th><th className={`${th} text-right`}>Payable</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.m.id}>
+                <td className={td}>{r.m.name}<span className="block text-[13px] text-on-surface-variant">{r.m.id} · {r.c.basis === "percent" ? `${r.v}%` : `${formatSGD(r.v)} fixed`}</span></td>
+                <td className={`${td} text-right tabular-nums`}>{formatSGD(r.m.fee)}</td>
+                <td className={`${td} text-right tabular-nums`}>{sub(r.sub)}</td>
+                <td className={`${td} text-right tabular-nums`}>{formatSGD(r.pay)}</td>
+              </tr>
+            ))}
+            <tr className="font-bold">
+              <td className={td}>Total</td>
+              <td className={`${td} text-right tabular-nums`}>{formatSGD(total.fee)}</td>
+              <td className={`${td} text-right tabular-nums`}>{sub(total.sub)}</td>
+              <td className={`${td} text-right tabular-nums`}>{formatSGD(total.pay)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-[13px] text-on-surface-variant">Education Account balance is unchanged: granting MOEFAS does not create a top-up transaction.</p>
+    </Card>
+  );
+}
+
+function Detail({ f, rules, onBack }: { f: Family; rules: Rule[]; onBack: () => void }) {
   const [child, setChild] = useState(0);
-  const s = f.status[child];
-  const ok = s === "Granted";
-  const pending = s === "Awaiting data";
-  const missing = !!f.missingInfo?.includes(child);
-  const noBand = f.band === "Unavailable";
-  const check = noBand ? "Awaiting data" : s === "Not granted" ? "Not matched" : "Matched";
-  const explain = ok
-    ? "All configured criteria matched. MOEFAS Tier 2 was granted automatically."
-    : pending
-      ? missing ? "Student information is incomplete. Assessment is awaiting an update." : "Income information is not yet available. Assessment will continue when the information is available."
-      : "The returned income bands do not match the MOEFAS rules. An eligible SBFAS case has been routed to the school for review.";
-  const total = FEES.reduce((t, x) => ({ fee: t.fee + x.fee, sub: t.sub + x.fee * x.pct / 100 }), { fee: 0, sub: 0 });
+  const [doc, setDoc] = useState<number | null>(null);
+  const snap = snapshotFor(f, child);
+  const matched = matchedCondition(f, child);
+  const ok = matched >= 0;
 
   return (
     <div className="space-y-4">
@@ -61,7 +133,7 @@ function Detail({ f, onBack, onRefresh }: { f: Family; onBack: () => void; onRef
           <h2 className="mt-1 text-2xl font-bold tracking-tight">{f.parent}’s application</h2>
           <p className="mt-1 text-sm text-on-surface-variant">Submitted 18 Oct 2026 · All linked children included</p>
         </div>
-        <Pill s={f.outcome} />
+        <Pill s={applicationStatus(f)} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
@@ -77,12 +149,35 @@ function Detail({ f, onBack, onRefresh }: { f: Family; onBack: () => void; onRef
         </Card>
         <Card title="Income information">
           <dl>
-            <KV k="Household income band / month" v={f.band} />
-            <KV k="Per-capita income band / month" v={f.pci} />
-            <KV k="Last income sync" v={f.sync} />
+            <KV k="GHI · household / month" v={spaced(f.income.g)} />
+            <KV k="PCI · person / month" v={spaced(f.income.p)} />
           </dl>
         </Card>
       </div>
+
+      <Card title="Supporting documents">
+        <p className="mb-3 text-[13px] text-on-surface-variant">Documents submitted with the family application.</p>
+        {f.noDocs ? <p className="py-6 text-center text-sm text-on-surface-variant">No supporting documents submitted.</p> : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-sm">
+              <thead><tr><th className={th}>File name</th><th className={th}>Type</th><th className={th}>Submitted on</th><th className={th}>Action</th></tr></thead>
+              <tbody>
+                {DOCS.map((n, i) => (
+                  <tr key={n}>
+                    <td className={td}>{n}<span className="block text-[13px] text-on-surface-variant">Sample attachment</span></td>
+                    <td className={td}>PNG</td><td className={td}>18 Oct 2026</td>
+                    <td className="border-b border-line px-3 py-2"><Button size="sm" variant="secondary" onClick={() => setDoc(i)}>View document</Button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      <Modal open={doc !== null} onClose={() => setDoc(null)} title={doc === null ? "Supporting document" : DOCS[doc]}
+        footer={<Button variant="secondary" onClick={() => setDoc(null)}>Close</Button>}>
+        {doc !== null && <img src={docImage(f, doc)} alt="Sample supporting document" className="max-h-[70vh] w-full object-contain" />}
+      </Modal>
 
       <Card title="Assessment per child" action={<span className="text-[13px] text-on-surface-variant">One family submission · Separate child outcomes</span>}>
         <div role="group" aria-label="Child" className="flex flex-wrap gap-2">
@@ -94,63 +189,24 @@ function Detail({ f, onBack, onRefresh }: { f: Family; onBack: () => void; onRef
           <dl>
             <KV k="Student / level" v={`${f.children[child]} · ${f.levels[child]}`} />
             <KV k="School" v={f.schools[child]} />
-            <KV k="MOEFAS result" v={<Pill s={s} />} />
-            <KV k="Tier / effective period" v={ok ? "Tier 2 · 01 Jan–31 Dec 2026" : "Not assigned"} />
+            <KV k="FAS application result" v={<Pill s={childResult(f, child)} />} />
+            <KV k="MOEFAS result" v={<Pill s={ok ? "Granted" : "Not granted"} />} />
+            <KV k="Matched condition" v={ok ? `Condition ${matched + 1}` : "None"} />
           </dl>
           <div className="rounded-control bg-surface-container-low p-4 text-sm leading-relaxed">
             <b>Assessment explanation</b>
-            <p className="mt-2">{explain}</p>
-            <p className="mt-2 text-[13px] text-on-surface-variant">
-              Policy snapshot: MOEFAS 2026 · Version 1<br />
-              {pending ? "No decision recorded" : "Assessed automatically · 18 Oct 2026, 09:15 SGT"}
-            </p>
-            {pending && !missing && <Button size="sm" variant="secondary" className="mt-3" onClick={onRefresh}>Refresh income information</Button>}
+            <p className="mt-2">{ok ? `Condition ${matched + 1} matched. GHI OR PCI is sufficient for MOEFAS.` : "No condition matched GHI or PCI. The application has been referred to the school for SBFAS review."}</p>
+            <p className="mt-2 text-[13px] text-on-surface-variant">Rule at assessment: {snap.id}<br />Assessed automatically · 18 Oct 2026</p>
           </div>
         </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
-            <thead><tr><th className={th}>Criterion</th><th className={th}>Retrieved value</th><th className={th}>Policy rule · Tier 2</th><th className={th}>Check</th></tr></thead>
-            <tbody>
-              <tr><td className={td}>Household income band</td><td className={td}>{f.band}</td><td className={td}>S$1,501–S$4,000</td><td className={td}><Pill s={check} /></td></tr>
-              <tr><td className={td}>Per-capita income band</td><td className={td}>{f.pci}</td><td className={td}>S$451–S$1,000</td><td className={td}><Pill s={check} /></td></tr>
-            </tbody>
-          </table>
-        </div>
+        <Criteria f={f} child={child} matched={matched} />
       </Card>
 
-      {ok && (
-        <Card title="Fee impact · New charge preview" action={<Badge tone="success">MOEFAS · Tier 2</Badge>}>
-          <p className="mb-3 text-[13px] text-on-surface-variant">Fees for {f.children[child]} · Not an issued charge</p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-sm">
-              <thead><tr><th className={th}>Fee component</th><th className={th}>Source</th><th className={`${th} text-right`}>Fee</th><th className={`${th} text-right`}>Subsidy</th><th className={`${th} text-right`}>Payable</th></tr></thead>
-              <tbody>
-                {FEES.map((x) => (
-                  <tr key={x.name}>
-                    <td className={td}>{x.name}<span className="block text-[13px] text-on-surface-variant">{x.note}</span></td>
-                    <td className={td}>{x.source}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatSGD(x.fee)}</td>
-                    <td className={`${td} text-right tabular-nums`}>{x.pct ? `− ${formatSGD(x.fee * x.pct / 100)}` : formatSGD(0)}</td>
-                    <td className={`${td} text-right tabular-nums`}>{formatSGD(x.fee * (100 - x.pct) / 100)}</td>
-                  </tr>
-                ))}
-                <tr className="font-bold">
-                  <td className={td} colSpan={2}>Total</td>
-                  <td className={`${td} text-right tabular-nums`}>{formatSGD(total.fee)}</td>
-                  <td className={`${td} text-right tabular-nums`}>− {formatSGD(total.sub)}</td>
-                  <td className={`${td} text-right tabular-nums`}>{formatSGD(total.fee - total.sub)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-3 text-[13px] text-on-surface-variant">Education Account balance is unchanged: granting MOEFAS does not create a top-up transaction.</p>
-        </Card>
-      )}
-      {!ok && !pending && (
+      {ok ? <FeeImpact f={f} child={child} rules={rules} snapId={snap.id} matched={matched} /> : (
         <Card title="SBFAS handover">
           <dl>
-            <KV k="School / case" v={`${f.schools[child]} · SBFAS0013`} />
-            <KV k="Status" v={<Pill s="Pending school review" />} />
+            <KV k="School" v={f.schools[child]} />
+            <KV k="Status" v={<Pill s={childResult(f, child)} />} />
           </dl>
           <p className="mt-3 text-[13px] text-on-surface-variant">School users decide Approve / Override / Reject. No SBFAS subsidy is applied while the case is pending.</p>
         </Card>
@@ -159,7 +215,7 @@ function Detail({ f, onBack, onRefresh }: { f: Family; onBack: () => void; onRef
       <Card title="Parent-facing progress preview">
         {[
           { mark: "✓", title: "Application submitted", body: `One application for ${f.children.length} ${f.children.length === 1 ? "child" : "children"}.` },
-          { mark: pending ? "…" : "✓", title: pending ? "Assessment awaiting data" : ok ? "MOEFAS granted automatically" : "Referred for school-based assistance", body: `Result shown here is for ${f.children[child]}.` },
+          { mark: "✓", title: ok ? "MOEFAS granted automatically" : "Referred for school-based assistance", body: `Result shown here is for ${f.children[child]}.` },
           { mark: "3", title: ok ? "Subsidy ready for eligible fees" : "Subsidy not applied", body: ok ? "See the fee breakdown when a charge is issued." : "No subsidy is applied before a grant decision." },
         ].map((x) => (
           <div key={x.title} className="flex gap-3.5 py-3">
@@ -172,26 +228,20 @@ function Detail({ f, onBack, onRefresh }: { f: Family; onBack: () => void; onRef
   );
 }
 
-export default function Applications({ notify }: { notify: (m: string) => void }) {
-  const [families, setFamilies] = useState(FAMILIES);
+export default function Applications({ rules }: { rules: Rule[] }) {
   const [q, setQ] = useState("");
   const [outcome, setOutcome] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const open = families.find((f) => f.id === openId);
+  const open = FAMILIES.find((f) => f.id === openId);
 
-  if (open) {
-    return <Detail key={open.id} f={open} onBack={() => setOpenId(null)} onRefresh={() => {
-      setFamilies(families.map((f) => (f.id === open.id ? refreshIncome(f) : f)));
-      notify(`Simulated income API succeeded. ${open.id} was assessed against the Active rule and granted Tier 2. No real API call was made.`);
-    }} />;
-  }
+  if (open) return <Detail key={open.id} f={open} rules={rules} onBack={() => setOpenId(null)} />;
 
-  const rows = families.filter((f) => (!outcome || f.outcome === outcome) && [f.id, f.parent, ...f.children].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  const rows = FAMILIES.filter((f) => (!outcome || applicationStatus(f) === outcome) && [f.id, f.parent, ...f.children].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
   const columns: Column<Family>[] = [
-    { key: "id", header: "Application", sortable: true, render: (f) => <><span className="font-semibold">{f.id}</span><span className="block text-[13px] text-on-surface-variant">18 Oct 2026</span></> },
+    { key: "id", header: "Application / submitted", sortable: true, render: (f) => <><span className="font-semibold">{f.id}</span><span className="block text-[13px] text-on-surface-variant">18 Oct 2026 · 09:{12 + FAMILIES.indexOf(f) * 7} SGT</span></> },
     { key: "parent", header: "Applicant", sortable: true, render: (f) => <>{f.parent}<span className="block text-[13px] text-on-surface-variant">Parent / guardian</span></> },
-    { key: "children", header: "Children", render: (f) => <>{f.children.length} {f.children.length > 1 ? "children" : "child"}<span className="block text-[13px] text-on-surface-variant">{f.children.join(", ")}</span></> },
-    { key: "outcome", header: "Assessment outcome", sortable: true, render: (f) => <Pill s={f.outcome} /> },
+    { key: "children", header: "Children", render: (f) => <>{f.children.length} {f.children.length > 1 ? "children" : "child"}{f.children.map((n, i) => <span key={n} className="block text-[13px] text-on-surface-variant">{n} · {childResult(f, i)}</span>)}</> },
+    { key: "outcome", header: "Application status", render: (f) => <Pill s={applicationStatus(f)} /> },
   ];
 
   return (
@@ -202,8 +252,8 @@ export default function Applications({ notify }: { notify: (m: string) => void }
       <p className="mb-4 text-sm text-on-surface-variant">Submitted through the parent e-Service portal. Each child is assessed separately.</p>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input className={`${inputClass} max-w-sm`} aria-label="Search applications" placeholder="Search application, parent or child" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className={`${inputClass} max-w-52`} aria-label="Filter outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
-          <option value="">All outcomes</option>
+        <select className={`${inputClass} max-w-52`} aria-label="Filter application status" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+          <option value="">All statuses</option>
           {OUTCOMES.map((o) => <option key={o}>{o}</option>)}
         </select>
         <Button variant="secondary" onClick={() => { setQ(""); setOutcome(""); }}>Reset</Button>
@@ -216,7 +266,7 @@ export default function Applications({ notify }: { notify: (m: string) => void }
         large
         empty={<EmptyState title="No matching applications" hint="Try another search or reset the filters." action={<Button variant="secondary" onClick={() => { setQ(""); setOutcome(""); }}>Reset</Button>} />}
       />
-      <p className="mt-3 text-[13px] text-on-surface-variant">Showing {rows.length} of {families.length} family applications</p>
+      <p className="mt-3 text-[13px] text-on-surface-variant">Showing {rows.length} of {FAMILIES.length} family applications</p>
     </Card>
   );
 }

@@ -3,11 +3,11 @@
 // MOE never configures this — contrast with the HQ-managed MOEFAS rules.
 //
 // On top of the tiers, the school groups the NATIONAL income bands (GHI and PCI, set by MOE) into need
-// levels (HIGH / MED / LOW). Bands the ACTIVE MOEFAS policy already auto-grants are locked out of the
+// levels (HIGH / MED / LOW). Tiers HQ assigns to MOEFAS are locked out of the
 // grouping: those families get MOEFAS and can never hold SBFAS at the same time.
 import { TODAY } from "../lib/fees";
 import { SBFAS_TIERS, SBFAS_TIER_RATES, type SbfasTier } from "./sbfasApplications";
-import { HH_BANDS, PC_BANDS, type Rule } from "./moefas";
+import { defaultTiers, type TierConfig, type TierKind } from "./moefas";
 
 /** What a tier's `rate` means: a percentage of each fee, or a fixed S$ amount off each fee. */
 export type SubsidyBasis = "percent" | "fixed";
@@ -26,12 +26,14 @@ export type SbfasRule = {
   levelTiers: Record<RiskLevel, SbfasTier | null>;
 };
 
-// ASSUMPTION: the default grouping mirrors the seeded Active MOEFAS rule (GHI ≤ band 2, PCI ≤ band 2 are
-// MOEFAS territory) and groups the remaining bands by need. Schools adjust from here.
-const DEFAULT_GROUPING = (): SbfasRule["grouping"] => ({
-  ghi: HH_BANDS.map((_, i) => (i <= 2 ? null : "LOW")) as (RiskLevel | null)[],
-  pci: PC_BANDS.map((_, i) => (i <= 2 ? null : i === 3 ? "HIGH" : "MED")) as (RiskLevel | null)[],
-});
+// ASSUMPTION: the default grouping follows HQ's default income tiers (MOEFAS tiers stay ungrouped) and groups the
+// SBFAS tiers by need: GHI all LOW; PCI first tier HIGH, the rest MED. Schools adjust from here.
+const DEFAULT_GROUPING = (): SbfasRule["grouping"] => {
+  const t = defaultTiers();
+  const level = (k: TierKind, i: number): RiskLevel | null =>
+    t[k].schemes[i] === "MOEFAS" ? null : k === "ghi" ? "LOW" : t[k].schemes[i - 1] === "MOEFAS" ? "HIGH" : "MED";
+  return { ghi: t.ghi.ranges.map((_, i) => level("ghi", i)), pci: t.pci.ranges.map((_, i) => level("pci", i)) };
+};
 const DEFAULT_LEVEL_TIERS = (): SbfasRule["levelTiers"] => ({ HIGH: "Tier 1", MED: "Tier 2", LOW: "Tier 3" });
 
 // ASSUMPTION: default package mirrors the national reference (75/65/55/50); schools adjust from here.
@@ -56,16 +58,10 @@ export const tierSubsidy = (rule: SbfasRule, tier: SbfasTier): { basis: SubsidyB
   return t ? { basis: t.basis ?? "percent", value: t.rate } : undefined;
 };
 
-/** Band indexes the ACTIVE MOEFAS policy auto-grants — locked out of the school's grouping. */
-export function moefasCoveredBands(rules: Rule[]): { ghi: number[]; pci: number[] } {
-  const rule = rules.find((r) => r.status === "Active");
-  if (!rule || !rule.tiers.length) return { ghi: [], pci: [] };
-  const h = Math.max(...rule.tiers.map((t) => t.hh));
-  const p = Math.max(...rule.tiers.map((t) => t.pc));
-  return {
-    ghi: HH_BANDS.map((_, i) => i).filter((i) => i <= h),
-    pci: PC_BANDS.map((_, i) => i).filter((i) => i <= p),
-  };
+/** Tier indexes HQ assigns to MOEFAS — those families are auto-granted, so they are locked out of the school's grouping. */
+export function moefasCoveredBands(tiers: TierConfig): { ghi: number[]; pci: number[] } {
+  const covered = (k: TierKind) => tiers[k].schemes.flatMap((s, i) => (s === "MOEFAS" ? [i] : []));
+  return { ghi: covered("ghi"), pci: covered("pci") };
 }
 
 const NEED: Record<RiskLevel, number> = { HIGH: 3, MED: 2, LOW: 1 };
