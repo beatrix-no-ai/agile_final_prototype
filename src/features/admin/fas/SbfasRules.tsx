@@ -15,7 +15,7 @@ import { useSbfas } from "../../../data/sbfasStore";
 import { useFees } from "../../../data/feeStore";
 import { useTiers } from "../../../data/moefas";
 import { useSession } from "../../../session";
-import { formatDate, formatDateTime } from "../../../lib/format";
+import { formatDateTime } from "../../../lib/format";
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
 
@@ -46,7 +46,6 @@ export default function SbfasRules() {
   const rule = school ? ruleForSchool(state.rules, school) : null;
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
-  const [note, setNote] = useState("");
   // Fee-component support rows: each picks a fee type + component; null = auto (first fee type, first component).
   const [rows, setRows] = useState<Array<{ ft: string; comp: string } | null>>([null]);
   // The history entry whose change detail popup is open; null = closed.
@@ -93,7 +92,6 @@ export default function SbfasRules() {
     const next = bands.map((v) => (v === l ? null : v));
     const firstFree = (cov.at(-1) ?? -1) + 1;
     if (lo && hi) for (let i = Math.max(lo - 1, firstFree); i <= Math.min(hi - 1, next.length - 1); i++) next[i] = l;
-    setNote("");
     setD({ ...draft, grouping: { ...draft.grouping!, [dim]: next } });
   };
 
@@ -115,14 +113,12 @@ export default function SbfasRules() {
     const history = [...(rule.history ?? []), { at: new Date().toISOString(), by: staff?.name ?? "School user", changes: diffSbfasRule(rule, saved) }];
     dispatch({ type: "save-rule", rule: { ...saved, history } });
     setD(null);
-    setNote(`SBFAS rules saved on ${formatDate(saved.updated)} — new suggestions and decisions use these rules.`);
   };
 
   return (
     <>
       <Card title={`SBFAS rules — ${schoolName}`}>
       <div className="space-y-4">
-        {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <div className="space-y-3">
           {BLOCK_LEVELS.map((lv) => {
@@ -164,7 +160,6 @@ export default function SbfasRules() {
                           const next = cur.includes(t)
                             ? cur.filter((x) => x !== t)
                             : [...cur, t].sort((a, b) => Number(String(a).replace(/\D/g, "")) - Number(String(b).replace(/\D/g, "")));
-                          setNote("");
                           setD({ ...draft, levelTiers: { ...draft.levelTiers!, [lv]: next } });
                         }}
                       >
@@ -219,7 +214,7 @@ export default function SbfasRules() {
                             id={`tier-basis-${i}`}
                             className={inputClass}
                             value={t.basis}
-                            onChange={(e) => { setNote(""); upd(i, { basis: e.target.value as SubsidyBasis }); }}
+                            onChange={(e) => upd(i, { basis: e.target.value as SubsidyBasis })}
                           >
                             <option value="percent">% of fee</option>
                             <option value="fixed">Fixed S$</option>
@@ -234,14 +229,14 @@ export default function SbfasRules() {
                             className={`${inputClass} text-right`}
                             aria-label={`Rank ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
                             value={t.rate}
-                            onChange={(e) => { setNote(""); upd(i, { rate: e.target.value }); }}
+                            onChange={(e) => upd(i, { rate: e.target.value })}
                           />
                           {errors.rows[i] && <p role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.rows[i]}</p>}
                         </div>
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <Button variant="ghost" disabled={draft.tiers.length <= 1} onClick={() => { setNote(""); rmTier(i); }}>
+                      <Button variant="ghost" disabled={draft.tiers.length <= 1} onClick={() => rmTier(i)}>
                         Remove
                       </Button>
                     </td>
@@ -251,7 +246,7 @@ export default function SbfasRules() {
             </table>
           </div>
           <div className="flex justify-start">
-            <Button variant="secondary" onClick={() => { setNote(""); addTier(); }}>+ Rank</Button>
+            <Button variant="secondary" onClick={() => addTier()}>+ Rank</Button>
           </div>
           {errors.tiers && <p role="alert" className="text-[13px] font-medium text-alert">{errors.tiers}</p>}
           </div>
@@ -268,7 +263,6 @@ export default function SbfasRules() {
             const rest = { ...(t.components ?? {}) };
             if (basis === "follow") delete rest[comp];
             else rest[comp] = { basis, rate: cur?.rate ?? t.rate };
-            setNote("");
             upd(ti, { components: rest });
           };
           return (
@@ -327,7 +321,7 @@ export default function SbfasRules() {
                                 className={`${inputClass} w-24 text-right`}
                                 aria-label={`Rank ${ti + 1} support for ${comp}`}
                                 value={ov.rate}
-                                onChange={(e) => { setNote(""); upd(ti, { components: { ...(t.components ?? {}), [comp]: { basis: ov.basis, rate: e.target.value } } }); }}
+                                onChange={(e) => upd(ti, { components: { ...(t.components ?? {}), [comp]: { basis: ov.basis, rate: e.target.value } } })}
                               />
                             )}
                           </div>
@@ -351,7 +345,7 @@ export default function SbfasRules() {
         <div className="flex justify-end gap-3">
           <Button
             variant="secondary"
-            onClick={() => { setD(draftOfSbfasRule(rule)); setErrors({ rows: {} }); setNote(""); }}
+            onClick={() => { setD(draftOfSbfasRule(rule)); setErrors({ rows: {} }); }}
           >
             Reset
           </Button>
