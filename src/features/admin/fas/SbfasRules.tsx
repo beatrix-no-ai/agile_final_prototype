@@ -10,17 +10,28 @@ import {
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { useSbfas } from "../../../data/sbfasStore";
+import { useFees } from "../../../data/feeStore";
 import { useTiers } from "../../../data/moefas";
-import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import { formatDate, formatSGD } from "../../../lib/format";
 
-/** What a tier's subsidy means in money, on a S$100 fee — shown beside each tier while editing. */
-const onHundred = (t: { basis: SubsidyBasis; rate: string }) => {
-  const n = Number(t.rate);
-  if (!Number.isFinite(n) || n < 0) return "—";
-  if (t.basis === "percent" && n > 100) return "—";
-  return formatSGD(Math.max(0, 100 - n));
+/**
+ * What a tier's subsidy means in money on a S$100 fee — the component rates weighted by each component's
+ * share of the school's fee amounts, so per-component customization still previews as one honest number.
+ */
+const onHundred = (
+  t: { basis: SubsidyBasis; rate: string; components?: Record<string, string> },
+  compNames: string[],
+  compAmount: Record<string, number>,
+) => {
+  const vals = compNames.map((n) => Number(t.components?.[n] ?? t.rate));
+  if (!vals.length || vals.some((v) => !Number.isFinite(v) || v < 0)) return "—";
+  if (t.basis === "percent" && vals.some((v) => v > 100)) return "—";
+  const total = compNames.reduce((s, n) => s + (compAmount[n] ?? 0), 0);
+  const eff = total > 0
+    ? vals.reduce((s, v, i) => s + v * (compAmount[compNames[i]] ?? 0), 0) / total
+    : vals.reduce((a, b) => a + b, 0) / vals.length;
+  return formatSGD(Math.max(0, 100 - eff));
 };
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
@@ -39,11 +50,17 @@ const rangeOf = (bands: (RiskLevel | null)[], l: RiskLevel): [number, number] =>
  * policy are locked — no student can hold both schemes.
  */
 export default function SbfasRules() {
-  const { role } = useSession();
-  const school = schoolCodeFor(role);
+  const { role, staff } = useSession();
+  // The signed-in school's own package — same key the review queue uses, so edits reach the modal.
+  const school = role === "school" ? staff?.schoolCode ?? null : null;
   const { state, dispatch } = useSbfas();
+  const { state: feeState } = useFees();
   const [tiers] = useTiers(); // HQ's central income tiers, read from storage on mount
   const covered = moefasCoveredBands(tiers);
+  // The fee components the school charges (its own fee types) — the per-component subsidy columns.
+  const feeTypes = school ? feeState.types.filter((ft) => ft.school === school) : [];
+  const compNames = [...new Set(feeTypes.flatMap((ft) => ft.components.map((c) => c.name)))];
+  const compAmount: Record<string, number> = Object.fromEntries(feeTypes.flatMap((ft) => ft.components).map((c) => [c.name, c.amount]));
   const rule = school ? ruleForSchool(state.rules, school) : null;
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
@@ -57,7 +74,7 @@ export default function SbfasRules() {
     );
   }
 
-  const base = d ?? draftOfSbfasRule(rule);
+  const base = d ?? draftOfSbfasRule(rule, compNames);
   // HQ may have added or removed income tiers since this rule was saved: keep one level slot per current tier.
   const fit = (g: (RiskLevel | null)[], n: number) => Array.from({ length: n }, (_, i) => g[i] ?? null);
   const draft: SbfasRuleDraft = {
@@ -68,7 +85,7 @@ export default function SbfasRules() {
   const upd = (i: number, patch: Partial<SbfasRuleDraft["tiers"][number]>) =>
     setD({ ...draft, tiers: draft.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
   const addTier = () =>
-    setD({ ...draft, tiers: [...draft.tiers, { basis: "percent", rate: "" }] });
+    setD({ ...draft, tiers: [...draft.tiers, { basis: "percent", rate: "", components: Object.fromEntries(compNames.map((n) => [n, ""])) }] });
   /** Removing a tier drops the level picks that pointed at it and shifts the higher names down. */
   const rmTier = (i: number) => {
     const levelTiers = { ...draft.levelTiers! };
@@ -165,7 +182,10 @@ export default function SbfasRules() {
             <thead>
               <tr className="border-b border-line">
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Rank</th>
-                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Subsidy</th>
+                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Basis</th>
+                {compNames.map((n) => (
+                  <th key={n} scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">{n}</th>
+                ))}
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Parent pays on a S$100 fee</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant"><span className="sr-only">Remove</span></th>
               </tr>
@@ -173,37 +193,39 @@ export default function SbfasRules() {
             <tbody>
               {draft.tiers.map((t, i) => (
                 <tr key={i} className="border-b border-line last:border-0">
-                  <td className="px-3 py-3 font-semibold">Rank {i + 1}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <label className="shrink-0">
-                        <span className="sr-only">Rank {i + 1} subsidy basis</span>
-                        <select
-                          id={`tier-basis-${i}`}
-                          className={inputClass}
-                          value={t.basis}
-                          onChange={(e) => { setNote(""); upd(i, { basis: e.target.value as SubsidyBasis }); }}
-                        >
-                          <option value="percent">% of fee</option>
-                          <option value="fixed">Fixed S$</option>
-                        </select>
-                      </label>
-                      <div className="w-28">
-                        <input
-                          type="number"
-                          min={0}
-                          max={t.basis === "fixed" ? undefined : 100}
-                          step={0.5}
-                          className={`${inputClass} text-right`}
-                          aria-label={`Rank ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
-                          value={t.rate}
-                          onChange={(e) => { setNote(""); upd(i, { rate: e.target.value }); }}
-                        />
-                        {errors.rows[i] && <p role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.rows[i]}</p>}
-                      </div>
-                    </div>
+                  <td className="px-3 py-3 font-semibold">
+                    Rank {i + 1}
+                    {errors.rows[i] && <p role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.rows[i]}</p>}
                   </td>
-                  <td className="px-3 py-3 tabular-nums text-on-surface-variant">{onHundred(t)}</td>
+                  <td className="px-3 py-3">
+                    <label className="shrink-0">
+                      <span className="sr-only">Rank {i + 1} subsidy basis</span>
+                      <select
+                        id={`tier-basis-${i}`}
+                        className={inputClass}
+                        value={t.basis}
+                        onChange={(e) => { setNote(""); upd(i, { basis: e.target.value as SubsidyBasis }); }}
+                      >
+                        <option value="percent">% of fee</option>
+                        <option value="fixed">Fixed S$</option>
+                      </select>
+                    </label>
+                  </td>
+                  {compNames.map((n) => (
+                    <td key={n} className="px-3 py-3">
+                      <input
+                        type="number"
+                        min={0}
+                        max={t.basis === "fixed" ? undefined : 100}
+                        step={0.5}
+                        className={`${inputClass} w-24 text-right`}
+                        aria-label={`Rank ${i + 1} ${n} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
+                        value={t.components?.[n] ?? t.rate}
+                        onChange={(e) => { setNote(""); upd(i, { components: { ...(t.components ?? {}), [n]: e.target.value } }); }}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-3 py-3 tabular-nums text-on-surface-variant">{onHundred(t, compNames, compAmount)}</td>
                   <td className="px-3 py-3">
                     <Button variant="ghost" disabled={draft.tiers.length <= 1} onClick={() => { setNote(""); rmTier(i); }}>
                       Remove
@@ -225,7 +247,7 @@ export default function SbfasRules() {
         <div className="flex justify-end gap-3">
           <Button
             variant="secondary"
-            onClick={() => { setD(draftOfSbfasRule(rule)); setErrors({ rows: {} }); setNote(""); }}
+            onClick={() => { setD(draftOfSbfasRule(rule, compNames)); setErrors({ rows: {} }); setNote(""); }}
           >
             Reset
           </Button>

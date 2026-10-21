@@ -11,7 +11,9 @@ import { defaultTiers, type TierConfig, type TierKind } from "./moefas";
 
 /** What a tier's `rate` means: a percentage of each fee, or a fixed S$ amount off each fee. */
 export type SubsidyBasis = "percent" | "fixed";
-export type SbfasRuleTier = { tier: SbfasTier; basis?: SubsidyBasis; rate: number };
+/** Per fee-component rates for a tier (same basis as the tier); absent = the flat `rate` applies to every component. */
+export type ComponentRates = Record<string, number>;
+export type SbfasRuleTier = { tier: SbfasTier; basis?: SubsidyBasis; rate: number; components?: ComponentRates };
 /** Need level a school assigns to an income band. Drives the AI suggestion; not a decision on its own. */
 export type RiskLevel = "HIGH" | "MED" | "LOW";
 export const RISK_LEVELS: RiskLevel[] = ["HIGH", "MED", "LOW"];
@@ -58,6 +60,19 @@ export const tierSubsidy = (rule: SbfasRule, tier: SbfasTier): { basis: SubsidyB
   return t ? { basis: t.basis ?? "percent", value: t.rate } : undefined;
 };
 
+/**
+ * Human summary of a tier's subsidy across fee components — "75%" when uniform (or no per-component rates),
+ * a "50–75%" range when components differ. Used wherever one line must describe the tier.
+ */
+export const subsidySummary = (t: { basis?: SubsidyBasis; rate?: number; components?: ComponentRates }): string => {
+  const vals = t.components && Object.keys(t.components).length ? Object.values(t.components) : t.rate != null ? [t.rate] : [];
+  if (!vals.length) return "";
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  if (lo === hi) return t.basis === "fixed" ? `S$${lo}` : `${lo}%`;
+  return t.basis === "fixed" ? `S$${lo}–${hi}` : `${lo}–${hi}%`;
+};
+
 /** Tier indexes HQ assigns to MOEFAS — those families are auto-granted, so they are locked out of the school's grouping. */
 export function moefasCoveredBands(tiers: TierConfig): { ghi: number[]; pci: number[] } {
   const covered = (k: TierKind) => tiers[k].schemes.flatMap((s, i) => (s === "MOEFAS" ? [i] : []));
@@ -87,31 +102,41 @@ export function tierForBands(rule: SbfasRule, ghi: number | null, pci: number | 
 
 /** Editing state; rates stay strings until save. grouping/levelTiers are optional so tier-only callers keep compiling. */
 export type SbfasRuleDraft = {
-  tiers: { basis: SubsidyBasis; rate: string }[];
+  tiers: { basis: SubsidyBasis; rate: string; components?: Record<string, string> }[];
   grouping?: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
   levelTiers?: Record<RiskLevel, SbfasTier | null>;
 };
 export type SbfasRuleErrors = { tiers?: string; grouping?: string; rows: Record<number, string>; levelRows?: Record<RiskLevel, string> };
 
-export const draftOfSbfasRule = (rule: SbfasRule): SbfasRuleDraft => ({
-  tiers: rule.tiers.map((t) => ({ basis: t.basis ?? "percent", rate: String(t.rate) })),
+/** Draft of a saved rule; per-component rates default to the tier's flat rate for any component it does not set. */
+export const draftOfSbfasRule = (rule: SbfasRule, compNames: string[] = []): SbfasRuleDraft => ({
+  tiers: rule.tiers.map((t) => ({
+    basis: t.basis ?? "percent",
+    rate: String(t.rate),
+    ...(compNames.length ? { components: Object.fromEntries(compNames.map((n) => [n, String(t.components?.[n] ?? t.rate)])) } : {}),
+  })),
   grouping: { ghi: [...rule.grouping.ghi], pci: [...rule.grouping.pci] },
   levelTiers: { ...rule.levelTiers },
 });
 
 /**
  * Each tier needs a valid value for its basis — a rate of 0–100 (max 2 decimals) when percent, an amount
- * of at least 0 (max 2 decimals) when fixed. The school must keep at least one tier, at least one band
- * must be grouped, and every level must point at a tier that still exists.
+ * of at least 0 (max 2 decimals) when fixed — for the flat rate and every per-component rate. The school
+ * must keep at least one tier, at least one band must be grouped, and every level must point at a tier
+ * that still exists.
  */
 export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
   const errors: SbfasRuleErrors = { rows: {} };
+  const valid = (v: string, basis: SubsidyBasis) => {
+    const re = basis === "fixed" ? /^\d{1,6}(\.\d{1,2})?$/ : /^\d{1,3}(\.\d{1,2})?$/;
+    return re.test(v.trim()) && Number(v) >= 0 && (basis === "fixed" || Number(v) <= 100);
+  };
   d.tiers.forEach((t, i) => {
-    const re = t.basis === "fixed" ? /^\d{1,6}(\.\d{1,2})?$/ : /^\d{1,3}(\.\d{1,2})?$/;
-    if (!re.test(t.rate.trim()) || Number(t.rate) < 0 || (t.basis !== "fixed" && Number(t.rate) > 100)) {
+    const bad = [t.rate, ...Object.values(t.components ?? {})].some((v) => !valid(v, t.basis));
+    if (bad) {
       errors.rows[i] = t.basis === "fixed"
-        ? "Enter an amount of at least 0 (max 2 decimals)."
-        : "Enter a rate between 0 and 100 (max 2 decimals).";
+        ? "Enter an amount of at least 0 (max 2 decimals) for every component."
+        : "Enter a rate between 0 and 100 (max 2 decimals) for every component.";
     }
   });
   if (!d.tiers.length) errors.tiers = "Keep at least one rank.";
@@ -136,7 +161,12 @@ export function toSbfasRule(d: SbfasRuleDraft, school: string, updated = TODAY):
   return {
     school,
     updated,
-    tiers: d.tiers.map((t, i) => ({ tier: `Tier ${i + 1}` as SbfasTier, basis: t.basis, rate: Number(t.rate) })),
+    tiers: d.tiers.map((t, i) => ({
+      tier: `Tier ${i + 1}` as SbfasTier,
+      basis: t.basis,
+      rate: Number(t.rate),
+      ...(t.components ? { components: Object.fromEntries(Object.entries(t.components).map(([n, v]) => [n, Number(v)])) } : {}),
+    })),
     grouping: d.grouping ?? DEFAULT_GROUPING(),
     levelTiers: d.levelTiers ?? DEFAULT_LEVEL_TIERS(),
   };

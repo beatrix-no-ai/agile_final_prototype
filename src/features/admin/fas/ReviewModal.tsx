@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import { rankOf, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
+import { rankOf, subsidySummary, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatDate, formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
@@ -39,7 +39,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
-  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number }[] = rule
+  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: Record<string, number> }[] = rule
     ? rule.tiers
     : SBFAS_TIERS.map((t) => ({ tier: t }));
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
@@ -116,7 +116,7 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
                 <option key={t.tier} value={t.tier}>
-                  {rankOf(t.tier)}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
+                  {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t)} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
                 </option>
               ))}
             </select>
