@@ -113,7 +113,7 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
                 <option key={t.tier} value={t.tier}>
-                  {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t)} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
+                  {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t, rule?.coveredComponents)} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
                 </option>
               ))}
             </select>

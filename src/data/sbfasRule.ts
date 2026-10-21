@@ -22,6 +22,8 @@ export type SbfasRule = {
   school: string;
   updated: string;
   tiers: SbfasRuleTier[];
+  /** Fee components the school subsidises (picked per fee type); undefined = every component of its fee types. */
+  coveredComponents?: string[];
   /** The school's level per national band (GHI then PCI, low → high); null = Not grouped. */
   grouping: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
   /** The SBFAS tier each level recommends when a grouped band applies; null = no tier suggested. */
@@ -62,10 +64,13 @@ export const tierSubsidy = (rule: SbfasRule, tier: SbfasTier): { basis: SubsidyB
 
 /**
  * Human summary of a tier's subsidy across fee components — "75%" when uniform (or no per-component rates),
- * a "50–75%" range when components differ. Used wherever one line must describe the tier.
+ * a "50–100%" range when components differ. `covered` restricts the summary to the components the school
+ * picked for subsidising; undefined = every component with a rate.
  */
-export const subsidySummary = (t: { basis?: SubsidyBasis; rate?: number; components?: ComponentRates }): string => {
-  const vals = t.components && Object.keys(t.components).length ? Object.values(t.components) : t.rate != null ? [t.rate] : [];
+export const subsidySummary = (t: { basis?: SubsidyBasis; rate?: number; components?: ComponentRates }, covered?: string[]): string => {
+  const entries = t.components && Object.keys(t.components).length ? Object.entries(t.components) : [];
+  let vals = (covered ? entries.filter(([n]) => covered.includes(n)) : entries).map(([, v]) => v);
+  if (!vals.length) vals = t.rate != null ? [t.rate] : [];
   if (!vals.length) return "";
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);
@@ -103,10 +108,11 @@ export function tierForBands(rule: SbfasRule, ghi: number | null, pci: number | 
 /** Editing state; rates stay strings until save. grouping/levelTiers are optional so tier-only callers keep compiling. */
 export type SbfasRuleDraft = {
   tiers: { basis: SubsidyBasis; rate: string; components?: Record<string, string> }[];
+  coveredComponents?: string[];
   grouping?: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
   levelTiers?: Record<RiskLevel, SbfasTier | null>;
 };
-export type SbfasRuleErrors = { tiers?: string; grouping?: string; rows: Record<number, string>; levelRows?: Record<RiskLevel, string> };
+export type SbfasRuleErrors = { tiers?: string; grouping?: string; components?: string; rows: Record<number, string>; levelRows?: Record<RiskLevel, string> };
 
 /** Draft of a saved rule; per-component rates default to the tier's flat rate for any component it does not set. */
 export const draftOfSbfasRule = (rule: SbfasRule, compNames: string[] = []): SbfasRuleDraft => ({
@@ -115,6 +121,7 @@ export const draftOfSbfasRule = (rule: SbfasRule, compNames: string[] = []): Sbf
     rate: String(t.rate),
     ...(compNames.length ? { components: Object.fromEntries(compNames.map((n) => [n, String(t.components?.[n] ?? t.rate)])) } : {}),
   })),
+  ...(compNames.length ? { coveredComponents: rule.coveredComponents ?? compNames } : {}),
   grouping: { ghi: [...rule.grouping.ghi], pci: [...rule.grouping.pci] },
   levelTiers: { ...rule.levelTiers },
 });
@@ -140,6 +147,7 @@ export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
     }
   });
   if (!d.tiers.length) errors.tiers = "Keep at least one rank.";
+  if (d.coveredComponents && !d.coveredComponents.length) errors.components = "Select at least one fee component.";
   if (d.grouping && ![...d.grouping.ghi, ...d.grouping.pci].some(Boolean)) {
     errors.grouping = "Group at least one income band into a level before saving.";
   }
@@ -155,7 +163,7 @@ export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
 }
 
 export const sbfasRuleOk = (e: SbfasRuleErrors) =>
-  !e.tiers && !e.grouping && !Object.keys(e.rows).length && !Object.values(e.levelRows ?? {}).some(Boolean);
+  !e.tiers && !e.grouping && !e.components && !Object.keys(e.rows).length && !Object.values(e.levelRows ?? {}).some(Boolean);
 
 export function toSbfasRule(d: SbfasRuleDraft, school: string, updated = TODAY): SbfasRule {
   return {
@@ -167,6 +175,7 @@ export function toSbfasRule(d: SbfasRuleDraft, school: string, updated = TODAY):
       rate: Number(t.rate),
       ...(t.components ? { components: Object.fromEntries(Object.entries(t.components).map(([n, v]) => [n, Number(v)])) } : {}),
     })),
+    ...(d.coveredComponents ? { coveredComponents: d.coveredComponents } : {}),
     grouping: d.grouping ?? DEFAULT_GROUPING(),
     levelTiers: d.levelTiers ?? DEFAULT_LEVEL_TIERS(),
   };

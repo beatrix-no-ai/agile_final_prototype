@@ -13,7 +13,7 @@ import { useSbfas } from "../../../data/sbfasStore";
 import { useFees } from "../../../data/feeStore";
 import { useTiers } from "../../../data/moefas";
 import { useSession } from "../../../session";
-import { formatDate } from "../../../lib/format";
+import { formatDate, formatSGD } from "../../../lib/format";
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
 const BLOCK_LEVELS: RiskLevel[] = ["LOW", "MED", "HIGH"];
@@ -45,6 +45,7 @@ export default function SbfasRules() {
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
   const [note, setNote] = useState("");
+  const [ftPick, setFtPick] = useState("");
 
   if (!school || !rule) {
     return (
@@ -62,6 +63,13 @@ export default function SbfasRules() {
     grouping: { ghi: fit(base.grouping!.ghi, tiers.ghi.ranges.length), pci: fit(base.grouping!.pci, tiers.pci.ranges.length) },
   };
   const schoolName = SCHOOLS.find((s) => s.code === school)?.name ?? school;
+  // Components picked for subsidising, kept in the school's fee-component order; undefined = all (nothing saved yet).
+  const coveredComps = compNames.filter((n) => (draft.coveredComponents ?? compNames).includes(n));
+  const toggleComp = (name: string, on: boolean) => {
+    const next = on ? compNames.filter((n) => n === name || coveredComps.includes(n)) : coveredComps.filter((n) => n !== name);
+    setNote("");
+    setD({ ...draft, coveredComponents: next });
+  };
   const upd = (i: number, patch: Partial<SbfasRuleDraft["tiers"][number]>) =>
     setD({ ...draft, tiers: draft.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
   const addTier = () =>
@@ -91,6 +99,7 @@ export default function SbfasRules() {
 
   const lockedDraft = (): SbfasRuleDraft => ({
     ...draft,
+    coveredComponents: draft.coveredComponents?.filter((n) => compNames.includes(n)),
     grouping: {
       ghi: draft.grouping!.ghi.map((v, i) => (covered.ghi.includes(i) ? null : v)),
       pci: draft.grouping!.pci.map((v, i) => (covered.pci.includes(i) ? null : v)),
@@ -157,13 +166,50 @@ export default function SbfasRules() {
         })}
         {errors.grouping && <p role="alert" className="text-[13px] font-medium text-alert">{errors.grouping}</p>}
 
+        {feeTypes.length > 0 && (() => {
+          const ft = feeTypes.find((x) => x.id === ftPick) ?? feeTypes[0];
+          return (
+            <section aria-label="Fee components" className="rounded-card border border-line bg-surface-container-lowest p-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <h4 className="text-sm font-semibold text-on-surface">Fee components</h4>
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  Fee type
+                  <select
+                    className={`${inputClass} w-64`}
+                    value={ft.id}
+                    onChange={(e) => setFtPick(e.target.value)}
+                  >
+                    {feeTypes.map((x) => (
+                      <option key={x.id} value={x.id}>{x.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+                {ft.components.map((c) => (
+                  <label key={c.name} className="flex items-center gap-2 text-sm text-on-surface">
+                    <input
+                      type="checkbox"
+                      checked={coveredComps.includes(c.name)}
+                      onChange={(e) => toggleComp(c.name, e.target.checked)}
+                    />
+                    {c.name} <span className="text-[13px] text-on-surface-variant">({formatSGD(c.amount)})</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-3 text-[13px] text-on-surface-variant">Tick the components SBFAS subsidises; each ticked column below sets that rank's subsidy for it.</p>
+              {errors.components && <p role="alert" className="mt-2 text-[13px] font-medium text-alert">{errors.components}</p>}
+            </section>
+          );
+        })()}
+
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-line">
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Rank</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Basis</th>
-                {compNames.map((n) => (
+                {coveredComps.map((n) => (
                   <th key={n} scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">
                     <span className="block">{n}</span>
                     <span className="block text-xs font-normal">Amount</span>
@@ -193,7 +239,7 @@ export default function SbfasRules() {
                       </select>
                     </label>
                   </td>
-                  {compNames.map((n) => (
+                  {coveredComps.map((n) => (
                     <td key={n} className="px-3 py-3">
                       <input
                         type="number"

@@ -57,7 +57,7 @@ export function useFasActions() {
         const fallback = (rule.tiers.find((t) => t.tier === "Tier 3") ?? rule.tiers[rule.tiers.length - 1]).tier;
         recommend[id] = {
           level, tier, fallback,
-          subsidy: tt ? ` (${subsidySummary(tt)} subsidy)` : undefined,
+          subsidy: tt ? ` (${subsidySummary(tt, rule.coveredComponents)} subsidy)` : undefined,
         };
       }
       run({ type: "submitFamily", studentIds, band, at: new Date().toISOString(), recommend }, studentIds);
