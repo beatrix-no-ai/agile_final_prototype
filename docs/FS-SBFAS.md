@@ -1,6 +1,6 @@
 # FS — SBFAS (School-Based FAS) — Functional Specification
 
-**Phiên bản:** 1.0 · 2026-10-22
+**Phiên bản:** 1.1 · 2026-10-22
 **Phạm vi:** tính năng SBFAS cho **school user** (tab *SBFAS review*, *SBFAS rules*, *MOEFAS Handbook* chỉ đọc) trong trang `/admin/fas`.
 **Người dùng:** tài khoản role `school` (vd `alicia.tan@school.example`, `geraldine.rajaratnam@school.example` — mật khẩu demo `Sch00l-Demo-26`). MOE HQ xem queue ở chế độ chỉ đọc.
 
@@ -64,7 +64,7 @@
 
 ## 3. Tab SBFAS rules
 
-Card: `SBFAS rules — <tên trường của user đăng nhập>`. Bố cục 2 cột: trái = 3 mức, phải = bảng Rank.
+Card: `SBFAS rules — <tên trường của user đăng nhập>`. Bố cục 2 cột: trái = 3 mức, phải = bảng Rank; dưới cùng: Fee component support → Save/Reset → **History**.
 
 ### 3.1 Mức nhu cầu LOW / MED / HIGH (mỗi khối)
 | Field | Kiểu | Hợp lệ / Mặc định |
@@ -88,7 +88,7 @@ Card: `SBFAS rules — <tên trường của user đăng nhập>`. Bố cục 2 
 Mỗi dòng: **Fee type** (select — fee type của trường) → **Fee component** (select — component của fee type đó; component đã chọn ở dòng khác bị ẩn) → với **từng Rank**: dropdown `Same as rank (X%)` (mặc định — theo mức chung của rank) / `% of component` (nhập 0–100) / `Fixed S$ amount` (nhập ≥ 0). Nút **+ Fee type** thêm dòng; nút **Remove** xóa dòng (khi ≥ 2 dòng).
 
 ### 3.4 Lưu / Validation
-Nút **Save SBFAS rules** / **Reset**. Note thành công: *"SBFAS rules saved on {ngày} — new suggestions and decisions use these rules."*
+Nút **Save SBFAS rules** / **Reset**. Sau khi lưu **không hiện note xác nhận** (đã xóa) — kết quả lưu thể hiện qua entry mới trong History (3.5). Trang không còn chú thích "Grouping and rates apply…".
 | Điều kiện lỗi | Thông báo |
 |---|---|
 | Xóa hết rank | "Keep at least one rank." |
@@ -96,11 +96,22 @@ Nút **Save SBFAS rules** / **Reset**. Note thành công: *"SBFAS rules saved on
 | Không nhóm band nào | "Group at least one income band into a level before saving." |
 | Mức trỏ rank đã bị xóa | "Pick the rank this level suggests." |
 
+### 3.5 History
+Cuối trang (sau nút Save). Mỗi lần **Save** tạo 1 entry — **mới nhất trên cùng**, các hàng phân cách bằng đường kẻ, hover đổi nền.
+| Field | Kiểu | Ghi chú QA |
+|---|---|---|
+| Hàng history | button | trái: `{ngày, giờ} — {tên staff đã lưu}`; phải: `N change(s)` hoặc `No effective change` + chevron › |
+| Popup chi tiết | modal | click hàng → popup tiêu đề `Rule change — {ngày, giờ}`, dòng `Saved by {tên}`, **mỗi thay đổi 1 thẻ riêng**; đóng bằng **X / Esc / click nền ngoài** (không có nút Close) |
+| Nội dung dòng thay đổi | text | `Rank N subsidy: 75% → 80%` · `Added Rank 5 (10%)` / `Removed Rank 4 (25%)` · `Rank N <component>: same as rank (50%) → S$10` · `LOW suggested ranks: Rank 3 → Rank 3, Rank 4` · `GHI/PCI Tier N: MED → Not grouped` |
+| Empty state | text | chưa lưu lần nào: `No changes saved yet.` |
+
+Entry đầu tiên so sánh với **default package** (100/75/50/25). Lưu lại không đổi gì → entry `No effective change`. History là in-memory — reload trang mất.
+
 ---
 
 ## 4. Data model (QA đối chiếu storage/API)
 
-**SbfasRule** (mỗi trường): `school` (S001/S002), `updated` (ngày), `tiers: [{tier:"Tier N", basis:"percent"|"fixed", rate:number, components?: {<tên component>: {basis, rate}}}]`, `levelTiers: {HIGH:[], MED:[], LOW:[]}` (mảng "Tier N", rỗng = không đề xuất), `grouping: {ghi:[level|null], pci:[level|null]}` theo thứ tự band quốc gia.
+**SbfasRule** (mỗi trường): `school` (S001/S002), `updated` (ngày), `tiers: [{tier:"Tier N", basis:"percent"|"fixed", rate:number, components?: {<tên component>: {basis, rate}}}]`, `levelTiers: {HIGH:[], MED:[], LOW:[]}` (mảng "Tier N", rỗng = không đề xuất), `grouping: {ghi:[level|null], pci:[level|null]}` theo thứ tự band quốc gia, `history?: [{at:"ISO datetime", by:"tên staff", changes:string[]}]` — log mỗi lần save (cũ → mới), bắt đầu từ lần save đầu (so với default package).
 
 **SbfasApplication:** `id` (SBFAS0001–0018, trừ 0004/0006 — đã xóa vì Singapore PR), `student`, `studentId`, `level`, `incomeBand`, `householdBand`, `incomeSyncedOn`, `riskScore`, `recommendedTier` ("Tier N"), `slaDays`, `explanation`, `status` (Pending/Approved/Overridden/Rejected), sau quyết định thêm `sbfasTier`, `justification`.
 
@@ -138,7 +149,11 @@ Chỉ đọc: giới thiệu + bảng income tiers GHI/PCI + Active MOE rule. **
 | 18 | Reload trang | store | Rule/quyết định trở về mặc định (in-memory) |
 | 19 | Bố cục rules | — | 2 cột: mức bên trái, bảng Rank bên phải; Fee component support full-width dưới |
 | 20 | Modal không có nút Cancel | — | Chỉ X + Reject/Override/Approve |
+| 21 | Save 1 thay đổi (vd Rank 2 = 80%) | `history[]` | History thêm hàng trên cùng "1 change"; **không** có note xanh xác nhận |
+| 22 | Click hàng History | `history[].changes` | Popup "Rule change — {ngày, giờ}" + "Saved by {tên}"; mỗi thay đổi 1 thẻ; X đóng được |
+| 23 | Save lại không đổi gì | `history[].changes` | Hàng mới ghi "No effective change"; popup ghi "No effective change." |
+| 24 | Reload trang → tab rules | `history[]` | History rỗng → "No changes saved yet." (in-memory) |
 
 ---
 
-*Tài liệu mô tả hành vi tại commit `f40f258`. Mọi thay đổi UI SBFAS sau này cần cập nhật FS này.*
+*Tài liệu mô tả hành vi tại commit `9cd1ef7`. Mọi thay đổi UI SBFAS sau này cần cập nhật FS này.*
