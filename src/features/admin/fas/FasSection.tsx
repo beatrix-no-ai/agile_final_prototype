@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useSession } from "../../../session";
 import { SbfasReview } from "./FasApplications";
 import SbfasRules from "./SbfasRules";
+import { MoefasHandbook } from "./MoefasHandbook";
 
 const SCHOOL_TABS = [
-  { id: "sbfas", label: "SBFAS review", hint: "Applications and decisions" },
-  { id: "sbfasRules", label: "SBFAS rules", hint: "Your school's tiers and subsidy rates" },
+  { id: "sbfas", label: "SBFAS review" },
+  { id: "sbfasRules", label: "SBFAS rules" },
+  { id: "handbook", label: "MOEFAS Handbook" },
 ] as const;
 
 type TabId = (typeof SCHOOL_TABS)[number]["id"];
@@ -18,7 +20,7 @@ export default function FasSection() {
 
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="FAS workspace" className="grid gap-2 sm:grid-cols-2">
+      <div role="tablist" aria-label="FAS workspace" className="grid gap-2 sm:grid-cols-3">
         {SCHOOL_TABS.map((t, i) => {
           const on = tab === t.id;
           return (
@@ -33,13 +35,12 @@ export default function FasSection() {
               <span aria-hidden className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-bold ${on ? "bg-primary text-on-primary" : "bg-track text-on-surface-variant"}`}>{i + 1}</span>
               <span>
                 <span className={`block text-sm font-semibold ${on ? "text-primary" : "text-on-surface"}`}>{t.label}</span>
-                <span className="block text-[13px] text-on-surface-variant">{t.hint}</span>
               </span>
             </button>
           );
         })}
       </div>
-      {tab === "sbfas" ? <SbfasReview /> : <SbfasRules />}
+      {tab === "sbfas" ? <SbfasReview /> : tab === "sbfasRules" ? <SbfasRules /> : <MoefasHandbook />}
     </div>
   );
 }

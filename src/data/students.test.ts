@@ -11,11 +11,11 @@ test("isMoefasEligible: citizens and dual citizens pass, PRs and foreigners are 
   expect(isMoefasEligible("Filipino")).toBe(false);
 });
 
-// BR12: SBFAS covers SC, dual and PR students; foreign nationals are not eligible for either scheme.
-test("isSbfasEligible: SC, dual and PR pass, foreign nationals fail", () => {
+// SBFAS supports Singapore Citizens only (dual-Singapore counts as SC); PRs and foreign nationals are not eligible.
+test("isSbfasEligible: SC and dual-Singapore pass, PR and foreign nationals fail", () => {
   expect(isSbfasEligible("Singapore Citizen")).toBe(true);
   expect(isSbfasEligible("Dual (Singapore + Malaysian)")).toBe(true);
-  expect(isSbfasEligible("Singapore PR")).toBe(true);
+  expect(isSbfasEligible("Singapore PR")).toBe(false);
   expect(isSbfasEligible("Malaysian")).toBe(false);
   expect(isSbfasEligible("Indian")).toBe(false);
   expect(isSbfasEligible("Filipino")).toBe(false);

@@ -6,7 +6,7 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
-import { ruleForSchool } from "../../../data/sbfasRule";
+import { ruleForSchool, rankOf } from "../../../data/sbfasRule";
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
@@ -27,11 +27,6 @@ import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft 
 type Filter = "all" | "pending" | "granted" | "declined";
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
-
-function Sla({ days }: { days: number }) {
-  if (days <= 0) return <Badge tone="alert">Overdue</Badge>;
-  return <span className={days <= 2 ? "font-semibold text-warning" : ""}>{days} {days === 1 ? "day" : "days"} left</span>;
-}
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
@@ -104,10 +99,10 @@ function SbfasReview() {
         <span className="block text-[13px] text-on-surface-variant">{a.level} · {a.id}</span>
       </Link>
     ) },
-    { key: "riskScore", header: "AI risk", sortable: true, render: (a) => (
+    { key: "riskScore", header: "Risk", sortable: true, render: (a) => (
       <>
         <RiskBadge score={a.riskScore} />
-        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {a.recommendedTier}</span>
+        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {rankOf(a.recommendedTier)}</span>
       </>
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
@@ -117,24 +112,22 @@ function SbfasReview() {
         <span className="block text-[13px] text-on-surface-variant" title="Education Account balance from MOE top-ups, separate from the FAS subsidy">Balance {formatSGD(a.balance)}</span>
       </Link>
     ) },
-    { key: "slaDays", header: "Deadline", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
-    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge> },
+    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${rankOf(a.sbfasTier)}` : ""}</Badge> },
   ];
   const tabs: [Filter, string][] = [
     ["all", `All (${apps.length})`],
     ["pending", `Pending (${pendingCount})`],
     ["granted", `Granted (${grantedCount})`],
-    ["declined", `Declined (${declinedCount})`],
+    ["declined", `Rejected (${declinedCount})`],
   ];
 
   return (
     <div className="space-y-4">
       <HqPermissionNote />
-      <Tiles items={[
+      <Tiles cols={3} items={[
         { label: "Waiting for your review", value: String(pendingCount), note: "Pending applications" },
-        { label: "Overdue", value: String(apps.filter((a) => a.status === "Pending" && a.slaDays <= 0).length), note: "Past the decision deadline", alert: apps.some((a) => a.status === "Pending" && a.slaDays <= 0) },
-        { label: "Granted", value: String(grantedCount), note: "Applications granted", good: grantedCount > 0 },
-        { label: "Declined", value: String(declinedCount), note: "Applications declined" },
+        { label: "Granted", value: String(grantedCount), note: "Approved or overridden", good: grantedCount > 0 },
+        { label: "Declined", value: String(declinedCount), note: "Rejected" },
       ]} />
       <Card
         title="SBFAS review queue"

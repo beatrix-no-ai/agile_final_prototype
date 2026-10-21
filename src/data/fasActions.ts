@@ -5,7 +5,7 @@ import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
 import { useRegistry } from "./registryStore";
 import { useSbfas } from "./sbfasStore";
-import { levelForBands, ruleForSchool, tierSubsidy, type RiskLevel } from "./sbfasRule";
+import { levelForBands, ruleForSchool, suggestedTierOf, subsidySummary, type RiskLevel } from "./sbfasRule";
 import { schoolOfLevel } from "./schoolMgmt";
 import type { SbfasTier } from "./sbfasApplications";
 import type { Action, Draft } from "../features/admin/fas/review";
@@ -49,14 +49,15 @@ export function useFasActions() {
         if (!student) continue;
         const rule = ruleForSchool(sbfas.state.rules, schoolOfLevel(student.level));
         const level = levelForBands(rule, null, pci);
-        const tier = level ? rule.levelTiers[level] ?? null : null;
-        // The explanation tells the reviewer what the suggested tier is worth — % of the fee or a fixed amount.
-        const sub = tier ? tierSubsidy(rule, tier) : undefined;
+        const tier = level ? suggestedTierOf(rule.levelTiers[level]) : null;
+        // The explanation tells the reviewer what the suggested tier is worth — % of the fee or a fixed amount,
+        // as a range across fee components when the school customises them differently.
+        const tt = tier ? rule.tiers.find((x) => x.tier === tier) : undefined;
         // Nothing mapped for this band: suggest Tier 3 if the school offers it, else its last tier — never a tier it does not have.
         const fallback = (rule.tiers.find((t) => t.tier === "Tier 3") ?? rule.tiers[rule.tiers.length - 1]).tier;
         recommend[id] = {
           level, tier, fallback,
-          subsidy: sub ? ` (${sub.basis === "fixed" ? `S$${sub.value}` : `${sub.value}%`} subsidy)` : undefined,
+          subsidy: tt ? ` (${subsidySummary(tt, rule.coveredComponents)} subsidy)` : undefined,
         };
       }
       run({ type: "submitFamily", studentIds, band, at: new Date().toISOString(), recommend }, studentIds);

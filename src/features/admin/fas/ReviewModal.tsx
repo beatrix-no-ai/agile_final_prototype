@@ -5,10 +5,10 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import type { SbfasRule, SubsidyBasis } from "../../../data/sbfasRule";
-import { isMoefasEligible, isSbfasEligible } from "../../../data/students";
-import { formatDate, formatSGD } from "../../../lib/format";
+import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { rankOf, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
+import { isSbfasEligible } from "../../../data/students";
+import { formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
 
@@ -37,9 +37,9 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app: SbfasApplication & FeeContext }) {
+function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
-  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number }[] = rule
+  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
     : SBFAS_TIERS.map((t) => ({ tier: t }));
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
@@ -72,20 +72,13 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
-        <Dt label="AI risk rating"><RiskBadge score={app.riskScore} /></Dt>
-        <Dt label="AI recommended tier">{app.recommendedTier}</Dt>
+        <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
+        <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
       </dl>
-      {app.incomeSyncedOn && (
-        <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
-      )}
 
-      {!isSbfasEligible(app.nationality) ? (
+      {!isSbfasEligible(app.nationality) && (
         <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">
-          {app.nationality} — not eligible for MOE FAS or SBFAS (Singapore Citizens and PRs only). Reject this application.
-        </p>
-      ) : !isMoefasEligible(app.nationality) && (
-        <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-warning">
-          {app.nationality} — not eligible for MOE FAS (Singapore Citizens only). SBFAS is the only scheme this student can be considered for.
+          {app.nationality} — not eligible for MOE FAS or SBFAS (Singapore Citizens only). Reject this application.
         </p>
       )}
 
@@ -101,38 +94,32 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
 
       <div className="rounded-control border border-line bg-surface-container-low p-4">
         <p className="flex items-center gap-1.5 text-[13px] font-semibold text-on-surface">
-          <Sparkle size={16} aria-hidden="true" className="text-primary" /> AI explanation
+          <Sparkle size={16} aria-hidden="true" className="text-primary" /> Why this suggestion
         </p>
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
-          <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${app.sbfasTier}` : ""}</p>
+          <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${rankOf(app.sbfasTier)}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
         </div>
       ) : (
         <>
           <Field
-            label="Override tier"
+            label="Override rank"
             error={error?.field === "tier" ? error.message : undefined}
-            hint={
-              rule
-                ? `SBFAS subsidies set by the student's school: ${rule.tiers.map((t) => `${t.tier} ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}`).join(" · ")}.`
-                : undefined
-            }
           >
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
                 <option key={t.tier} value={t.tier}>
-                  {t.tier}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (AI recommended)" : ""}
+                  {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t, rule?.coveredComponents)} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
                 </option>
               ))}
             </select>
           </Field>
           <Field
             label="Justification (required to override)"
-            hint="Recorded in the audit log with your decision."
             error={error?.field === "justification" ? error.message : undefined}
           >
             <textarea
@@ -147,10 +134,9 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
             />
           </Field>
           <div className="flex flex-wrap justify-end gap-3 pt-1">
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button variant="secondary" onClick={() => act("reject")}>Reject</Button>
             <Button variant="secondary" onClick={() => act("override")}>Override</Button>
-            <Button onClick={() => act("approve")}>Approve {app.recommendedTier}</Button>
+            <Button onClick={() => act("approve")}>Approve {rankOf(app.recommendedTier)}</Button>
           </div>
         </>
       )}
@@ -162,7 +148,7 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
 export function ReviewModal({ app, rule, onClose, onDecide }: Props) {
   return (
     <Modal open={app !== null} onClose={onClose} title={app ? `Review application ${app.id}` : "Review application"}>
-      {app && <ReviewBody key={app.id} app={app} rule={rule} onClose={onClose} onDecide={onDecide} />}
+      {app && <ReviewBody key={app.id} app={app} rule={rule} onDecide={onDecide} />}
     </Modal>
   );
 }

@@ -17,3 +17,10 @@ export function formatDate(iso: string): string {
   const d = new Date(+m[1], +m[2] - 1, +m[3]);
   return d.toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** "2026-10-21T08:03:00.000Z" -> "21 Oct 2026, 16:03" in local time. Anything unparsable is returned as-is. */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" })}, ${d.toLocaleTimeString("en-SG", { hour: "2-digit", minute: "2-digit", hour12: false })}`;
+}
