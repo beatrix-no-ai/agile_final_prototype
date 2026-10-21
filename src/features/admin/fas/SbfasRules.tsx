@@ -137,6 +137,26 @@ export default function SbfasRules() {
             <section key={lv} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
               <h4 className="text-sm font-semibold text-on-surface">{LEVEL_LABEL[lv]}</h4>
               <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  Suggested rank
+                  <select
+                    className={inputClass}
+                    aria-label={`${LEVEL_LABEL[lv]} suggested rank`}
+                    value={draft.levelTiers![lv] ?? ""}
+                    onChange={(e) => {
+                      setNote("");
+                      setD({ ...draft, levelTiers: { ...draft.levelTiers!, [lv]: (e.target.value || null) as SbfasTier | null } });
+                    }}
+                  >
+                    <option value="">—</option>
+                    {draft.tiers.map((_, ti) => (
+                      <option key={ti} value={`Tier ${ti + 1}`}>Rank {ti + 1}</option>
+                    ))}
+                  </select>
+                </label>
+                {errors.levelRows?.[lv] && <p role="alert" className="text-[13px] font-medium text-alert">{errors.levelRows[lv]}</p>}
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="w-10 text-sm font-semibold text-on-surface">PCI</span>
                 <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
                   From Tier {sel("pci", "from", pf, `pc-from-${lv}`)}
