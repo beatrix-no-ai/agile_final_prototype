@@ -115,10 +115,6 @@ export default function SbfasRules() {
     <Card title={`SBFAS rules — ${schoolName}`}>
       <div className="space-y-4">
         {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
-        <p className="text-[13px] text-on-surface-variant">
-          Tiers 1–{covered.pci.length} (per-capita) and 1–{covered.ghi.length} (gross household) are granted MOEFAS
-          automatically and cannot be grouped; tiers outside every range get no suggestion.
-        </p>
         {BLOCK_LEVELS.map((lv) => {
           const [pf, pt] = rangeOf(draft.grouping!.pci, lv);
           const [hf, ht] = rangeOf(draft.grouping!.ghi, lv);
