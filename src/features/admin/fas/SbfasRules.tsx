@@ -114,127 +114,132 @@ export default function SbfasRules() {
     <Card title={`SBFAS rules — ${schoolName}`}>
       <div className="space-y-4">
         {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
-        {BLOCK_LEVELS.map((lv) => {
-          const [pf, pt] = rangeOf(draft.grouping!.pci, lv);
-          const [hf, ht] = rangeOf(draft.grouping!.ghi, lv);
-          const opts = (dim: "ghi" | "pci") => {
-            const n = draft.grouping![dim].length;
-            const start = (dim === "ghi" ? covered.ghi : covered.pci).length;
-            return Array.from({ length: Math.max(0, n - start) }, (_, k) => start + k + 1);
-          };
-          const sel = (dim: "ghi" | "pci", end: "from" | "to", val: number, id: string) => (
-            <select
-              id={id}
-              className={inputClass}
-              value={val ? String(val) : ""}
-              onChange={(e) => setRange(dim, lv, end, Number(e.target.value) || 0)}
-            >
-              <option value="">—</option>
-              {opts(dim).map((t) => <option key={t} value={t}>Tier {t}</option>)}
-            </select>
-          );
-          return (
-            <section key={lv} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
-              <h4 className="text-sm font-semibold text-on-surface">{LEVEL_LABEL[lv]}</h4>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                  Suggested rank
-                  <select
-                    className={inputClass}
-                    aria-label={`${LEVEL_LABEL[lv]} suggested rank`}
-                    value={draft.levelTiers![lv] ?? ""}
-                    onChange={(e) => {
-                      setNote("");
-                      setD({ ...draft, levelTiers: { ...draft.levelTiers!, [lv]: (e.target.value || null) as SbfasTier | null } });
-                    }}
-                  >
-                    <option value="">—</option>
-                    {draft.tiers.map((_, ti) => (
-                      <option key={ti} value={`Tier ${ti + 1}`}>Rank {ti + 1}</option>
-                    ))}
-                  </select>
-                </label>
-                {errors.levelRows?.[lv] && <p role="alert" className="text-[13px] font-medium text-alert">{errors.levelRows[lv]}</p>}
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="w-10 text-sm font-semibold text-on-surface">PCI</span>
-                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                  From Tier {sel("pci", "from", pf, `pc-from-${lv}`)}
-                </label>
-                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                  To Tier {sel("pci", "to", pt, `pc-to-${lv}`)}
-                </label>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="w-10 text-sm font-semibold text-on-surface">GHI</span>
-                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                  From Tier {sel("ghi", "from", hf, `hh-from-${lv}`)}
-                </label>
-                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                  To Tier {sel("ghi", "to", ht, `hh-to-${lv}`)}
-                </label>
-              </div>
-            </section>
-          );
-        })}
-        {errors.grouping && <p role="alert" className="text-[13px] font-medium text-alert">{errors.grouping}</p>}
-
-                <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-line">
-                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Rank</th>
-                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Subsidy</th>
-                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant"><span className="sr-only">Remove</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {draft.tiers.map((t, i) => (
-                <tr key={i} className="border-b border-line last:border-0">
-                  <td className="px-3 py-3 font-semibold">Rank {i + 1}</td>
-                  <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <label className="shrink-0">
-                        <span className="sr-only">Rank {i + 1} subsidy basis</span>
-                        <select
-                          id={`tier-basis-${i}`}
-                          className={inputClass}
-                          value={t.basis}
-                          onChange={(e) => { setNote(""); upd(i, { basis: e.target.value as SubsidyBasis }); }}
-                        >
-                          <option value="percent">% of fee</option>
-                          <option value="fixed">Fixed S$</option>
-                        </select>
-                      </label>
-                      <div className="w-28">
-                        <input
-                          type="number"
-                          min={0}
-                          max={t.basis === "fixed" ? undefined : 100}
-                          step={0.5}
-                          className={`${inputClass} text-right`}
-                          aria-label={`Rank ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
-                          value={t.rate}
-                          onChange={(e) => { setNote(""); upd(i, { rate: e.target.value }); }}
-                        />
-                        {errors.rows[i] && <p role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.rows[i]}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
-                    <Button variant="ghost" disabled={draft.tiers.length <= 1} onClick={() => { setNote(""); rmTier(i); }}>
-                      Remove
-                    </Button>
-                  </td>
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="space-y-3">
+          {BLOCK_LEVELS.map((lv) => {
+            const [pf, pt] = rangeOf(draft.grouping!.pci, lv);
+            const [hf, ht] = rangeOf(draft.grouping!.ghi, lv);
+            const opts = (dim: "ghi" | "pci") => {
+              const n = draft.grouping![dim].length;
+              const start = (dim === "ghi" ? covered.ghi : covered.pci).length;
+              return Array.from({ length: Math.max(0, n - start) }, (_, k) => start + k + 1);
+            };
+            const sel = (dim: "ghi" | "pci", end: "from" | "to", val: number, id: string) => (
+              <select
+                id={id}
+                className={inputClass}
+                value={val ? String(val) : ""}
+                onChange={(e) => setRange(dim, lv, end, Number(e.target.value) || 0)}
+              >
+                <option value="">—</option>
+                {opts(dim).map((t) => <option key={t} value={t}>Tier {t}</option>)}
+              </select>
+            );
+            return (
+              <section key={lv} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
+                <h4 className="text-sm font-semibold text-on-surface">{LEVEL_LABEL[lv]}</h4>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                    Suggested rank
+                    <select
+                      className={inputClass}
+                      aria-label={`${LEVEL_LABEL[lv]} suggested rank`}
+                      value={draft.levelTiers![lv] ?? ""}
+                      onChange={(e) => {
+                        setNote("");
+                        setD({ ...draft, levelTiers: { ...draft.levelTiers!, [lv]: (e.target.value || null) as SbfasTier | null } });
+                      }}
+                    >
+                      <option value="">—</option>
+                      {draft.tiers.map((_, ti) => (
+                        <option key={ti} value={`Tier ${ti + 1}`}>Rank {ti + 1}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {errors.levelRows?.[lv] && <p role="alert" className="text-[13px] font-medium text-alert">{errors.levelRows[lv]}</p>}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="w-10 text-sm font-semibold text-on-surface">PCI</span>
+                  <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                    From Tier {sel("pci", "from", pf, `pc-from-${lv}`)}
+                  </label>
+                  <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                    To Tier {sel("pci", "to", pt, `pc-to-${lv}`)}
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="w-10 text-sm font-semibold text-on-surface">GHI</span>
+                  <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                    From Tier {sel("ghi", "from", hf, `hh-from-${lv}`)}
+                  </label>
+                  <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                    To Tier {sel("ghi", "to", ht, `hh-to-${lv}`)}
+                  </label>
+                </div>
+              </section>
+            );
+          })}
+          {errors.grouping && <p role="alert" className="text-[13px] font-medium text-alert">{errors.grouping}</p>}
+          </div>
+          <div className="space-y-3">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-line">
+                  <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Rank</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Subsidy</th>
+                  <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant"><span className="sr-only">Remove</span></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {draft.tiers.map((t, i) => (
+                  <tr key={i} className="border-b border-line last:border-0">
+                    <td className="px-3 py-3 font-semibold">Rank {i + 1}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <label className="shrink-0">
+                          <span className="sr-only">Rank {i + 1} subsidy basis</span>
+                          <select
+                            id={`tier-basis-${i}`}
+                            className={inputClass}
+                            value={t.basis}
+                            onChange={(e) => { setNote(""); upd(i, { basis: e.target.value as SubsidyBasis }); }}
+                          >
+                            <option value="percent">% of fee</option>
+                            <option value="fixed">Fixed S$</option>
+                          </select>
+                        </label>
+                        <div className="w-28">
+                          <input
+                            type="number"
+                            min={0}
+                            max={t.basis === "fixed" ? undefined : 100}
+                            step={0.5}
+                            className={`${inputClass} text-right`}
+                            aria-label={`Rank ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
+                            value={t.rate}
+                            onChange={(e) => { setNote(""); upd(i, { rate: e.target.value }); }}
+                          />
+                          {errors.rows[i] && <p role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.rows[i]}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <Button variant="ghost" disabled={draft.tiers.length <= 1} onClick={() => { setNote(""); rmTier(i); }}>
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-start">
+            <Button variant="secondary" onClick={() => { setNote(""); addTier(); }}>+ Rank</Button>
+          </div>
+          {errors.tiers && <p role="alert" className="text-[13px] font-medium text-alert">{errors.tiers}</p>}
+          </div>
         </div>
-        <div className="flex justify-start">
-          <Button variant="secondary" onClick={() => { setNote(""); addTier(); }}>+ Rank</Button>
-        </div>
-        {errors.tiers && <p role="alert" className="text-[13px] font-medium text-alert">{errors.tiers}</p>}
 
         {feeTypes.length > 0 && (() => {
           const resolve = (r: { ft: string; comp: string } | null) => {
