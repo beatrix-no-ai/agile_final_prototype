@@ -28,11 +28,6 @@ type Filter = "all" | "pending" | "granted" | "declined";
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
 
-function Sla({ days }: { days: number }) {
-  if (days <= 0) return <Badge tone="alert">Overdue</Badge>;
-  return <span className={days <= 2 ? "font-semibold text-warning" : ""}>{days} {days === 1 ? "day" : "days"} left</span>;
-}
-
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
 
@@ -117,7 +112,6 @@ function SbfasReview() {
         <span className="block text-[13px] text-on-surface-variant" title="Education Account balance from MOE top-ups, separate from the FAS subsidy">Balance {formatSGD(a.balance)}</span>
       </Link>
     ) },
-    { key: "slaDays", header: "Deadline", sortable: true, render: (a) => (a.status === "Pending" ? <Sla days={a.slaDays} /> : <span className="text-on-surface-variant">Decided</span>) },
     { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge> },
   ];
   const tabs: [Filter, string][] = [
