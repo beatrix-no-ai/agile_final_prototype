@@ -72,8 +72,10 @@ export default function SbfasRules() {
   const rmTier = (i: number) => {
     const levelTiers = { ...draft.levelTiers! };
     for (const l of RISK_LEVELS) {
-      const x = levelTiers[l] ? Number(String(levelTiers[l]).replace(/\D/g, "")) : 0;
-      levelTiers[l] = x === i + 1 ? null : x > i + 1 ? (`Tier ${x - 1}` as SbfasTier) : levelTiers[l];
+      levelTiers[l] = (levelTiers[l] ?? []).flatMap((t) => {
+        const x = Number(String(t).replace(/\D/g, ""));
+        return x === i + 1 ? [] : [x > i + 1 ? (`Tier ${x - 1}` as SbfasTier) : t];
+      });
     }
     setD({ ...draft, tiers: draft.tiers.filter((_, j) => j !== i), levelTiers });
   };
@@ -139,23 +141,30 @@ export default function SbfasRules() {
               <section key={lv} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
                 <h4 className="text-sm font-semibold text-on-surface">{LEVEL_LABEL[lv]}</h4>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                    Suggested rank
-                    <select
-                      className={inputClass}
-                      aria-label={`${LEVEL_LABEL[lv]} suggested rank`}
-                      value={draft.levelTiers![lv] ?? ""}
-                      onChange={(e) => {
-                        setNote("");
-                        setD({ ...draft, levelTiers: { ...draft.levelTiers!, [lv]: (e.target.value || null) as SbfasTier | null } });
-                      }}
-                    >
-                      <option value="">—</option>
-                      {draft.tiers.map((_, ti) => (
-                        <option key={ti} value={`Tier ${ti + 1}`}>Rank {ti + 1}</option>
-                      ))}
-                    </select>
-                  </label>
+                  <span className="text-[13px] text-on-surface-variant">Suggested ranks</span>
+                  {draft.tiers.map((_, ti) => {
+                    const t = `Tier ${ti + 1}` as SbfasTier;
+                    const on = (draft.levelTiers![lv] ?? []).includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        aria-pressed={on}
+                        aria-label={`${LEVEL_LABEL[lv]} suggests ${t.replace("Tier", "Rank")}`}
+                        className={`rounded-full border px-3 py-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${on ? "border-primary bg-primary text-on-primary" : "border-outline bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low"}`}
+                        onClick={() => {
+                          const cur = draft.levelTiers![lv] ?? [];
+                          const next = cur.includes(t)
+                            ? cur.filter((x) => x !== t)
+                            : [...cur, t].sort((a, b) => Number(String(a).replace(/\D/g, "")) - Number(String(b).replace(/\D/g, "")));
+                          setNote("");
+                          setD({ ...draft, levelTiers: { ...draft.levelTiers!, [lv]: next } });
+                        }}
+                      >
+                        Rank {ti + 1}
+                      </button>
+                    );
+                  })}
                   {errors.levelRows?.[lv] && <p role="alert" className="text-[13px] font-medium text-alert">{errors.levelRows[lv]}</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">

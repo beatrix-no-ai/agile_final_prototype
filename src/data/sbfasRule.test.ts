@@ -59,7 +59,7 @@ describe("SBFAS school rule: validation", () => {
   });
 
   it("a level pointing at a tier that no longer exists blocks saving", () => {
-    const e = validateSbfasRule({ tiers: ok.tiers.slice(0, 2), levelTiers: { HIGH: "Tier 3", MED: "Tier 2", LOW: null } });
+    const e = validateSbfasRule({ tiers: ok.tiers.slice(0, 2), levelTiers: { HIGH: ["Tier 3"], MED: ["Tier 2"], LOW: [] } });
     expect(e.levelRows?.HIGH).toBe("Pick the rank this level suggests.");
     expect(sbfasRuleOk(e)).toBe(false);
   });
@@ -100,7 +100,7 @@ describe("SBFAS grouping: level and tier lookup", () => {
   const rule = toSbfasRule({
     tiers: [{ basis: "percent", rate: "100" }, { basis: "percent", rate: "75" }, { basis: "percent", rate: "50" }, { basis: "percent", rate: "25" }],
     grouping: { ghi: [null, null, null, "LOW"], pci: [null, null, null, "HIGH", "MED"] },
-    levelTiers: { HIGH: "Tier 1", MED: "Tier 2", LOW: null },
+    levelTiers: { HIGH: ["Tier 1"], MED: ["Tier 2"], LOW: [] },
   }, "S001");
 
   it("the needier of the two band levels wins; ungrouped bands contribute nothing", () => {

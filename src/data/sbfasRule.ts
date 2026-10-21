@@ -27,8 +27,9 @@ export type SbfasRule = {
   coveredComponents?: string[];
   /** The school's level per national band (GHI then PCI, low → high); null = Not grouped. */
   grouping: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
-  /** The SBFAS tier each level recommends when a grouped band applies; null = no tier suggested. */
-  levelTiers: Record<RiskLevel, SbfasTier | null>;
+  /** The SBFAS ranks each level may suggest when a grouped band applies (a level can cover several ranks);
+   * the system recommends the most supportive picked rank; empty = nothing suggested. */
+  levelTiers: Record<RiskLevel, SbfasTier[]>;
 };
 
 // ASSUMPTION: the default grouping follows HQ's default income tiers (MOEFAS tiers stay ungrouped) and groups the
@@ -39,7 +40,13 @@ const DEFAULT_GROUPING = (): SbfasRule["grouping"] => {
     t[k].schemes[i] === "MOEFAS" ? null : k === "ghi" ? "LOW" : t[k].schemes[i - 1] === "MOEFAS" ? "HIGH" : "MED";
   return { ghi: t.ghi.ranges.map((_, i) => level("ghi", i)), pci: t.pci.ranges.map((_, i) => level("pci", i)) };
 };
-const DEFAULT_LEVEL_TIERS = (): SbfasRule["levelTiers"] => ({ HIGH: "Tier 1", MED: "Tier 2", LOW: "Tier 3" });
+const DEFAULT_LEVEL_TIERS = (): SbfasRule["levelTiers"] => ({ HIGH: ["Tier 1"], MED: ["Tier 2"], LOW: ["Tier 3"] });
+
+/** The rank the system suggests for a level: the most supportive (lowest-numbered) of the school's picks. */
+export const suggestedTierOf = (picks: SbfasTier[] | null | undefined): SbfasTier | null => {
+  if (!picks || !picks.length) return null;
+  return [...picks].sort((a, b) => Number(String(a).replace(/\D/g, "")) - Number(String(b).replace(/\D/g, "")))[0];
+};
 
 // ASSUMPTION: default package mirrors the national reference (75/65/55/50); schools adjust from here.
 export const defaultSbfasRule = (school: string, updated = "2026-09-01"): SbfasRule => ({
@@ -107,7 +114,7 @@ export function levelForBands(rule: SbfasRule, ghi: number | null, pci: number |
 /** The tier the school's grouping suggests for a family's bands; null = no tier to give (the school decides). */
 export function tierForBands(rule: SbfasRule, ghi: number | null, pci: number | null): SbfasTier | null {
   const level = levelForBands(rule, ghi, pci);
-  return level ? (rule.levelTiers[level] ?? null) : null;
+  return level ? suggestedTierOf(rule.levelTiers[level]) : null;
 }
 
 /** Editing state; rates stay strings until save. grouping/levelTiers are optional so tier-only callers keep compiling. */
@@ -115,7 +122,7 @@ export type SbfasRuleDraft = {
   tiers: { basis: SubsidyBasis; rate: string; components?: Record<string, { basis: SubsidyBasis; rate: string }> }[];
   coveredComponents?: string[];
   grouping?: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
-  levelTiers?: Record<RiskLevel, SbfasTier | null>;
+  levelTiers?: Record<RiskLevel, SbfasTier[]>;
 };
 export type SbfasRuleErrors = { tiers?: string; grouping?: string; components?: string; rows: Record<number, string>; levelRows?: Record<RiskLevel, string> };
 
@@ -129,7 +136,12 @@ export const draftOfSbfasRule = (rule: SbfasRule): SbfasRuleDraft => ({
       : {}),
   })),
   grouping: { ghi: [...rule.grouping.ghi], pci: [...rule.grouping.pci] },
-  levelTiers: { ...rule.levelTiers },
+  // Rules saved before multi-rank levels stored a single tier or null — coerce to the array shape.
+  levelTiers: {
+    HIGH: Array.isArray(rule.levelTiers.HIGH) ? rule.levelTiers.HIGH : rule.levelTiers.HIGH ? [rule.levelTiers.HIGH] : [],
+    MED: Array.isArray(rule.levelTiers.MED) ? rule.levelTiers.MED : rule.levelTiers.MED ? [rule.levelTiers.MED] : [],
+    LOW: Array.isArray(rule.levelTiers.LOW) ? rule.levelTiers.LOW : rule.levelTiers.LOW ? [rule.levelTiers.LOW] : [],
+  },
 });
 
 /**
@@ -159,8 +171,7 @@ export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
   }
   if (d.levelTiers) {
     for (const l of RISK_LEVELS) {
-      const t = d.levelTiers[l];
-      if (t && !d.tiers.some((_, i) => `Tier ${i + 1}` === t)) {
+      if ((d.levelTiers[l] ?? []).some((t) => !d.tiers.some((_, i) => `Tier ${i + 1}` === t))) {
         errors.levelRows = { ...errors.levelRows, [l]: "Pick the rank this level suggests." } as Record<RiskLevel, string>;
       }
     }
