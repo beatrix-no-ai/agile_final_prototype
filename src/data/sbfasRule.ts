@@ -69,8 +69,10 @@ export const tierSubsidy = (rule: SbfasRule, tier: SbfasTier): { basis: SubsidyB
  */
 export const subsidySummary = (t: { basis?: SubsidyBasis; rate?: number; components?: ComponentRates }, covered?: string[]): string => {
   const entries = t.components && Object.keys(t.components).length ? Object.entries(t.components) : [];
+  // Component entries are sparse overrides — the tier's flat rate still covers everything not overridden.
   let vals = (covered ? entries.filter(([n]) => covered.includes(n)) : entries).map(([, v]) => v);
-  if (!vals.length) vals = t.rate != null ? [t.rate] : [];
+  if (t.rate != null) vals.push(t.rate);
+  vals = vals.filter((v) => Number.isFinite(v));
   if (!vals.length) return "";
   const lo = Math.min(...vals);
   const hi = Math.max(...vals);

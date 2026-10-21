@@ -10,6 +10,7 @@ import {
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { useSbfas } from "../../../data/sbfasStore";
+import { useFees } from "../../../data/feeStore";
 import { useTiers } from "../../../data/moefas";
 import { useSession } from "../../../session";
 import { formatDate, formatSGD } from "../../../lib/format";
@@ -23,6 +24,9 @@ const onHundred = (t: { basis: SubsidyBasis; rate: string }) => {
 };
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
+
+/** Preset support levels offered in the fee-component dropdowns, in the tier's basis unit. */
+const SUPPORT_PRESETS = [0, 25, 50, 75, 100];
 const BLOCK_LEVELS: RiskLevel[] = ["LOW", "MED", "HIGH"];
 
 /** A level's current tier range on one dimension as 1-based [from, to]; [0, 0] when the level claims no tiers. */
@@ -42,12 +46,17 @@ export default function SbfasRules() {
   // The signed-in school's own package — same key the review queue uses, so edits reach the modal.
   const school = role === "school" ? staff?.schoolCode ?? null : null;
   const { state, dispatch } = useSbfas();
+  const { state: feeState } = useFees();
   const [tiers] = useTiers(); // HQ's central income tiers, read from storage on mount
   const covered = moefasCoveredBands(tiers);
+  // The school's own fee types feed the per-component support picker below.
+  const feeTypes = school ? feeState.types.filter((ft) => ft.school === school) : [];
   const rule = school ? ruleForSchool(state.rules, school) : null;
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
   const [note, setNote] = useState("");
+  const [ftPick, setFtPick] = useState("");
+  const [compPick, setCompPick] = useState("");
 
   if (!school || !rule) {
     return (
@@ -218,6 +227,63 @@ export default function SbfasRules() {
           <Button variant="secondary" onClick={() => { setNote(""); addTier(); }}>+ Rank</Button>
         </div>
         {errors.tiers && <p role="alert" className="text-[13px] font-medium text-alert">{errors.tiers}</p>}
+
+        {feeTypes.length > 0 && (() => {
+          const ft = feeTypes.find((x) => x.id === ftPick) ?? feeTypes[0];
+          const comp = ft.components.some((c) => c.name === compPick) ? compPick : ft.components[0].name;
+          const setComp = (i: number, value: string) => {
+            const t = draft.tiers[i];
+            const rest = { ...(t.components ?? {}) };
+            if (value === "follow") delete rest[comp]; else rest[comp] = value;
+            setNote("");
+            upd(i, { components: rest });
+          };
+          return (
+            <section aria-label="Fee component support" className="rounded-card border border-line bg-surface-container-lowest p-4">
+              <h4 className="text-sm font-semibold text-on-surface">Fee component support</h4>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  Fee type
+                  <select className={`${inputClass} w-56`} value={ft.id} onChange={(e) => setFtPick(e.target.value)}>
+                    {feeTypes.map((x) => (
+                      <option key={x.id} value={x.id}>{x.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  Fee component
+                  <select className={`${inputClass} w-56`} value={comp} onChange={(e) => setCompPick(e.target.value)}>
+                    {ft.components.map((c) => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3">
+                {draft.tiers.map((t, i) => (
+                  <label key={i} className="flex items-center gap-2 text-sm text-on-surface">
+                    Rank {i + 1}
+                    <select
+                      className={`${inputClass} w-44`}
+                      aria-label={`Rank ${i + 1} support for ${comp}`}
+                      value={t.components?.[comp] ?? "follow"}
+                      onChange={(e) => setComp(i, e.target.value)}
+                    >
+                      <option value="follow">Same as rank ({t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`})</option>
+                      {SUPPORT_PRESETS.map((v) => (
+                        <option key={v} value={String(v)}>{t.basis === "fixed" ? `S$${v}` : `${v}%`}</option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-3 text-[13px] text-on-surface-variant">
+                Pick a fee type and component, then set each rank&rsquo;s support for it. Ranks left on &ldquo;Same as rank&rdquo; keep the overall subsidy above.
+              </p>
+            </section>
+          );
+        })()}
+
         <p className="text-[13px] text-on-surface-variant">
           Grouping and rates apply to new suggestions and newly generated charges. Issued charges keep the subsidy from
           when they were generated.
