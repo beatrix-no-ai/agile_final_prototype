@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  defaultSbfasRule, draftOfSbfasRule, levelForBands, moefasCoveredBands, ruleForSchool, sbfasRuleOk,
+  defaultSbfasRule, diffSbfasRule, draftOfSbfasRule, levelForBands, moefasCoveredBands, ruleForSchool, sbfasRuleOk,
   tierForBands, tierSubsidy, toSbfasRule, validateSbfasRule, type SbfasRuleDraft,
 } from "./sbfasRule";
 import { defaultTiers } from "./moefas";
@@ -79,6 +79,40 @@ describe("SBFAS school rule: store", () => {
     const s1 = sbfasReducer(s0, { type: "save-rule", rule });
     expect(ruleForSchool(s1.rules, "S001")).toBe(rule);
     expect(s1.apps).toBe(s0.apps);
+  });
+
+  it("history travels inside the saved rule, one entry per save", () => {
+    const entry = { at: "2026-10-21T08:00:00.000Z", by: "Alicia Tan", changes: ["Rank 1 subsidy: 100% → 90%"] };
+    const rule = { ...toSbfasRule({ tiers: [{ basis: "percent", rate: "90" }] }, "S001"), history: [entry] };
+    const s1 = sbfasReducer(initialSbfasState(), { type: "save-rule", rule });
+    expect(ruleForSchool(s1.rules, "S001").history).toEqual([entry]);
+  });
+});
+
+describe("SBFAS rule history: diff of one save", () => {
+  it("lists subsidy, suggested-rank and grouping changes as readable lines", () => {
+    const prev = defaultSbfasRule("S001");
+    const next = toSbfasRule({
+      tiers: [{ basis: "percent", rate: "100" }, { basis: "fixed", rate: "300" }, { basis: "percent", rate: "50" }, { basis: "percent", rate: "25" }],
+      grouping: prev.grouping,
+      levelTiers: { HIGH: ["Tier 1"], MED: ["Tier 2"], LOW: ["Tier 3", "Tier 4"] },
+    }, "S001");
+    const lines = diffSbfasRule(prev, next);
+    expect(lines).toContain("Rank 2 subsidy: 75% → S$300");
+    expect(lines).toContain("LOW suggested ranks: Rank 3 → Rank 3, Rank 4");
+  });
+
+  it("notes added and removed ranks and per-component overrides", () => {
+    const prev = toSbfasRule({ tiers: [{ basis: "percent", rate: "80" }, { basis: "percent", rate: "60" }] }, "S001");
+    const next = toSbfasRule({ tiers: [{ basis: "percent", rate: "80", components: { "Misc fee": { basis: "fixed", rate: "50" } } }] }, "S001");
+    const lines = diffSbfasRule(prev, next);
+    expect(lines).toContain("Removed Rank 2 (60%)");
+    expect(lines).toContain("Rank 1 Misc fee: same as rank (80%) → S$50");
+  });
+
+  it("a re-save with nothing moved diffs to nothing", () => {
+    const prev = defaultSbfasRule("S001");
+    expect(diffSbfasRule(prev, toSbfasRule(draftOfSbfasRule(prev), "S001"))).toEqual([]);
   });
 });
 

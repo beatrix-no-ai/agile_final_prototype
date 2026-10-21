@@ -5,7 +5,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { inputClass } from "../../../components/ui/Field";
 import { SCHOOLS } from "../../../data/schools";
 import {
-  draftOfSbfasRule, moefasCoveredBands, ruleForSchool, sbfasRuleOk, toSbfasRule, validateSbfasRule,
+  diffSbfasRule, draftOfSbfasRule, moefasCoveredBands, ruleForSchool, sbfasRuleOk, toSbfasRule, validateSbfasRule,
   RISK_LEVELS, type RiskLevel, type SbfasRuleDraft, type SbfasRuleErrors, type SubsidyBasis,
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
@@ -13,7 +13,7 @@ import { useSbfas } from "../../../data/sbfasStore";
 import { useFees } from "../../../data/feeStore";
 import { useTiers } from "../../../data/moefas";
 import { useSession } from "../../../session";
-import { formatDate } from "../../../lib/format";
+import { formatDate, formatDateTime } from "../../../lib/format";
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
 
@@ -107,7 +107,9 @@ export default function SbfasRules() {
     setErrors(e);
     if (!sbfasRuleOk(e)) return;
     const saved = toSbfasRule(clean, school);
-    dispatch({ type: "save-rule", rule: saved });
+    // Each save appends one history entry — when, who, and what moved vs the rule in effect so far.
+    const history = [...(rule.history ?? []), { at: new Date().toISOString(), by: staff?.name ?? "School user", changes: diffSbfasRule(rule, saved) }];
+    dispatch({ type: "save-rule", rule: { ...saved, history } });
     setD(null);
     setNote(`SBFAS rules saved on ${formatDate(saved.updated)} — new suggestions and decisions use these rules.`);
   };
@@ -350,6 +352,30 @@ export default function SbfasRules() {
           </Button>
           <Button onClick={save}>Save SBFAS rules</Button>
         </div>
+
+        <section aria-label="Rule history" className="rounded-card border border-line bg-surface-container-lowest p-4 space-y-3">
+          <h4 className="text-sm font-semibold text-on-surface">History</h4>
+          {rule.history?.length ? (
+            <ol className="space-y-3">
+              {[...rule.history].reverse().map((h, i) => (
+                <li key={`${h.at}-${i}`} className="space-y-1">
+                  <p className="text-[13px] font-medium text-on-surface">{formatDateTime(h.at)} — {h.by}</p>
+                  {h.changes.length ? (
+                    <ul className="list-disc space-y-0.5 pl-5">
+                      {h.changes.map((c, j) => (
+                        <li key={j} className="text-[13px] text-on-surface-variant">{c}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-[13px] text-on-surface-variant">No effective change.</p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-[13px] text-on-surface-variant">No changes saved yet.</p>
+          )}
+        </section>
       </div>
     </Card>
   );

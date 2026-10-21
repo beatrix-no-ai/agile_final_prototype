@@ -19,12 +19,17 @@ export type SbfasRuleTier = { tier: SbfasTier; basis?: SubsidyBasis; rate: numbe
 export type RiskLevel = "HIGH" | "MED" | "LOW";
 export const RISK_LEVELS: RiskLevel[] = ["HIGH", "MED", "LOW"];
 
+/** One saved change to a school's rule: when it was saved, by whom, and what moved vs the rule before it. */
+export type SbfasRuleChange = { at: string; by: string; changes: string[] };
+
 export type SbfasRule = {
   school: string;
   updated: string;
   tiers: SbfasRuleTier[];
   /** Fee components the school subsidises (picked per fee type); undefined = every component of its fee types. */
   coveredComponents?: string[];
+  /** Change log, oldest first; starts at the school's first save (in-memory, like the rest of the store). */
+  history?: SbfasRuleChange[];
   /** The school's level per national band (GHI then PCI, low → high); null = Not grouped. */
   grouping: { ghi: (RiskLevel | null)[]; pci: (RiskLevel | null)[] };
   /** The SBFAS ranks each level may suggest when a grouped band applies (a level can cover several ranks);
@@ -115,6 +120,48 @@ export function levelForBands(rule: SbfasRule, ghi: number | null, pci: number |
 export function tierForBands(rule: SbfasRule, ghi: number | null, pci: number | null): SbfasTier | null {
   const level = levelForBands(rule, ghi, pci);
   return level ? suggestedTierOf(rule.levelTiers[level]) : null;
+}
+
+const fmtRate = (basis: SubsidyBasis | undefined, rate: number | undefined) =>
+  rate == null ? "—" : basis === "fixed" ? `S$${rate}` : `${rate}%`;
+
+/**
+ * Human lines of what one save changed: the rank list and each rank's subsidy (flat and per fee
+ * component), each level's suggested ranks, and the band-to-level grouping. Empty when the save
+ * changed nothing effective.
+ */
+export function diffSbfasRule(prev: SbfasRule, next: SbfasRule): string[] {
+  const lines: string[] = [];
+  for (let i = 0; i < Math.max(prev.tiers.length, next.tiers.length); i++) {
+    const a = prev.tiers[i];
+    const b = next.tiers[i];
+    if (!b) { lines.push(`Removed Rank ${i + 1} (${fmtRate(a.basis, a.rate)})`); continue; }
+    if (!a) { lines.push(`Added Rank ${i + 1} (${fmtRate(b.basis, b.rate)})`); continue; }
+    if ((a.basis ?? "percent") !== (b.basis ?? "percent") || a.rate !== b.rate)
+      lines.push(`Rank ${i + 1} subsidy: ${fmtRate(a.basis, a.rate)} → ${fmtRate(b.basis, b.rate)}`);
+    for (const c of [...new Set([...Object.keys(a.components ?? {}), ...Object.keys(b.components ?? {})])]) {
+      const x = a.components?.[c];
+      const y = b.components?.[c];
+      const same = (o: ComponentOverride | undefined, t: SbfasRuleTier) =>
+        o ? fmtRate(o.basis, o.rate) : `same as rank (${fmtRate(t.basis, t.rate)})`;
+      if (!x || !y || x.basis !== y.basis || x.rate !== y.rate)
+        lines.push(`Rank ${i + 1} ${c}: ${same(x, a)} → ${same(y, b)}`);
+    }
+  }
+  for (const l of RISK_LEVELS) {
+    const a = prev.levelTiers[l] ?? [];
+    const b = next.levelTiers[l] ?? [];
+    if (a.join() !== b.join())
+      lines.push(`${l} suggested ranks: ${a.map(rankOf).join(", ") || "none"} → ${b.map(rankOf).join(", ") || "none"}`);
+  }
+  for (const dim of ["ghi", "pci"] as const) {
+    for (let i = 0; i < Math.max(prev.grouping[dim].length, next.grouping[dim].length); i++) {
+      const a = prev.grouping[dim][i] ?? null;
+      const b = next.grouping[dim][i] ?? null;
+      if (a !== b) lines.push(`${dim.toUpperCase()} Tier ${i + 1}: ${a ?? "Not grouped"} → ${b ?? "Not grouped"}`);
+    }
+  }
+  return lines;
 }
 
 /** Editing state; rates stay strings until save. grouping/levelTiers are optional so tier-only callers keep compiling. */
