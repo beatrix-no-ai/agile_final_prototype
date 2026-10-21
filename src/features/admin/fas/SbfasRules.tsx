@@ -299,9 +299,6 @@ export default function SbfasRules() {
               <div className="flex justify-start">
                 <Button variant="secondary" onClick={() => setRows([...rows, null])}>+ Fee type</Button>
               </div>
-              <p className="text-[13px] text-on-surface-variant">
-                Add a fee type, pick a component, then set each rank&rsquo;s support as a % of that component or a fixed S$ amount. &ldquo;Same as rank&rdquo; keeps the overall subsidy above.
-              </p>
             </section>
           );
         })()}
