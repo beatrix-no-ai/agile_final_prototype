@@ -118,7 +118,7 @@ function SbfasReview() {
     ["all", `All (${apps.length})`],
     ["pending", `Pending (${pendingCount})`],
     ["granted", `Granted (${grantedCount})`],
-    ["declined", `Declined (${declinedCount})`],
+    ["declined", `Rejected (${declinedCount})`],
   ];
 
   return (
