@@ -66,6 +66,9 @@ export function moefasCoveredBands(tiers: TierConfig): { ghi: number[]; pci: num
 
 const NEED: Record<RiskLevel, number> = { HIGH: 3, MED: 2, LOW: 1 };
 
+/** SBFAS tiers are RANKS on screen — never "Tier N", which is the MOE income-band vocabulary. */
+export const rankOf = (t: SbfasTier | null | undefined) => (t ? `Rank ${String(t).replace(/\D/g, "")}` : "");
+
 /** The needier of the two band levels wins — the same match-any spirit as the MOEFAS criteria. Null when neither band is grouped. */
 export function levelForBands(rule: SbfasRule, ghi: number | null, pci: number | null): RiskLevel | null {
   const g = ghi != null ? (rule.grouping.ghi[ghi] ?? null) : null;
@@ -111,7 +114,7 @@ export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
         : "Enter a rate between 0 and 100 (max 2 decimals).";
     }
   });
-  if (!d.tiers.length) errors.tiers = "Keep at least one tier.";
+  if (!d.tiers.length) errors.tiers = "Keep at least one rank.";
   if (d.grouping && ![...d.grouping.ghi, ...d.grouping.pci].some(Boolean)) {
     errors.grouping = "Group at least one income band into a level before saving.";
   }
@@ -119,7 +122,7 @@ export function validateSbfasRule(d: SbfasRuleDraft): SbfasRuleErrors {
     for (const l of RISK_LEVELS) {
       const t = d.levelTiers[l];
       if (t && !d.tiers.some((_, i) => `Tier ${i + 1}` === t)) {
-        errors.levelRows = { ...errors.levelRows, [l]: "Pick the tier this level suggests." } as Record<RiskLevel, string>;
+        errors.levelRows = { ...errors.levelRows, [l]: "Pick the rank this level suggests." } as Record<RiskLevel, string>;
       }
     }
   }

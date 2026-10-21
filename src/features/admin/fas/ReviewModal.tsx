@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import type { SbfasRule, SubsidyBasis } from "../../../data/sbfasRule";
+import { rankOf, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatDate, formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
@@ -73,7 +73,7 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
         <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
         <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
-        <Dt label="Suggested rank">{app.recommendedTier}</Dt>
+        <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
       </dl>
       {app.incomeSyncedOn && (
         <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
@@ -104,24 +104,24 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
 
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
-          <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${app.sbfasTier}` : ""}</p>
+          <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${rankOf(app.sbfasTier)}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
         </div>
       ) : (
         <>
           <Field
-            label="Override tier"
+            label="Override rank"
             error={error?.field === "tier" ? error.message : undefined}
             hint={
               rule
-                ? `SBFAS subsidies set by the student's school: ${rule.tiers.map((t) => `${t.tier} ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}`).join(" · ")}.`
+                ? `SBFAS subsidies set by the student's school: ${rule.tiers.map((t) => `${rankOf(t.tier)} ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}`).join(" · ")}.`
                 : undefined
             }
           >
             <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
               {tierList.map((t) => (
                 <option key={t.tier} value={t.tier}>
-                  {t.tier}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
+                  {rankOf(t.tier)}{t.basis ? ` — ${t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
                 </option>
               ))}
             </select>
@@ -146,7 +146,7 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button variant="secondary" onClick={() => act("reject")}>Reject</Button>
             <Button variant="secondary" onClick={() => act("override")}>Override</Button>
-            <Button onClick={() => act("approve")}>Approve {app.recommendedTier}</Button>
+            <Button onClick={() => act("approve")}>Approve {rankOf(app.recommendedTier)}</Button>
           </div>
         </>
       )}

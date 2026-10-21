@@ -6,7 +6,7 @@ import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
-import { ruleForSchool } from "../../../data/sbfasRule";
+import { ruleForSchool, rankOf } from "../../../data/sbfasRule";
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
@@ -102,7 +102,7 @@ function SbfasReview() {
     { key: "riskScore", header: "Risk", sortable: true, render: (a) => (
       <>
         <RiskBadge score={a.riskScore} />
-        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {a.recommendedTier}</span>
+        <span className="mt-1 block text-[13px] text-on-surface-variant">Suggests {rankOf(a.recommendedTier)}</span>
       </>
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
@@ -112,7 +112,7 @@ function SbfasReview() {
         <span className="block text-[13px] text-on-surface-variant" title="Education Account balance from MOE top-ups, separate from the FAS subsidy">Balance {formatSGD(a.balance)}</span>
       </Link>
     ) },
-    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</Badge> },
+    { key: "status", header: "Status", render: (a) => <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${rankOf(a.sbfasTier)}` : ""}</Badge> },
   ];
   const tabs: [Filter, string][] = [
     ["all", `All (${apps.length})`],

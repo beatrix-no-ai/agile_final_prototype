@@ -168,7 +168,7 @@ export default function SbfasRules() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-line">
-                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Tier</th>
+                <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Rank</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Subsidy</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant">Parent pays on a S$100 fee</th>
                 <th scope="col" className="px-3 py-2.5 font-medium text-on-surface-variant"><span className="sr-only">Remove</span></th>
@@ -177,11 +177,11 @@ export default function SbfasRules() {
             <tbody>
               {draft.tiers.map((t, i) => (
                 <tr key={i} className="border-b border-line last:border-0">
-                  <td className="px-3 py-3 font-semibold">Tier {i + 1}</td>
+                  <td className="px-3 py-3 font-semibold">Rank {i + 1}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       <label className="shrink-0">
-                        <span className="sr-only">Tier {i + 1} subsidy basis</span>
+                        <span className="sr-only">Rank {i + 1} subsidy basis</span>
                         <select
                           id={`tier-basis-${i}`}
                           className={inputClass}
@@ -199,7 +199,7 @@ export default function SbfasRules() {
                           max={t.basis === "fixed" ? undefined : 100}
                           step={0.5}
                           className={`${inputClass} text-right`}
-                          aria-label={`Tier ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
+                          aria-label={`Rank ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
                           value={t.rate}
                           onChange={(e) => { setNote(""); upd(i, { rate: e.target.value }); }}
                         />
@@ -219,7 +219,7 @@ export default function SbfasRules() {
           </table>
         </div>
         <div className="flex justify-start">
-          <Button variant="secondary" onClick={() => { setNote(""); addTier(); }}>+ Tier</Button>
+          <Button variant="secondary" onClick={() => { setNote(""); addTier(); }}>+ Rank</Button>
         </div>
         {errors.tiers && <p role="alert" className="text-[13px] font-medium text-alert">{errors.tiers}</p>}
         <p className="text-[13px] text-on-surface-variant">

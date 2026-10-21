@@ -55,12 +55,12 @@ describe("SBFAS school rule: validation", () => {
   });
 
   it("the school must keep at least one tier", () => {
-    expect(validateSbfasRule({ tiers: [] }).tiers).toBe("Keep at least one tier.");
+    expect(validateSbfasRule({ tiers: [] }).tiers).toBe("Keep at least one rank.");
   });
 
   it("a level pointing at a tier that no longer exists blocks saving", () => {
     const e = validateSbfasRule({ tiers: ok.tiers.slice(0, 2), levelTiers: { HIGH: "Tier 3", MED: "Tier 2", LOW: null } });
-    expect(e.levelRows?.HIGH).toBe("Pick the tier this level suggests.");
+    expect(e.levelRows?.HIGH).toBe("Pick the rank this level suggests.");
     expect(sbfasRuleOk(e)).toBe(false);
   });
 
