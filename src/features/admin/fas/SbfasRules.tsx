@@ -3,7 +3,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Field, inputClass } from "../../../components/ui/Field";
+import { inputClass } from "../../../components/ui/Field";
 import { SCHOOLS } from "../../../data/schools";
 import {
   draftOfSbfasRule, moefasCoveredBands, ruleForSchool, sbfasRuleOk, toSbfasRule, validateSbfasRule,
@@ -202,7 +202,7 @@ export default function SbfasRules() {
                           <option value="fixed">Fixed S$</option>
                         </select>
                       </label>
-                      <Field label={`Tier ${i + 1} subsidy`} className="w-28" error={errors.rows[i]}>
+                      <div className="w-28">
                         <input
                           type="number"
                           min={0}
@@ -213,7 +213,8 @@ export default function SbfasRules() {
                           value={t.rate}
                           onChange={(e) => { setNote(""); upd(i, { rate: e.target.value }); }}
                         />
-                      </Field>
+                        {errors.rows[i] && <p role="alert" className="mt-1.5 text-[13px] font-medium text-alert">{errors.rows[i]}</p>}
+                      </div>
                     </div>
                   </td>
                   <td className="px-3 py-3 tabular-nums text-on-surface-variant">{onHundred(t)}</td>
