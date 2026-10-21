@@ -2,7 +2,6 @@ import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { FasProvider } from "./data/fasStore";
 import { FeeProvider } from "./data/feeStore";
-import { MoefasProvider } from "./data/moefasStore";
 import { ParentProvider } from "./data/parentStore";
 import { SbfasProvider } from "./data/sbfasStore";
 import { RegistryProvider } from "./data/registryStore";
@@ -19,9 +18,7 @@ export default function App() {
               {/* ParentProvider's useFasActions reads the SBFAS rules, so it must sit inside SbfasProvider. */}
               <SbfasProvider>
                 <ParentProvider>
-                  <MoefasProvider>
-                    <RouterProvider router={router} />
-                  </MoefasProvider>
+                  <RouterProvider router={router} />
                 </ParentProvider>
               </SbfasProvider>
             </FasProvider>

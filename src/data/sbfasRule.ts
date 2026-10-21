@@ -7,7 +7,7 @@
 // grouping: those families get MOEFAS and can never hold SBFAS at the same time.
 import { TODAY } from "../lib/fees";
 import { SBFAS_TIERS, SBFAS_TIER_RATES, type SbfasTier } from "./sbfasApplications";
-import { activeRuleOf, HOUSEHOLD_BANDS, PER_CAPITA_BANDS, type FasRule } from "./moefasRules";
+import { HH_BANDS, PC_BANDS, type Rule } from "./moefas";
 
 /** What a tier's `rate` means: a percentage of each fee, or a fixed S$ amount off each fee. */
 export type SubsidyBasis = "percent" | "fixed";
@@ -29,8 +29,8 @@ export type SbfasRule = {
 // ASSUMPTION: the default grouping mirrors the seeded Active MOEFAS rule (GHI ≤ band 2, PCI ≤ band 2 are
 // MOEFAS territory) and groups the remaining bands by need. Schools adjust from here.
 const DEFAULT_GROUPING = (): SbfasRule["grouping"] => ({
-  ghi: HOUSEHOLD_BANDS.map((_, i) => (i <= 2 ? null : "LOW")) as (RiskLevel | null)[],
-  pci: PER_CAPITA_BANDS.map((_, i) => (i <= 2 ? null : i === 3 ? "HIGH" : "MED")) as (RiskLevel | null)[],
+  ghi: HH_BANDS.map((_, i) => (i <= 2 ? null : "LOW")) as (RiskLevel | null)[],
+  pci: PC_BANDS.map((_, i) => (i <= 2 ? null : i === 3 ? "HIGH" : "MED")) as (RiskLevel | null)[],
 });
 const DEFAULT_LEVEL_TIERS = (): SbfasRule["levelTiers"] => ({ HIGH: "Tier 1", MED: "Tier 2", LOW: "Tier 3" });
 
@@ -57,14 +57,14 @@ export const tierSubsidy = (rule: SbfasRule, tier: SbfasTier): { basis: SubsidyB
 };
 
 /** Band indexes the ACTIVE MOEFAS policy auto-grants — locked out of the school's grouping. */
-export function moefasCoveredBands(rules: FasRule[]): { ghi: number[]; pci: number[] } {
-  const rule = activeRuleOf(rules);
+export function moefasCoveredBands(rules: Rule[]): { ghi: number[]; pci: number[] } {
+  const rule = rules.find((r) => r.status === "Active");
   if (!rule || !rule.tiers.length) return { ghi: [], pci: [] };
-  const h = Math.max(...rule.tiers.map((t) => t.household));
-  const p = Math.max(...rule.tiers.map((t) => t.perCapita));
+  const h = Math.max(...rule.tiers.map((t) => t.hh));
+  const p = Math.max(...rule.tiers.map((t) => t.pc));
   return {
-    ghi: HOUSEHOLD_BANDS.map((_, i) => i).filter((i) => i <= h),
-    pci: PER_CAPITA_BANDS.map((_, i) => i).filter((i) => i <= p),
+    ghi: HH_BANDS.map((_, i) => i).filter((i) => i <= h),
+    pci: PC_BANDS.map((_, i) => i).filter((i) => i <= p),
   };
 }
 

@@ -61,6 +61,8 @@ function SbfasReview() {
   );
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  // No visible banner (the row just moves tab), but the decision is still announced.
+  const [announce, setAnnounce] = useState("");
 
   const enriched: Row[] = useMemo(
     () => sortQueue(apps).map((a) => ({
@@ -86,6 +88,8 @@ function SbfasReview() {
   const decide = (id: string, action: Action, draft: Draft) => {
     decideApp(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     setOpenId(null);
+    const a = apps.find((x) => x.id === id);
+    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
   };
 
   // The rule of the school that owns the opened application — SBFAS packages are school-defined.
@@ -147,6 +151,7 @@ function SbfasReview() {
         }
       >
         <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
+        <p role="status" className="sr-only">{announce}</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (

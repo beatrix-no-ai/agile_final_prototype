@@ -38,16 +38,16 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app: SbfasApplication & FeeContext }) {
-  const [tier, setTier] = useState<SbfasTier>(app.recommendedTier);
+  // The school decides how many tiers exist — list them from its rule, not a fixed national set.
+  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number }[] = rule
+    ? rule.tiers
+    : SBFAS_TIERS.map((t) => ({ tier: t }));
+  const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
   const tierRef = useRef<HTMLSelectElement>(null);
   const justRef = useRef<HTMLTextAreaElement>(null);
   const decided = app.status !== "Pending";
-  // The school decides how many tiers exist — list them from its rule, not a fixed national set.
-  const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number }[] = rule
-    ? rule.tiers
-    : SBFAS_TIERS.map((t) => ({ tier: t }));
 
   const act = (action: Action) => {
     const draft = { justification, tier };

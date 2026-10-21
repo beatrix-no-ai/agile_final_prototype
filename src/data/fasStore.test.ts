@@ -107,6 +107,12 @@ describe("a family application from the parent portal", () => {
   const submit = (tier: "MOEFAS Tier 1" | "MOEFAS Tier 2" | "SBFAS" | null, s = initialFasState()) =>
     fasReducer(s, { type: "submitFamily", studentIds: ids, band: { id: "bx", label: "$751 - $1,000 per person", tier }, at });
 
+  it("an unmapped band falls back to a tier the school offers, not a hard-coded Tier 3", () => {
+    const recommend = { [ethan.id]: { level: null, tier: null, fallback: "Tier 2" as const } };
+    const s = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band: { id: "b3", label: "x", tier: "SBFAS" }, at, recommend });
+    expect(s.apps.find((a) => a.studentId === ethan.id)!.recommendedTier).toBe("Tier 2");
+  });
+
   it("a MOEFAS band grants MOEFAS straight away for every child", () => {
     const s = submit("MOEFAS Tier 2");
     expect(s.moefas[ethan.id]).toEqual({ tier: "Tier 2", at });

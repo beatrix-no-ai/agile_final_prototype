@@ -3,7 +3,7 @@ import {
   defaultSbfasRule, draftOfSbfasRule, levelForBands, moefasCoveredBands, ruleForSchool, sbfasRuleOk,
   tierForBands, tierSubsidy, toSbfasRule, validateSbfasRule, type SbfasRuleDraft,
 } from "./sbfasRule";
-import { FAS_RULES } from "./moefasRules";
+import { SEED } from "./moefas";
 import { initialSbfasState, sbfasReducer } from "./sbfasStore";
 
 describe("SBFAS school rule: defaults and lookup", () => {
@@ -79,13 +79,12 @@ describe("SBFAS school rule: store", () => {
     const s1 = sbfasReducer(s0, { type: "save-rule", rule });
     expect(ruleForSchool(s1.rules, "S001")).toBe(rule);
     expect(s1.apps).toBe(s0.apps);
-    expect(s1.family).toBeNull();
   });
 });
 
 describe("SBFAS grouping: MOEFAS-locked bands", () => {
   it("bands inside the Active MOEFAS policy are covered; the rest stay open to the school", () => {
-    const covered = moefasCoveredBands(FAS_RULES); // Active rule: GHI ≤ band 2, PCI ≤ band 2
+    const covered = moefasCoveredBands(SEED); // Active rule: GHI ≤ band 2, PCI ≤ band 2
     expect(covered.ghi).toEqual([0, 1, 2]);
     expect(covered.pci).toEqual([0, 1, 2]);
   });

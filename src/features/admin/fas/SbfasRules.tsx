@@ -11,7 +11,7 @@ import {
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { useSbfas } from "../../../data/sbfasStore";
-import { useMoefas } from "../../../data/moefasStore";
+import { useRules } from "../../../data/moefas";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import { formatDate, formatSGD } from "../../../lib/format";
@@ -91,8 +91,8 @@ export default function SbfasRules() {
   const { role } = useSession();
   const school = schoolCodeFor(role);
   const { state, dispatch } = useSbfas();
-  const { state: moefasState } = useMoefas();
-  const covered = moefasCoveredBands(moefasState.rules);
+  const [moefasRules] = useRules(); // the HQ module's rules, read from storage on mount
+  const covered = moefasCoveredBands(moefasRules);
   const rule = school ? ruleForSchool(state.rules, school) : null;
   const [d, setD] = useState<SbfasRuleDraft | null>(null);
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
@@ -126,6 +126,7 @@ export default function SbfasRules() {
   const pick = (dim: "ghi" | "pci", i: number, level: RiskLevel | null) => {
     const bands = dim === "ghi" ? covered.ghi : covered.pci;
     const safe = bands.includes(i) ? null : level;
+    setNote("");
     setD({ ...draft, grouping: { ...draft.grouping!, [dim]: draft.grouping![dim].map((v, j) => (j === i ? safe : v)) } });
   };
 

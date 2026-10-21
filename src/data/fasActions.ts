@@ -43,7 +43,7 @@ export function useFasActions() {
     submitFamily(studentIds: string[], band: Band) {
       // Each child is assessed against their OWN school's grouping — children may attend different schools.
       const pci = PCI_OF_BAND[band.id] ?? 3;
-      const recommend: Record<string, { level: RiskLevel | null; tier: SbfasTier | null; subsidy?: string }> = {};
+      const recommend: Record<string, { level: RiskLevel | null; tier: SbfasTier | null; fallback: SbfasTier; subsidy?: string }> = {};
       for (const id of studentIds) {
         const student = reg.students.find((s) => s.id === id);
         if (!student) continue;
@@ -52,8 +52,10 @@ export function useFasActions() {
         const tier = level ? rule.levelTiers[level] ?? null : null;
         // The explanation tells the reviewer what the suggested tier is worth — % of the fee or a fixed amount.
         const sub = tier ? tierSubsidy(rule, tier) : undefined;
+        // Nothing mapped for this band: suggest Tier 3 if the school offers it, else its last tier — never a tier it does not have.
+        const fallback = (rule.tiers.find((t) => t.tier === "Tier 3") ?? rule.tiers[rule.tiers.length - 1]).tier;
         recommend[id] = {
-          level, tier,
+          level, tier, fallback,
           subsidy: sub ? ` (${sub.basis === "fixed" ? `S$${sub.value}` : `${sub.value}%`} subsidy)` : undefined,
         };
       }
