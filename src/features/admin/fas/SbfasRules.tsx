@@ -11,7 +11,7 @@ import {
 } from "../../../data/sbfasRule";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { useSbfas } from "../../../data/sbfasStore";
-import { TIER_LIMIT, useTiers, type Range } from "../../../data/moefas";
+import { useTiers } from "../../../data/moefas";
 import { schoolCodeFor } from "../../../data/users";
 import { useSession } from "../../../session";
 import { formatDate, formatSGD } from "../../../lib/format";
@@ -25,64 +25,13 @@ const onHundred = (t: { basis: SubsidyBasis; rate: string }) => {
 };
 
 const LEVEL_LABEL: Record<RiskLevel, string> = { HIGH: "HIGH", MED: "MED", LOW: "LOW" };
-/** Blocks run from the least to the most support, then the bands no level claims. */
-const BLOCK_LEVELS: (RiskLevel | null)[] = ["LOW", "MED", "HIGH", null];
+const BLOCK_LEVELS: RiskLevel[] = ["LOW", "MED", "HIGH"];
 
-const money = (n: number) => `S$${n.toLocaleString("en-SG", { maximumFractionDigits: 2 })}`;
-/** HQ income tier range as a label: "Up to S$2,000", "S$2,000.01 – S$3,000", "Above S$10,000". */
-const rangeLabel = ([lo, hi]: Range) =>
-  lo <= 0 ? `Up to ${money(hi)}` : hi >= TIER_LIMIT ? `Above ${money(Math.round((lo - 0.01) * 100) / 100)}` : `${money(lo)} – ${money(hi)}`;
-
-/** One income-tier panel (GHI or PCI): each row picks the school's need level; MOEFAS tiers are locked. `ids` are the real tier indexes of the rows. */
-function BandPanel({
-  title, ids, bands, covered, levels, onPick,
-}: {
-  title: string;
-  ids: number[];
-  bands: readonly string[];
-  covered: number[];
-  levels: (RiskLevel | null)[];
-  onPick: (i: number, level: RiskLevel | null) => void;
-}) {
-  return (
-    <div className="rounded-card border border-line bg-surface-container-lowest p-4">
-      <h3 className="text-sm font-semibold text-on-surface">{title}</h3>
-      <div className="mt-3 space-y-2">
-        {bands.map((label, i) => {
-          const locked = covered.includes(ids[i]);
-          return (
-            <div key={i} className="flex items-center justify-between gap-3 rounded-card border border-line px-3 py-2">
-              <span className="text-sm">
-                <span className="font-medium">Tier {ids[i] + 1}</span>{" "}
-                <span className="text-on-surface-variant">{label}</span>
-              </span>
-              {locked ? (
-                <span className="inline-flex shrink-0 items-center gap-2" title="Families in this band are granted MOEFAS automatically — your school does not assess them.">
-                  <Badge tone="primary">MOEFAS</Badge>
-                  <span className="text-[13px] text-on-surface-variant">Auto-granted</span>
-                </span>
-              ) : (
-                <label className="shrink-0">
-                  <span className="sr-only">Your level for {label}</span>
-                  <select
-                    className={`${inputClass} w-36`}
-                    value={levels[i] ?? ""}
-                    onChange={(e) => onPick(i, (e.target.value || null) as RiskLevel | null)}
-                  >
-                    <option value="">Not grouped</option>
-                    {RISK_LEVELS.map((l) => (
-                      <option key={l} value={l}>{LEVEL_LABEL[l]}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+/** A level's current tier range on one dimension as 1-based [from, to]; [0, 0] when the level claims no tiers. */
+const rangeOf = (bands: (RiskLevel | null)[], l: RiskLevel): [number, number] => {
+  const ix = bands.flatMap((v, i) => (v === l ? [i] : []));
+  return ix.length ? [ix[0] + 1, ix[ix.length - 1] + 1] : [0, 0];
+};
 
 /**
  * School-side SBFAS rule (Req 4): the school groups MOE's national income bands (GHI and PCI) into need
@@ -131,12 +80,18 @@ export default function SbfasRules() {
     }
     setD({ ...draft, tiers: draft.tiers.filter((_, j) => j !== i), levelTiers });
   };
-  // MOEFAS bands never persist a level: force them back to Not grouped on every edit and save.
-  const pick = (dim: "ghi" | "pci", i: number, level: RiskLevel | null) => {
-    const bands = dim === "ghi" ? covered.ghi : covered.pci;
-    const safe = bands.includes(i) ? null : level;
+  // A level claims a contiguous tier range per dimension; MOEFAS-covered tiers are never assignable.
+  const setRange = (dim: "ghi" | "pci", l: RiskLevel, end: "from" | "to", tier: number) => {
+    const cov = dim === "ghi" ? covered.ghi : covered.pci;
+    const bands = draft.grouping![dim];
+    const cur = rangeOf(bands, l);
+    const lo = end === "from" ? tier : cur[0] || tier;
+    const hi = end === "from" ? cur[1] || tier : tier;
+    const next = bands.map((v) => (v === l ? null : v));
+    const firstFree = (cov.at(-1) ?? -1) + 1;
+    if (lo && hi) for (let i = Math.max(lo - 1, firstFree); i <= Math.min(hi - 1, next.length - 1); i++) next[i] = l;
     setNote("");
-    setD({ ...draft, grouping: { ...draft.grouping!, [dim]: draft.grouping![dim].map((v, j) => (j === i ? safe : v)) } });
+    setD({ ...draft, grouping: { ...draft.grouping!, [dim]: next } });
   };
 
   const lockedDraft = (): SbfasRuleDraft => ({
@@ -170,34 +125,50 @@ export default function SbfasRules() {
           a student can never hold both schemes.
         </p>
         {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
+        <p className="text-[13px] text-on-surface-variant">
+          Tiers 1–{covered.pci.length} (per-capita) and 1–{covered.ghi.length} (gross household) are granted MOEFAS
+          automatically and cannot be grouped; tiers outside every range get no suggestion.
+        </p>
         {BLOCK_LEVELS.map((lv) => {
-          // Band indexes this level claims on each dimension; the panels below only show those rows.
-          const pcIdx = draft.grouping!.pci.map((v, j) => (v === lv ? j : -1)).filter((j) => j >= 0);
-          const hhIdx = draft.grouping!.ghi.map((v, j) => (v === lv ? j : -1)).filter((j) => j >= 0);
+          const [pf, pt] = rangeOf(draft.grouping!.pci, lv);
+          const [hf, ht] = rangeOf(draft.grouping!.ghi, lv);
+          const opts = (dim: "ghi" | "pci") => {
+            const n = draft.grouping![dim].length;
+            const start = (dim === "ghi" ? covered.ghi : covered.pci).length;
+            return Array.from({ length: Math.max(0, n - start) }, (_, k) => start + k + 1);
+          };
+          const sel = (dim: "ghi" | "pci", end: "from" | "to", val: number, id: string) => (
+            <select
+              id={id}
+              className={inputClass}
+              value={val ? String(val) : ""}
+              onChange={(e) => setRange(dim, lv, end, Number(e.target.value) || 0)}
+            >
+              <option value="">—</option>
+              {opts(dim).map((t) => <option key={t} value={t}>Tier {t}</option>)}
+            </select>
+          );
           return (
-            <section key={lv ?? "ng"} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h4 className="text-sm font-semibold text-on-surface">{lv ? LEVEL_LABEL[lv] : "Not grouped"}</h4>
-                {!lv && (
-                  <span className="text-[13px] text-on-surface-variant">Bands here match no level — move one into LOW, MED or HIGH.</span>
-                )}
+            <section key={lv} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
+              <h4 className="text-sm font-semibold text-on-surface">{LEVEL_LABEL[lv]}</h4>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="w-10 text-sm font-semibold text-on-surface">PCI</span>
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  From Tier {sel("pci", "from", pf, `pc-from-${lv}`)}
+                </label>
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  To Tier {sel("pci", "to", pt, `pc-to-${lv}`)}
+                </label>
               </div>
-              <BandPanel
-                title="Per-capita tiers in this level"
-                ids={pcIdx}
-                bands={pcIdx.map((j) => rangeLabel(tiers.pci.ranges[j]))}
-                covered={covered.pci}
-                levels={pcIdx.map((j) => draft.grouping!.pci[j])}
-                onPick={(k, level) => pick("pci", pcIdx[k], level)}
-              />
-              <BandPanel
-                title="Gross household tiers in this level"
-                ids={hhIdx}
-                bands={hhIdx.map((j) => rangeLabel(tiers.ghi.ranges[j]))}
-                covered={covered.ghi}
-                levels={hhIdx.map((j) => draft.grouping!.ghi[j])}
-                onPick={(k, level) => pick("ghi", hhIdx[k], level)}
-              />
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="w-10 text-sm font-semibold text-on-surface">GHI</span>
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  From Tier {sel("ghi", "from", hf, `hh-from-${lv}`)}
+                </label>
+                <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
+                  To Tier {sel("ghi", "to", ht, `hh-to-${lv}`)}
+                </label>
+              </div>
             </section>
           );
         })}
