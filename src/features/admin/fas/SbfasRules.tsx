@@ -83,9 +83,9 @@ function BandPanel({
 
 /**
  * School-side SBFAS rule (Req 4): the school groups MOE's national income bands (GHI and PCI) into need
- * levels for the AI suggestion, maps each level to an SBFAS tier, and sets each tier's subsidy — a
- * percentage of the fee or a fixed S$ amount. The school chooses how many tiers to offer. Bands already
- * auto-granted by the Active MOEFAS policy are locked — no student can hold both schemes.
+ * levels for the AI suggestion and sets each tier's subsidy — a percentage of the fee or a fixed S$
+ * amount. The school chooses how many tiers to offer. Bands already auto-granted by the Active MOEFAS
+ * policy are locked — no student can hold both schemes.
  */
 export default function SbfasRules() {
   const { role } = useSession();
@@ -128,8 +128,6 @@ export default function SbfasRules() {
     const safe = bands.includes(i) ? null : level;
     setD({ ...draft, grouping: { ...draft.grouping!, [dim]: draft.grouping![dim].map((v, j) => (j === i ? safe : v)) } });
   };
-  const setLevelTier = (l: RiskLevel, tier: SbfasTier | null) =>
-    setD({ ...draft, levelTiers: { ...draft.levelTiers!, [l]: tier } });
 
   const lockedDraft = (): SbfasRuleDraft => ({
     ...draft,
@@ -158,8 +156,8 @@ export default function SbfasRules() {
       <div className="space-y-4">
         <p className="text-sm text-on-surface-variant">
           MOE sets the national income bands; your school groups them into LOW, MED and HIGH need levels for the AI
-          suggestion, maps each level to an SBFAS tier, and funds the tiers from its own budget. Bands already granted
-          MOEFAS automatically are locked — a student can never hold both schemes.
+          suggestion and funds the tiers from its own budget. Bands already granted MOEFAS automatically are locked —
+          a student can never hold both schemes.
         </p>
         {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
         {BLOCK_LEVELS.map((lv) => {
@@ -170,22 +168,7 @@ export default function SbfasRules() {
             <section key={lv ?? "ng"} className="space-y-3 rounded-card border border-line bg-surface-container-lowest p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h4 className="text-sm font-semibold text-on-surface">{lv ? LEVEL_LABEL[lv] : "Not grouped"}</h4>
-                {lv ? (
-                  <label className="shrink-0">
-                    <span className="sr-only">Suggested SBFAS tier for {LEVEL_LABEL[lv]}</span>
-                    <select
-                      id={`tier-of-${lv}`}
-                      className={`${inputClass} w-36`}
-                      value={draft.levelTiers![lv] ?? "none"}
-                      onChange={(e) => { setNote(""); setLevelTier(lv, (e.target.value === "none" ? null : e.target.value) as SbfasTier | null); }}
-                    >
-                      <option value="none">No tier</option>
-                      {draft.tiers.map((_, i) => (
-                        <option key={i} value={`Tier ${i + 1}`}>Tier {i + 1}</option>
-                      ))}
-                    </select>
-                  </label>
-                ) : (
+                {!lv && (
                   <span className="text-[13px] text-on-surface-variant">Bands here match no level — move one into LOW, MED or HIGH.</span>
                 )}
               </div>
@@ -207,9 +190,6 @@ export default function SbfasRules() {
           );
         })}
         {errors.grouping && <p role="alert" className="text-[13px] font-medium text-alert">{errors.grouping}</p>}
-        {RISK_LEVELS.filter((l) => errors.levelRows?.[l]).map((l) => (
-          <p key={l} role="alert" className="text-[13px] font-medium text-alert">{LEVEL_LABEL[l]}: {errors.levelRows![l]}</p>
-        ))}
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
