@@ -7,7 +7,7 @@ import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import { INCOME_API_SOURCE, SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import type { SbfasRule, SubsidyBasis } from "../../../data/sbfasRule";
-import { isMoefasEligible, isSbfasEligible } from "../../../data/students";
+import { isSbfasEligible } from "../../../data/students";
 import { formatDate, formatSGD } from "../../../lib/format";
 import { riskLevel } from "../../../lib/fas";
 import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
@@ -79,13 +79,9 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
         <p className="-mt-2 text-[13px] text-on-surface-variant">Income bands are read-only, from the {INCOME_API_SOURCE}, last synced {formatDate(app.incomeSyncedOn)}.</p>
       )}
 
-      {!isSbfasEligible(app.nationality) ? (
+      {!isSbfasEligible(app.nationality) && (
         <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">
-          {app.nationality} — not eligible for MOE FAS or SBFAS (Singapore Citizens and PRs only). Reject this application.
-        </p>
-      ) : !isMoefasEligible(app.nationality) && (
-        <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-warning">
-          {app.nationality} — not eligible for MOE FAS (Singapore Citizens only). SBFAS is the only scheme this student can be considered for.
+          {app.nationality} — not eligible for MOE FAS or SBFAS (Singapore Citizens only). Reject this application.
         </p>
       )}
 
