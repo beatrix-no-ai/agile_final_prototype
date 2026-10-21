@@ -37,7 +37,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app: SbfasApplication & FeeContext }) {
+function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number }[] = rule
     ? rule.tiers
@@ -143,7 +143,6 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
             />
           </Field>
           <div className="flex flex-wrap justify-end gap-3 pt-1">
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
             <Button variant="secondary" onClick={() => act("reject")}>Reject</Button>
             <Button variant="secondary" onClick={() => act("override")}>Override</Button>
             <Button onClick={() => act("approve")}>Approve {rankOf(app.recommendedTier)}</Button>
@@ -158,7 +157,7 @@ function ReviewBody({ app, rule, onClose, onDecide }: Omit<Props, "app"> & { app
 export function ReviewModal({ app, rule, onClose, onDecide }: Props) {
   return (
     <Modal open={app !== null} onClose={onClose} title={app ? `Review application ${app.id}` : "Review application"}>
-      {app && <ReviewBody key={app.id} app={app} rule={rule} onClose={onClose} onDecide={onDecide} />}
+      {app && <ReviewBody key={app.id} app={app} rule={rule} onDecide={onDecide} />}
     </Modal>
   );
 }
