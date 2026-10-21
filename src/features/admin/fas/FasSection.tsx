@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useSession } from "../../../session";
 import { SbfasReview } from "./FasApplications";
 import SbfasRules from "./SbfasRules";
+import { MoefasHandbook } from "./MoefasHandbook";
 
 const SCHOOL_TABS = [
   { id: "sbfas", label: "SBFAS review", hint: "Applications and decisions" },
   { id: "sbfasRules", label: "SBFAS rules", hint: "Your school's tiers and subsidy rates" },
+  { id: "handbook", label: "MOEFAS Handbook", hint: "National income tiers, the Active MOE rule and the process" },
 ] as const;
 
 type TabId = (typeof SCHOOL_TABS)[number]["id"];
@@ -18,7 +20,7 @@ export default function FasSection() {
 
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="FAS workspace" className="grid gap-2 sm:grid-cols-2">
+      <div role="tablist" aria-label="FAS workspace" className="grid gap-2 sm:grid-cols-3">
         {SCHOOL_TABS.map((t, i) => {
           const on = tab === t.id;
           return (
@@ -39,7 +41,7 @@ export default function FasSection() {
           );
         })}
       </div>
-      {tab === "sbfas" ? <SbfasReview /> : <SbfasRules />}
+      {tab === "sbfas" ? <SbfasReview /> : tab === "sbfasRules" ? <SbfasRules /> : <MoefasHandbook />}
     </div>
   );
 }
