@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -66,7 +65,6 @@ export default function SbfasRules() {
     grouping: { ghi: fit(base.grouping!.ghi, tiers.ghi.ranges.length), pci: fit(base.grouping!.pci, tiers.pci.ranges.length) },
   };
   const schoolName = SCHOOLS.find((s) => s.code === school)?.name ?? school;
-  const customized = Boolean(state.rules[school]);
   const upd = (i: number, patch: Partial<SbfasRuleDraft["tiers"][number]>) =>
     setD({ ...draft, tiers: draft.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) });
   const addTier = () =>
@@ -114,16 +112,8 @@ export default function SbfasRules() {
   };
 
   return (
-    <Card
-      title={`SBFAS rules — ${schoolName}`}
-      action={customized ? <Badge tone="primary">Customised {formatDate(rule.updated)}</Badge> : <Badge tone="neutral">National defaults</Badge>}
-    >
+    <Card title={`SBFAS rules — ${schoolName}`}>
       <div className="space-y-4">
-        <p className="text-sm text-on-surface-variant">
-          MOE sets the national income bands; your school groups them into LOW, MED and HIGH need levels for the AI
-          suggestion and funds the tiers from its own budget. Bands already granted MOEFAS automatically are locked —
-          a student can never hold both schemes.
-        </p>
         {note && <p role="status" className="text-[13px] font-medium text-success">{note}</p>}
         <p className="text-[13px] text-on-surface-variant">
           Tiers 1–{covered.pci.length} (per-capita) and 1–{covered.ghi.length} (gross household) are granted MOEFAS
