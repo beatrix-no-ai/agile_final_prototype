@@ -134,8 +134,8 @@ function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: 
       <h2 className="text-2xl font-bold tracking-tight">{readOnly ? "View rule" : isNew ? "Create rule" : "Edit rule"}</h2>
       <Card title="SBFAS · School package" action={<Badge tone={TONE[initial.status]}>{initial.status === "Draft" && !readOnly ? "Editable draft" : initial.status}</Badge>}>
         <p className="text-sm text-on-surface-variant">
-          Select the school&apos;s fee types, set the ranks and their flat subsidies, then give individual components
-          their own rates.
+          Select the school&apos;s fee types, give individual components their own subsidy rates, then set the ranks
+          and their flat subsidies.
         </p>
         <fieldset disabled={readOnly} className="mt-5 min-w-0 space-y-6 disabled:opacity-90">
           <section>
@@ -185,7 +185,75 @@ function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: 
           </section>
 
           <section className="border-t border-line pt-6">
-            <h3 className="text-sm font-bold">2. Configure ranks</h3>
+            <h3 className="text-sm font-bold">2. Subsidy by fee component</h3>
+            <p className="mt-1 text-[13px] text-on-surface-variant">Give a component its own subsidy for a rank. Leave a cell empty to follow that rank&apos;s flat rate in step 3.</p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className={th}>Fee type</th>
+                    <th className={th}>Fee component</th>
+                    <th className={th}>Basis</th>
+                    {d.tiers.map((_, i) => <th key={i} className={th}>Rank {i + 1}</th>)}
+                    <th className={th}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, ri) => {
+                    const ft = ftOf(r.ft);
+                    if (!ft) return null;
+                    return (
+                      <tr key={`${r.ft}:${r.comp}`}>
+                        <td className={td}>
+                          <b>{ft.name}</b>
+                          <Button size="sm" variant="secondary" className="mt-2" disabled={freeComp(ft.id) === undefined} onClick={() => addRowFor(ft.id)}>+ Component</Button>
+                        </td>
+                        <td className={td}>
+                          <select required className={`${cell} min-w-40`} aria-label={`${ft.name} component`} value={r.comp} onChange={(e) => setRowComp(ri, e.target.value)}>
+                            {ft.components.map((c) => (
+                              <option key={c.name} value={c.name} disabled={rows.some((z, k) => k !== ri && z.ft === r.ft && z.comp === c.name)}>{c.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className={td}>
+                          <select className={cell} aria-label={`${r.comp} subsidy basis`} value={r.basis} onChange={(e) => setRowBasis(ri, e.target.value as SubsidyBasis)}>
+                            <option value="percent">Percentage (%)</option>
+                            <option value="fixed">Fixed amount (SGD)</option>
+                          </select>
+                        </td>
+                        {d.tiers.map((t, ti) => (
+                          <td key={ti} className={td}>
+                            <input
+                              type="number"
+                              min={0}
+                              max={r.basis === "fixed" ? undefined : 100}
+                              step={0.5}
+                              className={`${cell} w-24 text-right`}
+                              aria-label={`${r.comp} Rank ${ti + 1} subsidy`}
+                              placeholder={t.basis === "fixed" ? (t.rate ? `S$${t.rate}` : "") : (t.rate ? `${t.rate}%` : "")}
+                              value={t.components?.[r.comp]?.rate ?? ""}
+                              onChange={(e) => setCell(ti, r.comp, r.basis, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                        <td className={td}><Button size="sm" variant="ghost" onClick={() => rmRow(ri)}>Remove</Button></td>
+                      </tr>
+                    );
+                  })}
+                  {!rows.length && <tr><td colSpan={d.tiers.length + 4} className="px-3 py-8 text-center text-on-surface-variant">No components selected. Add school fee types above to give components their own rates.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[13px] text-on-surface-variant">Only the components added here get their own rates. Every other component — and any empty cell — follows its rank&apos;s flat rate from step 3.</p>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              <span className="mr-auto text-[13px] text-on-surface-variant">{d.tiers.length} {d.tiers.length === 1 ? "rank" : "ranks"}</span>
+              <Button size="sm" variant="secondary" icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={addRank}>Add rank</Button>
+              <Button size="sm" variant="secondary" disabled={d.tiers.length <= 1} onClick={rmLastRank}>Remove last rank</Button>
+            </div>
+          </section>
+
+          <section className="border-t border-line pt-6">
+            <h3 className="text-sm font-bold">3. Configure ranks</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Rule name" required>
                 <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
@@ -235,76 +303,8 @@ function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: 
                 </tbody>
               </table>
             </div>
-            <p className="mt-2 text-[13px] text-on-surface-variant">A rank is one support level of the package. Its flat subsidy applies to every fee component; step 3 can give a single component its own rate for a rank.</p>
-            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-              <span className="mr-auto text-[13px] text-on-surface-variant">{d.tiers.length} {d.tiers.length === 1 ? "rank" : "ranks"}</span>
-              <Button size="sm" variant="secondary" icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={addRank}>Add rank</Button>
-              <Button size="sm" variant="secondary" disabled={d.tiers.length <= 1} onClick={rmLastRank}>Remove last rank</Button>
-            </div>
+            <p className="mt-2 text-[13px] text-on-surface-variant">A rank is one support level of the package. Its flat subsidy applies to every fee component; step 2 can give a single component its own rate for a rank. Each rank added in step 2 adds a column to the subsidy table.</p>
             {errors.tiers && <p role="alert" className="mt-2 text-[13px] font-medium text-alert">{errors.tiers}</p>}
-          </section>
-
-          <section className="border-t border-line pt-6">
-            <h3 className="text-sm font-bold">3. Subsidy by rank and fee component</h3>
-            <p className="mt-1 text-[13px] text-on-surface-variant">Give a component its own subsidy for a rank. Leave a cell empty to follow that rank&apos;s flat rate.</p>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-sm">
-                <thead>
-                  <tr>
-                    <th className={th}>Fee type</th>
-                    <th className={th}>Fee component</th>
-                    <th className={th}>Basis</th>
-                    {d.tiers.map((_, i) => <th key={i} className={th}>Rank {i + 1}</th>)}
-                    <th className={th}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, ri) => {
-                    const ft = ftOf(r.ft);
-                    if (!ft) return null;
-                    return (
-                      <tr key={`${r.ft}:${r.comp}`}>
-                        <td className={td}>
-                          <b>{ft.name}</b>
-                          <Button size="sm" variant="secondary" className="mt-2" disabled={freeComp(ft.id) === undefined} onClick={() => addRowFor(ft.id)}>+ Component</Button>
-                        </td>
-                        <td className={td}>
-                          <select required className={`${cell} min-w-40`} aria-label={`${ft.name} component`} value={r.comp} onChange={(e) => setRowComp(ri, e.target.value)}>
-                            {ft.components.map((c) => (
-                              <option key={c.name} value={c.name} disabled={rows.some((z, k) => k !== ri && z.ft === r.ft && z.comp === c.name)}>{c.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className={td}>
-                          <select className={cell} aria-label={`${r.comp} subsidy basis`} value={r.basis} onChange={(e) => setRowBasis(ri, e.target.value as SubsidyBasis)}>
-                            <option value="percent">Percentage (%)</option>
-                            <option value="fixed">Fixed amount (SGD)</option>
-                          </select>
-                        </td>
-                        {d.tiers.map((t, ti) => (
-                          <td key={ti} className={td}>
-                            <input
-                              type="number"
-                              min={0}
-                              max={r.basis === "fixed" ? undefined : 100}
-                              step={0.5}
-                              className={`${cell} w-24 text-right`}
-                              aria-label={`${r.comp} Rank ${ti + 1} subsidy`}
-                              placeholder={t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}
-                              value={t.components?.[r.comp]?.rate ?? ""}
-                              onChange={(e) => setCell(ti, r.comp, r.basis, e.target.value)}
-                            />
-                          </td>
-                        ))}
-                        <td className={td}><Button size="sm" variant="ghost" onClick={() => rmRow(ri)}>Remove</Button></td>
-                      </tr>
-                    );
-                  })}
-                  {!rows.length && <tr><td colSpan={d.tiers.length + 4} className="px-3 py-8 text-center text-on-surface-variant">No components selected. Add school fee types above to give components their own rates.</td></tr>}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-[13px] text-on-surface-variant">Only the components added here get their own rates. Every other component — and any empty cell — follows its rank&apos;s flat rate from step 2.</p>
           </section>
         </fieldset>
         {!readOnly && (
