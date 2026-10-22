@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Bank, Receipt } from "@phosphor-icons/react";
+import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Bank } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { Badge } from "../../../components/ui/Badge";
@@ -105,7 +105,6 @@ export default function EducationAccountPage() {
             ))}
           </dl>
           <div className="mt-5 grid gap-2">
-            <Button className="w-full" icon={<Receipt size={18} aria-hidden />} onClick={() => navigate(feesPath, { state: { student } })}>View all fees</Button>
             {role === "hq" && <Button className="w-full" icon={<Bank size={18} aria-hidden />} onClick={() => navigate("/admin/top-up", { state: { student } })}>Top up</Button>}
           </div>
         </Card>
