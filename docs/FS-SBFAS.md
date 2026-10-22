@@ -11,7 +11,7 @@
 1. Đơn SBFAS đến hàng đợi trường theo **2 kênh**:
    - **MOE referral** — gia đình nộp form FAS online, rơi ngoài các băng thu nhập MOEFAS → MOE đẩy xuống queue trường. Mang ngày đồng bộ MyInfo (SingPass).
    - **Hardcopy** — gia đình nộp **đơn giấy trực tiếp tại trường**, staff tự nhập trong tab *Hardcopy applications*. Band thu nhập đọc từ form giấy (không MyInfo sync).
-2. **Không map băng thu nhập → rank.** Mỗi đơn vào queue ở **rank khởi đầu** (Tier 3 nếu trường có, không thì rank cuối cùng của rule đang Active) — school user **tự duyệt và chọn rank từng đơn** (Approve rank khởi đầu / Override sang rank khác / Reject).
+2. **Không map băng thu nhập → rank, không có đề xuất.** Mỗi đơn vào queue ở **rank khởi đầu** (Tier 3 nếu trường có, không thì rank cuối cùng của rule đang Active) — school user **tự duyệt**: chọn Rank trong modal → **Approve** đúng rank đã chọn, hoặc **Reject** (justification là ghi chú tùy chọn).
 3. Rule của trường là **các version có trạng thái** như FAS Rules của MOE: **chỉ 1 rule Active tại một thời điểm**; Active mới thì bản Active cũ chuyển **Inactive**; bản Inactive giữ lại làm **history**; Draft chưa từng được Active.
 4. Eligibility: **SBFAS chỉ dành cho Singapore Citizen** (Dual citizenship có SG vẫn hợp lệ). Hồ sơ non-SC hiện cảnh báo đỏ và phải Reject.
 5. Quyết định ghi thẳng về hồ sơ học sinh + charges (writeback qua `useFasActions`): Approve/Override → subsidy áp vào charges chưa trả của học sinh.
@@ -44,14 +44,20 @@
 | Status | `status` (+ `sbfasTier`) | `Pending`/`Granted · Rank N`/`Declined` |
 
 ### 2.4 Review modal
-Giữ nguyên các field cũ (Student, Nationality + alert non-SC, 2 band thu nhập, Suggested rank, Fee payable/Balance, Why this suggestion, Override rank, Justification, nút Reject/Override/Approve Rank N). **Thêm 2 field mới:**
+| Field | Kiểu | Hợp lệ / Mặc định |
+|---|---|---|
+| Student | text + link | read-only |
+| Nationality | text | từ seed; **không phải SC** → alert đỏ "*… — not eligible for MOE FAS or SBFAS (Singapore Citizens only). Reject this application.*" |
+| Household / Per-capita income band (monthly) | text | read-only |
+| **Application source** | text | Hardcopy → "*Hardcopy — paper form entered by the school*"; còn lại → "*MOE referral — fell out of the MOE assessment*" |
+| **Income sync** | text | có `incomeSyncedOn` → "*MyInfo · YYYY-MM-DD*"; Hardcopy → "*Not synced — paper form*" |
+| Fee payable / Account balance | S$ | read-only + link *view fees* |
+| Application context | text | `explanation` (nguồn đến của đơn) |
+| **Rank** | select | option `Rank N — <subsidy> subsidy` theo rule Active; **mặc định = rank khởi đầu của đơn**; trường chọn rank bất kỳ mình có |
+| Justification (optional) | textarea | ghi chú kèm quyết định (trim; rỗng = không lưu) |
+| Nút | — | **Reject / Approve Rank N** (N = rank đang chọn, cập nhật theo select); đóng bằng nút **X** |
 
-| Field | Giá trị |
-|---|---|
-| **Application source** | Hardcopy → "*Hardcopy — paper form entered by the school*"; còn lại → "*MOE referral — fell out of the MOE assessment*" |
-| **Income sync** | có `incomeSyncedOn` → "*MyInfo · YYYY-MM-DD*"; Hardcopy → "*Not synced — paper form*" |
-
-Validation Override giữ nguyên (justification bắt buộc; không override về đúng rank đề xuất).
+**Không có khái niệm Override/de suggestion** — Approve ghi nhận đúng rank đang chọn trong select. Ánh xạ: Approve → `Approved` (+ `sbfasTier` = rank đã chọn); Reject → `Rejected`. Hiển thị: Approved/Overridden (bản ghi cũ) = *Granted*, Rejected = *Declined*.
 
 ---
 
@@ -120,13 +126,13 @@ Chỉ đọc, không đổi cấu trúc. Đoạn mở đầu có 1 câu mới: �
 | 3 | Cột Source | Đơn băng thấp badge "MOE referral" (burgundy); băng cao badge "Hardcopy" (xám) |
 | 4 | Mở modal đơn MOE referral | "Application source: MOE referral — fell out of the MOE assessment"; "Income sync: MyInfo · 2026-10-XX" |
 | 5 | Mở modal đơn Hardcopy | "Hardcopy — paper form entered by the school"; "Not synced — paper form" |
-| 6 | Parent portal nộp form (băng b3 SBFAS) → queue | Đơn mới Pending, badge MOE referral, "Suggests Rank 3", có ngày sync MyInfo |
+| 6 | Parent portal nộp form (băng b3 SBFAS) → queue | Đơn mới Pending, badge MOE referral, modal mở với Rank mặc định = rank khởi đầu, có ngày sync MyInfo |
 | 7 | Tab Hardcopy: chọn student + băng + note → Add to queue | Dòng xanh "Hardcopy application SBFAS0019…"; đơn xuất hiện trong queue badge Hardcopy, không có sync; bảng dưới cùng có hàng mới |
 | 8 | Tab Hardcopy: dropdown Student | Không chứa HS đã có đơn / đã được MOEFAS grant / non-SC |
 | 9 | Tab Hardcopy: không chọn student → Add | Lỗi "Pick the student the paper form belongs to." |
 | 10 | Nhập hardcopy trùng HS đã có đơn | Không tạo đơn thứ hai (một đơn/HS) |
-| 11 | Approve đơn | "Granted · Rank N"; stat Granted +1; subsidy áp vào charges của HS (view fees) |
-| 12 | Override thiếu justification / đúng rank đề xuất | Bị chặn đúng thông báo cũ |
+| 11 | Mở modal, đổi Rank trong select → Approve | "Granted · Rank N" đúng rank đã chọn; stat Granted +1; subsidy áp vào charges của HS (view fees) |
+| 12 | Reject | "Declined"; stat Declined +1 |
 | 13 | Modal non-SC | Alert đỏ "Singapore Citizens only… Reject" |
 | 14 | Tab Rules lần đầu | Bảng 3 version seed: 2025 Inactive · 2026 Active · 2027 Draft; nút Create rule |
 | 15 | View rule Active | Editor chỉ đọc — không Edit/Activate ở footer |
@@ -144,4 +150,4 @@ Chỉ đọc, không đổi cấu trúc. Đoạn mở đầu có 1 câu mới: �
 
 ---
 
-*Tài liệu mô tả hành vi tại bản deploy `index-DyaijKQ0.js` (2026-10-22). Mọi thay đổi UI SBFAS sau này cần cập nhật FS này.*
+*Tài liệu mô tả hành vi tại bản deploy `index-BnSIyAyy.js` (2026-10-22). Mọi thay đổi UI SBFAS sau này cần cập nhật FS này.*

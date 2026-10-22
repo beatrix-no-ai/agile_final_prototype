@@ -90,7 +90,7 @@ function SbfasReview() {
     decideApp(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     setOpenId(null);
     const a = apps.find((x) => x.id === id);
-    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
+    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", reject: "rejected" }[action]}.`);
   };
 
   // The rule of the school that owns the opened application — SBFAS packages are school-defined.

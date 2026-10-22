@@ -45,11 +45,12 @@ export const SBFAS_TIERS: SbfasTier[] = ["Tier 1", "Tier 2", "Tier 3", "Tier 4"]
 /** R4: subsidy rate per default tier. Real SBFAS is school-managed within 50–75%; Tier 1 is the strongest package. */
 export const SBFAS_TIER_RATES: Partial<Record<SbfasTier, number>> = { "Tier 1": 1, "Tier 2": 0.75, "Tier 3": 0.5, "Tier 4": 0.25 };
 
-export type Action = "approve" | "override" | "reject";
+export type Action = "approve" | "reject";
 export type Draft = { justification: string; tier: SbfasTier };
-const STATUS: Record<Action, SbfasStatus> = { approve: "Approved", override: "Overridden", reject: "Rejected" };
+const STATUS: Record<Action, SbfasStatus> = { approve: "Approved", reject: "Rejected" };
 
-/** Pure. Records an approve/override/reject on one application (validation happens in the review modal). */
+/** Pure. Records the reviewer's decision on one application — Approve grants at the rank the reviewer
+ * picked in the modal (there is no suggestion to follow); the justification is an optional note. */
 export function applyDecision(apps: SbfasApplication[], id: string, action: Action, draft: Draft): SbfasApplication[] {
   return apps.map((a) =>
     a.id !== id
@@ -57,7 +58,7 @@ export function applyDecision(apps: SbfasApplication[], id: string, action: Acti
       : {
           ...a,
           status: STATUS[action],
-          sbfasTier: action === "reject" ? undefined : action === "override" ? draft.tier : a.recommendedTier,
+          sbfasTier: action === "reject" ? undefined : draft.tier,
           justification: draft.justification.trim() || undefined,
         },
   );

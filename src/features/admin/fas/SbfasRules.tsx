@@ -19,26 +19,104 @@ import { formatDate } from "../../../lib/format";
 
 const TONE: Record<SbfasRuleStatus, BadgeTone> = { Active: "success", Draft: "warning", Inactive: "neutral" };
 
-const th = "whitespace-nowrap border-b border-line bg-surface-container-low px-3 py-2.5 text-left text-[13px] font-medium text-on-surface-variant";
+const th = "whitespace-nowrap border-b border-line bg-surface-container-low px-3 py-3 text-left text-[13px] font-medium text-on-surface-variant";
 const td = "border-b border-line px-3 py-2 align-top";
+const cell = "min-h-10 rounded-control border border-outline bg-surface-container-lowest px-2 text-sm disabled:opacity-70";
 
 type Notify = (m: string, bad?: boolean) => void;
 type FeeTypeLite = { id: string; name: string; components: { name: string }[] };
+/** One row of the subsidy matrix (step 3): a component of one of the school's fee types, with its own basis. */
+type MatrixRow = { ft: string; comp: string; basis: SubsidyBasis };
 
 function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: {
   initial: SbfasRule; isNew: boolean; readOnly: boolean; feeTypes: FeeTypeLite[];
   onBack: () => void; onSave: (r: SbfasRule, activate: boolean) => void; notify: Notify;
 }) {
   const [name, setName] = useState(initial.name);
-  const [d, setD] = useState<SbfasRuleDraft>(() => draftOfSbfasRule(initial));
+  const [d, setD] = useState<SbfasRuleDraft>(() => {
+    const draft = draftOfSbfasRule(initial);
+    // Drop overrides for components the school no longer has — they could never be picked in the matrix again.
+    const known = new Set(feeTypes.flatMap((f) => f.components.map((c) => c.name)));
+    return {
+      ...draft,
+      tiers: draft.tiers.map((t) => ({ ...t, components: Object.fromEntries(Object.entries(t.components ?? {}).filter(([n]) => known.has(n))) })),
+    };
+  });
   const [errors, setErrors] = useState<SbfasRuleErrors>({ rows: {} });
-  // Fee-component support rows: each picks a fee type + component; null = auto (first fee type, first component).
-  const [rows, setRows] = useState<Array<{ ft: string; comp: string } | null>>([null]);
+  const [picker, setPicker] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  // Matrix rows mirror HQ's subsidy table: one row per subsidised component, one column per rank.
+  const [rows, setRows] = useState<MatrixRow[]>(() =>
+    feeTypes.flatMap((ft) =>
+      ft.components
+        .filter((c) => initial.tiers.some((t) => t.components && c.name in t.components))
+        .map((c) => ({ ft: ft.id, comp: c.name, basis: initial.tiers.find((t) => t.components?.[c.name])?.components?.[c.name]?.basis ?? "percent" })),
+    ),
+  );
 
   const upd = (i: number, patch: Partial<SbfasRuleDraft["tiers"][number]>) =>
     setD((x) => ({ ...x, tiers: x.tiers.map((t, j) => (j === i ? { ...t, ...patch } : t)) }));
-  const addTier = () => setD((x) => ({ ...x, tiers: [...x.tiers, { basis: "percent", rate: "" }] }));
-  const rmTier = (i: number) => setD((x) => ({ ...x, tiers: x.tiers.filter((_, j) => j !== i) }));
+  const addRank = () => setD((x) => ({ ...x, tiers: [...x.tiers, { basis: "percent", rate: "" }] }));
+  const rmLastRank = () => {
+    if (d.tiers.length <= 1 || !window.confirm("Remove the last rank and its subsidy values?")) return;
+    setD((x) => ({ ...x, tiers: x.tiers.slice(0, -1) }));
+  };
+
+  const ftOf = (id: string) => feeTypes.find((x) => x.id === id);
+  const freeComp = (ftId: string) => ftOf(ftId)?.components.find((c) => !rows.some((r) => r.ft === ftId && r.comp === c.name))?.name;
+  const kinds = [...new Set(rows.map((r) => r.ft))];
+
+  const setCell = (ti: number, comp: string, basis: SubsidyBasis, val: string) =>
+    setD((x) => ({
+      ...x,
+      tiers: x.tiers.map((t, j) => {
+        if (j !== ti) return t;
+        const comps = { ...(t.components ?? {}) };
+        if (val === "") delete comps[comp]; // empty cell = follow the rank's flat rate
+        else comps[comp] = { basis, rate: val };
+        return { ...t, components: comps };
+      }),
+    }));
+  const setRowBasis = (ri: number, basis: SubsidyBasis) => {
+    const { comp } = rows[ri];
+    setRows(rows.map((x, k) => (k === ri ? { ...x, basis } : x)));
+    setD((x) => ({ ...x, tiers: x.tiers.map((t) => (t.components?.[comp] ? { ...t, components: { ...t.components, [comp]: { basis, rate: t.components[comp].rate } } } : t)) }));
+  };
+  const setRowComp = (ri: number, comp: string) => {
+    const { comp: old } = rows[ri];
+    setRows(rows.map((x, k) => (k === ri ? { ...x, comp } : x)));
+    setD((x) => ({ ...x, tiers: x.tiers.map((t) => {
+      const prev = t.components?.[old];
+      if (!prev) return t;
+      const comps = { ...t.components };
+      delete comps[old];
+      comps[comp] = prev;
+      return { ...t, components: comps };
+    }) }));
+  };
+  const rmRow = (ri: number) => {
+    const { comp } = rows[ri];
+    setRows(rows.filter((_, k) => k !== ri));
+    setD((x) => ({ ...x, tiers: x.tiers.map((t) => {
+      if (!(comp in (t.components ?? {}))) return t;
+      const comps = { ...t.components };
+      delete comps[comp];
+      return { ...t, components: comps };
+    }) }));
+  };
+  const addRowFor = (ftId: string) => {
+    const comp = freeComp(ftId);
+    if (comp === undefined) return;
+    setRows([...rows, { ft: ftId, comp, basis: "percent" }]);
+  };
+  const addPicked = () => {
+    const add = picked
+      .map((ftId) => ({ ft: ftId, comp: freeComp(ftId), basis: "percent" as SubsidyBasis }))
+      .filter((r): r is MatrixRow => r.comp !== undefined);
+    if (add.length) setRows([...rows, ...add]);
+    setPicked([]);
+    setPicker(false);
+  };
 
   const save = (activate: boolean) => {
     if (!name.trim()) return notify("Enter a rule name.", true);
@@ -56,25 +134,70 @@ function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: 
       <h2 className="text-2xl font-bold tracking-tight">{readOnly ? "View rule" : isNew ? "Create rule" : "Edit rule"}</h2>
       <Card title="SBFAS · School package" action={<Badge tone={TONE[initial.status]}>{initial.status === "Draft" && !readOnly ? "Editable draft" : initial.status}</Badge>}>
         <p className="text-sm text-on-surface-variant">
-          The school&apos;s own SBFAS package: the ranks it offers and each rank&apos;s subsidy — a percentage of the fee
-          or a fixed S$ amount. Income bands play no part; every application starts at the school&apos;s starting rank
-          and the school decides the rank case by case.
+          Select the school&apos;s fee types, set the ranks and their flat subsidies, then give individual components
+          their own rates.
         </p>
         <fieldset disabled={readOnly} className="mt-5 min-w-0 space-y-6 disabled:opacity-90">
           <section>
-            <h3 className="text-sm font-bold">1. Set the package ranks</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold">1. Select fee types</h3>
+                <p className="mt-1 text-[13px] text-on-surface-variant">Select the school&apos;s fee types. Choose their components in the subsidy table below.</p>
+              </div>
+              {feeTypes.length > 0 && (
+                <Button variant="secondary" icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={() => setPicker((o) => !o)}>Add fee types</Button>
+              )}
+            </div>
+            {feeTypes.length === 0 ? (
+              <p className="mt-4 text-[13px] text-on-surface-variant">No fee types set up for your school yet. Manage them under Fee structure, then come back to subsidise components.</p>
+            ) : (
+              <>
+                {picker && (
+                  <div className="mt-4 rounded-control bg-surface-container-low p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <b className="text-sm">Fee types</b>
+                      <Button size="sm" variant="secondary" onClick={() => setPicker(false)}>Close</Button>
+                    </div>
+                    <div className="mt-2">
+                      {feeTypes.map((k) => {
+                        const exists = rows.some((r) => r.ft === k.id);
+                        return (
+                          <label key={k.id} className="flex items-center gap-3 border-b border-line py-3 text-sm last:border-0">
+                            <input type="checkbox" className="size-4 accent-primary" checked={exists || picked.includes(k.id)} disabled={exists}
+                              onChange={(e) => setPicked(e.target.checked ? [...picked, k.id] : picked.filter((x) => x !== k.id))} />
+                            <span><b>{k.name}</b>{exists && <span className="block text-[13px] text-on-surface-variant">Already selected</span>}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <p className="text-[13px] text-on-surface-variant">Only fee types set up for your school appear here — manage them under Fee structure.</p>
+                      <Button size="sm" disabled={!picked.length} onClick={addPicked}>Add selected fee types</Button>
+                    </div>
+                  </div>
+                )}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {kinds.length ? kinds.map((id) => <span key={id} className="rounded-full bg-track px-3 py-1 text-xs font-semibold text-on-surface-variant">{ftOf(id)?.name ?? id}</span>)
+                    : <span className="text-[13px] text-on-surface-variant">No fee types selected. Choose one or more school fee types above.</span>}
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className="border-t border-line pt-6">
+            <h3 className="text-sm font-bold">2. Configure ranks</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Rule name" required>
                 <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
               </Field>
             </div>
+            <p className="mt-4 rounded-control bg-surface-container-low p-3 text-sm">Ranks are the school&apos;s own support levels — income bands play no part in SBFAS. The school sets each applicant&apos;s rank at review.</p>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[480px] border-collapse text-sm">
                 <thead>
                   <tr>
                     <th className={th}>Rank</th>
                     <th className={th}>Subsidy</th>
-                    <th className={th}><span className="sr-only">Remove</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -83,25 +206,22 @@ function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: 
                       <td className={`${td} py-3 font-semibold`}>Rank {i + 1}</td>
                       <td className={`${td} py-3`}>
                         <div className="flex items-center gap-2">
-                          <label className="shrink-0">
-                            <span className="sr-only">Rank {i + 1} subsidy basis</span>
-                            <select
-                              id={`tier-basis-${i}`}
-                              className={inputClass}
-                              value={t.basis}
-                              onChange={(e) => upd(i, { basis: e.target.value as SubsidyBasis })}
-                            >
-                              <option value="percent">% of fee</option>
-                              <option value="fixed">Fixed S$</option>
-                            </select>
-                          </label>
+                          <select
+                            className={`${cell} min-h-9`}
+                            aria-label={`Rank ${i + 1} subsidy basis`}
+                            value={t.basis}
+                            onChange={(e) => upd(i, { basis: e.target.value as SubsidyBasis })}
+                          >
+                            <option value="percent">% of fee</option>
+                            <option value="fixed">Fixed S$</option>
+                          </select>
                           <div className="w-28">
                             <input
                               type="number"
                               min={0}
                               max={t.basis === "fixed" ? undefined : 100}
                               step={0.5}
-                              className={`${inputClass} text-right`}
+                              className={`${cell} w-full text-right`}
                               aria-label={`Rank ${i + 1} subsidy ${t.basis === "fixed" ? "amount" : "rate"}`}
                               value={t.rate}
                               onChange={(e) => upd(i, { rate: e.target.value })}
@@ -110,111 +230,82 @@ function Editor({ initial, isNew, readOnly, feeTypes, onBack, onSave, notify }: 
                           </div>
                         </div>
                       </td>
-                      <td className={`${td} py-3`}>
-                        <Button variant="ghost" disabled={d.tiers.length <= 1} onClick={() => rmTier(i)}>
-                          Remove
-                        </Button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <p className="mt-2 text-[13px] text-on-surface-variant">A rank is one support level of the package. Its flat subsidy applies to every fee component; step 3 can give a single component its own rate for a rank.</p>
             <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
               <span className="mr-auto text-[13px] text-on-surface-variant">{d.tiers.length} {d.tiers.length === 1 ? "rank" : "ranks"}</span>
-              <Button size="sm" variant="secondary" onClick={() => addTier()}>Add rank</Button>
+              <Button size="sm" variant="secondary" icon={<Plus size={16} weight="bold" aria-hidden="true" />} onClick={addRank}>Add rank</Button>
+              <Button size="sm" variant="secondary" disabled={d.tiers.length <= 1} onClick={rmLastRank}>Remove last rank</Button>
             </div>
             {errors.tiers && <p role="alert" className="mt-2 text-[13px] font-medium text-alert">{errors.tiers}</p>}
           </section>
 
-          {feeTypes.length > 0 && (() => {
-            const resolve = (r: { ft: string; comp: string } | null) => {
-              const ft = feeTypes.find((x) => x.id === r?.ft) ?? feeTypes[0];
-              const comp = ft.components.some((c) => c.name === r?.comp) ? r!.comp : ft.components[0].name;
-              return { ft, comp };
-            };
-            const setOv = (ti: number, comp: string, basis: "percent" | "fixed" | "follow", cur?: { basis: "percent" | "fixed"; rate: string }) => {
-              const t = d.tiers[ti];
-              const rest = { ...(t.components ?? {}) };
-              if (basis === "follow") delete rest[comp];
-              else rest[comp] = { basis, rate: cur?.rate ?? t.rate };
-              upd(ti, { components: rest });
-            };
-            return (
-              <section className="border-t border-line pt-6">
-                <h3 className="text-sm font-bold">2. Fee component support</h3>
-                <p className="mt-1 text-[13px] text-on-surface-variant">Give a component its own rate, or let it follow its rank. Unset components follow the rank&apos;s flat rate.</p>
-                <div className="mt-3 space-y-3">
+          <section className="border-t border-line pt-6">
+            <h3 className="text-sm font-bold">3. Subsidy by rank and fee component</h3>
+            <p className="mt-1 text-[13px] text-on-surface-variant">Give a component its own subsidy for a rank. Leave a cell empty to follow that rank&apos;s flat rate.</p>
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr>
+                    <th className={th}>Fee type</th>
+                    <th className={th}>Fee component</th>
+                    <th className={th}>Basis</th>
+                    {d.tiers.map((_, i) => <th key={i} className={th}>Rank {i + 1}</th>)}
+                    <th className={th}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {rows.map((r, ri) => {
-                    const { ft, comp } = resolve(r);
-                    const usedElsewhere = rows.filter((_, k) => k !== ri).map((x) => resolve(x).comp);
-                    const setRow = (patch: Partial<{ ft: string; comp: string }>) =>
-                      setRows(rows.map((x, k) => { if (k !== ri) return x; const rx = resolve(x); return { ft: rx.ft.id, comp: rx.comp, ...patch }; }));
+                    const ft = ftOf(r.ft);
+                    if (!ft) return null;
                     return (
-                      <div key={ri} className="rounded-control border border-line bg-surface-container-lowest p-3 space-y-3">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                            Fee type
-                            <select className={`${inputClass} w-52`} value={ft.id} onChange={(e) => setRow({ ft: e.target.value, comp: "" })}>
-                              {feeTypes.map((x) => (
-                                <option key={x.id} value={x.id}>{x.name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="flex items-center gap-2 text-[13px] text-on-surface-variant">
-                            Fee component
-                            <select className={`${inputClass} w-52`} value={comp} onChange={(e) => setRow({ comp: e.target.value })}>
-                              {ft.components.filter((c) => c.name === comp || !usedElsewhere.includes(c.name)).map((c) => (
-                                <option key={c.name} value={c.name}>{c.name}</option>
-                              ))}
-                            </select>
-                          </label>
-                          {rows.length > 1 && (
-                            <Button variant="ghost" onClick={() => setRows(rows.filter((_, k) => k !== ri))}>Remove</Button>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-x-6 gap-y-2">
-                          {d.tiers.map((t, ti) => {
-                            const ov = t.components?.[comp];
-                            return (
-                              <div key={ti} className="flex items-center gap-2 text-sm text-on-surface">
-                                <span className="font-medium">Rank {ti + 1}</span>
-                                <select
-                                  className={inputClass}
-                                  aria-label={`Rank ${ti + 1} support basis for ${comp}`}
-                                  value={ov?.basis ?? "follow"}
-                                  onChange={(e) => setOv(ti, comp, e.target.value as "percent" | "fixed" | "follow", ov)}
-                                >
-                                  <option value="follow">Same as rank ({t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`})</option>
-                                  <option value="percent">% of component</option>
-                                  <option value="fixed">Fixed S$ amount</option>
-                                </select>
-                                {ov && (
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    max={ov.basis === "fixed" ? undefined : 100}
-                                    step={0.5}
-                                    className={`${inputClass} w-24 text-right`}
-                                    aria-label={`Rank ${ti + 1} support for ${comp}`}
-                                    value={ov.rate}
-                                    onChange={(e) => upd(ti, { components: { ...(t.components ?? {}), [comp]: { basis: ov.basis, rate: e.target.value } } })}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
+                      <tr key={`${r.ft}:${r.comp}`}>
+                        <td className={td}>
+                          <b>{ft.name}</b>
+                          <Button size="sm" variant="secondary" className="mt-2" disabled={freeComp(ft.id) === undefined} onClick={() => addRowFor(ft.id)}>+ Component</Button>
+                        </td>
+                        <td className={td}>
+                          <select required className={`${cell} min-w-40`} aria-label={`${ft.name} component`} value={r.comp} onChange={(e) => setRowComp(ri, e.target.value)}>
+                            {ft.components.map((c) => (
+                              <option key={c.name} value={c.name} disabled={rows.some((z, k) => k !== ri && z.ft === r.ft && z.comp === c.name)}>{c.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className={td}>
+                          <select className={cell} aria-label={`${r.comp} subsidy basis`} value={r.basis} onChange={(e) => setRowBasis(ri, e.target.value as SubsidyBasis)}>
+                            <option value="percent">Percentage (%)</option>
+                            <option value="fixed">Fixed amount (SGD)</option>
+                          </select>
+                        </td>
+                        {d.tiers.map((t, ti) => (
+                          <td key={ti} className={td}>
+                            <input
+                              type="number"
+                              min={0}
+                              max={r.basis === "fixed" ? undefined : 100}
+                              step={0.5}
+                              className={`${cell} w-24 text-right`}
+                              aria-label={`${r.comp} Rank ${ti + 1} subsidy`}
+                              placeholder={t.basis === "fixed" ? `S$${t.rate}` : `${t.rate}%`}
+                              value={t.components?.[r.comp]?.rate ?? ""}
+                              onChange={(e) => setCell(ti, r.comp, r.basis, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                        <td className={td}><Button size="sm" variant="ghost" onClick={() => rmRow(ri)}>Remove</Button></td>
+                      </tr>
                     );
                   })}
-                  <div className="flex justify-start">
-                    <Button variant="secondary" onClick={() => setRows([...rows, null])}>+ Fee type</Button>
-                  </div>
-                </div>
-              </section>
-            );
-          })()}
+                  {!rows.length && <tr><td colSpan={d.tiers.length + 4} className="px-3 py-8 text-center text-on-surface-variant">No components selected. Add school fee types above to give components their own rates.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[13px] text-on-surface-variant">Only the components added here get their own rates. Every other component — and any empty cell — follows its rank&apos;s flat rate from step 2.</p>
+          </section>
         </fieldset>
         {!readOnly && (
           <div className="mt-6 flex justify-end gap-3">
@@ -252,7 +343,9 @@ export default function SbfasRules() {
   const school = role === "school" ? staff?.schoolCode ?? null : null;
   const { state, dispatch } = useSbfas();
   const { state: feeState } = useFees();
-  const feeTypes = school ? feeState.types.filter((ft) => ft.school === school) : [];
+  const feeTypes = school
+    ? feeState.types.filter((ft) => ft.school === school).map((ft) => ({ id: ft.id, name: ft.name, components: ft.components.map((c) => ({ name: c.name })) }))
+    : [];
   const [editing, setEditing] = useState<{ rule: SbfasRule; isNew: boolean; readOnly: boolean } | null>(null);
   const [activating, setActivating] = useState<SbfasRule | null>(null);
   const [msg, setMsg] = useState({ text: "", bad: false });
