@@ -74,6 +74,8 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
         <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
+        <Dt label="Application source">{app.source === "Hardcopy" ? "Hardcopy — paper form entered by the school" : "MOE referral — fell out of the MOE assessment"}</Dt>
+        <Dt label="Income sync">{app.incomeSyncedOn ? `MyInfo · ${app.incomeSyncedOn}` : "Not synced — paper form"}</Dt>
       </dl>
 
       {!isSbfasEligible(app.nationality) && (

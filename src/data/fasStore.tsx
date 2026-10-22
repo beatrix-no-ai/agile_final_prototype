@@ -13,15 +13,18 @@ export type BudgetChange = { id: string; scope: BudgetScope; target: string; fro
 /** MOEFAS is granted automatically by criteria; one grant per student, by student id. */
 export type MoefasGrant = { tier: SbfasTier; at: string };
 export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant> };
+/** What the school's grouping suggests for one student, computed at arrival and stored static thereafter. */
+export type SbfasSuggestion = { level: RiskLevel | null; tier: SbfasTier | null; fallback?: SbfasTier; subsidy?: string };
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
-  | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, { level: RiskLevel | null; tier: SbfasTier | null; fallback?: SbfasTier; subsidy?: string }> }
+  | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
+  | { type: "addHardcopy"; studentId: string; incomeBand: string; householdBand: string; note: string; at: string; by: string; suggest?: SbfasSuggestion }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {} });
 
 // ASSUMPTION: no model scores a family-submitted application yet, so it gets a neutral mock score and tier for the school to review.
-const FAMILY_EXPLANATION = "Submitted by the family through the FAS form. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
+const FAMILY_EXPLANATION = "Submitted by the family through the FAS form and referred by MOE after it fell outside the MOEFAS income bands. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
 
 /** Pure. A decision is always recorded, even when the budget is already used up (overspend only warns). */
 export function fasReducer(state: FasState, a: FasAction): FasState {
@@ -41,16 +44,33 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
         const rec = a.recommend?.[id];
         apps = [...apps, {
           id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
-          incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), riskScore: 50,
+          incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), source: "MOE referral", riskScore: 50,
           recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
           explanation: rec?.level
-            ? `Submitted by the family through the FAS form. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}${rec.subsidy ?? ""}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
+            ? `Submitted by the family through the FAS form and referred by MOE after it fell outside the MOEFAS income bands. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}${rec.subsidy ?? ""}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
             : FAMILY_EXPLANATION,
           status: "Pending",
         }];
       }
     }
     return { ...state, apps, moefas };
+  }
+  if (a.type === "addHardcopy") {
+    // A paper form the school enters by hand — the same one-application-per-student rule applies.
+    const student = STUDENTS.find((s) => s.id === a.studentId);
+    if (!student || state.moefas[a.studentId] || state.apps.some((x) => x.studentId === a.studentId)) return state;
+    // ASSUMPTION: the school has 10 working days to decide a new application, referred or on paper.
+    return {
+      ...state,
+      apps: [...state.apps, {
+        id: nextSbfasId(state.apps), student: student.name, studentId: student.id, level: student.level,
+        incomeBand: a.incomeBand, householdBand: a.householdBand, source: "Hardcopy",
+        riskScore: 50,
+        recommendedTier: a.suggest?.tier ?? a.suggest?.fallback ?? "Tier 3", slaDays: 10,
+        explanation: `Paper form entered at the school by ${a.by}${a.note.trim() ? ` — note on the form: ${a.note.trim()}` : ""}. Income bands are read from the paper form (no MyInfo sync), so the model gives a neutral score; review the household and the student's fees before deciding.`,
+        status: "Pending",
+      }],
+    };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
   const entry: BudgetChange = { id: `BC-${state.history.length + 1}`, scope: a.scope, target: a.target, from, to: a.amount, by: a.by, at: a.at };

@@ -5,7 +5,7 @@ import { withBalance, withFas } from "./studentFas";
 
 const stu = STUDENTS.find((s) => s.sbfas === "Not applied" && s.moefas === "Not applied")!;
 const app = (status: SbfasApplication["status"], sbfasTier?: SbfasApplication["sbfasTier"]): SbfasApplication =>
-  ({ id: "SBFAS-1", student: stu.name, studentId: stu.id, level: stu.level, incomeBand: "b", riskScore: 50, recommendedTier: "Tier 3", explanation: "x", slaDays: 3, status, sbfasTier });
+  ({ id: "SBFAS-1", student: stu.name, studentId: stu.id, level: stu.level, incomeBand: "b", riskScore: 50, recommendedTier: "Tier 3", explanation: "x", slaDays: 3, status, sbfasTier, source: "MOE referral" });
 
 test("an approved application shows on the student record with its tier", () => {
   expect(withFas(stu, { apps: [app("Approved", "Tier 2")], moefas: {} })).toMatchObject({ sbfas: "Approved", sbfasTier: "Tier 2" });

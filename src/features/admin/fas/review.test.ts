@@ -4,7 +4,7 @@ import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../..
 import { STUDENTS } from "../../../data/students";
 
 const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
-  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status,
+  id, student: id, studentId: "S1", level: "P5", incomeBand: "b", riskScore, recommendedTier: "Tier 2", slaDays: 3, explanation: "x", status, source: "MOE referral",
 });
 
 test("sortQueue: pending first, then risk score desc", () => {
@@ -54,6 +54,18 @@ test("every seeded application links to a real student record (name, id and leve
     expect(s, a.id).toBeDefined();
     expect(s!.name).toBe(a.student);
     expect(s!.level).toBe(a.level);
+  }
+});
+
+test("every seed carries a source and both arrival channels are represented (MOE referral + Hardcopy)", () => {
+  for (const a of SBFAS_APPLICATIONS) {
+    expect(["MOE referral", "Hardcopy"], a.id).toContain(a.source);
+  }
+  expect(SBFAS_APPLICATIONS.some((a) => a.source === "MOE referral")).toBe(true);
+  expect(SBFAS_APPLICATIONS.some((a) => a.source === "Hardcopy")).toBe(true);
+  // Only referred applications carry a MyInfo sync date — a paper form carries its own bands.
+  for (const a of SBFAS_APPLICATIONS) {
+    expect(a.incomeSyncedOn, a.id).toBe(a.source === "MOE referral" ? a.incomeSyncedOn : undefined);
   }
 });
 

@@ -3,6 +3,12 @@ import { STUDENTS } from "./students";
 /** Tier names are positional: the school decides HOW MANY tiers it offers, so any "Tier N" is valid. */
 export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
+/**
+ * Where the application came from: "MOE referral" = the family applied centrally and MOE referred the case
+ * down after it fell outside the MOEFAS income bands; "Hardcopy" = a paper form handed straight to the
+ * school, which staff entered into the same queue. Both follow the same review rules.
+ */
+export type SbfasSource = "MOE referral" | "Hardcopy";
 
 export type SbfasApplication = {
   id: string;
@@ -14,8 +20,9 @@ export type SbfasApplication = {
   incomeBand: string;
   /** Gross household income band; a big household can sit in a higher band than its per-capita band. Absent on family-submitted applications. */
   householdBand?: string;
-  /** ISO date the third-party income API last synced this application's bands. */
+  /** ISO date the third-party income API last synced this application's bands. Absent on paper (hardcopy) applications. */
   incomeSyncedOn?: string;
+  source: SbfasSource;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
   riskScore: number;
   recommendedTier: SbfasTier;
@@ -78,16 +85,30 @@ const H2 = "S$1,501 - S$2,500";
 const H3 = "S$2,501 - S$4,000";
 const H4 = "Above S$4,000";
 
+/** The bands printed on the paper application form, offered when a school enters a hardcopy application. */
+export const PAPER_INCOME_BANDS = { perCapita: [B1, B2, B3, B4], household: [H1, H2, H3, H4] };
+/** Each paper per-capita band's slot in HQ's default per-capita tiers (0-based) — the same slots the online
+ * form's bands map to — so the school's grouping can suggest a rank for a paper form too. */
+export const PAPER_PCI_INDEX = [1, 2, 4, 5];
+
 // Applications are seeded against real student records so the queue can show each family's fee payable.
 const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
 
 // ASSUMPTION: risk scores, recommended tiers and explanations are mock AI output.
+// The two arrival channels are both seeded: the low per-capita / high-household cases came as MOE referrals
+// (they fell out of the MOE assessment); higher-band families applied on paper and the school entered them.
 const p = (
   id: string, student: string, incomeBand: string, householdBand: string, incomeSyncedOn: string,
   riskScore: number, recommendedTier: SbfasTier, slaDays: number, explanation: string,
 ): SbfasApplication => {
   const s = of(student);
-  return { id, student, studentId: s.id, level: s.level, incomeBand, householdBand, incomeSyncedOn, riskScore, recommendedTier, slaDays, explanation, status: "Pending" };
+  const source: SbfasSource = incomeBand === B1 || incomeBand === B2 ? "MOE referral" : "Hardcopy";
+  return {
+    id, student, studentId: s.id, level: s.level, incomeBand, householdBand, source,
+    // Only referred applications are synced by the income API — a paper form carries its own bands.
+    incomeSyncedOn: source === "MOE referral" ? incomeSyncedOn : undefined,
+    riskScore, recommendedTier, slaDays, explanation, status: "Pending",
+  };
 };
 
 // Foreign nationals cannot apply for either scheme, so none is seeded. Daniel Koh is the dual-citizen (Singapore + British) case.

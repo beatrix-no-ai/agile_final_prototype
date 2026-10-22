@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
+import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
 import { ruleForSchool, rankOf } from "../../../data/sbfasRule";
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
@@ -25,6 +25,8 @@ import { ReviewModal, RiskBadge } from "./ReviewModal";
 import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
+/** Where an application came from (Req 4): MOE referral (fell out of the MOE assessment) or Hardcopy (paper form the school entered). */
+type SourceFilter = "all" | SbfasSource;
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
 
@@ -56,6 +58,9 @@ function SbfasReview() {
   );
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  // Where the application came from (Req 4): MOE referral (fell out of the MOE assessment) or Hardcopy
+  // (paper form the school entered). Both run through the same rules — the filter only narrows the view.
+  const [sourceF, setSourceF] = useState<SourceFilter>("all");
   // No visible banner (the row just moves tab), but the decision is still announced.
   const [announce, setAnnounce] = useState("");
 
@@ -70,11 +75,12 @@ function SbfasReview() {
     [apps, fees.state.charges, movements, reg.students],
   );
   const rows: Row[] = useMemo(
-    () => enriched.filter((a) => filter === "all"
-      || (filter === "pending" && a.status === "Pending")
-      || (filter === "granted" && isGranted(a))
-      || (filter === "declined" && isDeclined(a))),
-    [enriched, filter],
+    () => enriched.filter((a) => (sourceF === "all" || a.source === sourceF)
+      && (filter === "all"
+        || (filter === "pending" && a.status === "Pending")
+        || (filter === "granted" && isGranted(a))
+        || (filter === "declined" && isDeclined(a)))),
+    [enriched, filter, sourceF],
   );
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
@@ -106,6 +112,9 @@ function SbfasReview() {
       </>
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
+    { key: "source", header: "Source", render: (a) => (
+      <Badge tone={a.source === "MOE referral" ? "primary" : "neutral"}>{a.source}</Badge>
+    ) },
     { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
       <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         {a.payable ? <span className="font-semibold">{formatSGD(a.payable)}</span> : <span className="text-on-surface-variant">—</span>}
@@ -120,6 +129,11 @@ function SbfasReview() {
     ["granted", `Granted (${grantedCount})`],
     ["declined", `Rejected (${declinedCount})`],
   ];
+  const sourceTabs: [SourceFilter, string][] = [
+    ["all", `All sources (${apps.length})`],
+    ["MOE referral", `MOE referral (${apps.filter((a) => a.source === "MOE referral").length})`],
+    ["Hardcopy", `Hardcopy (${apps.filter((a) => a.source === "Hardcopy").length})`],
+  ];
 
   return (
     <div className="space-y-4">
@@ -132,10 +146,17 @@ function SbfasReview() {
       <Card
         title="SBFAS review queue"
         action={
-          <div className="flex flex-wrap items-center gap-4">
-            <div role="group" aria-label="Filter applications" className="flex gap-2">
+          <div className="flex flex-col items-end gap-2">
+            <div role="group" aria-label="Filter applications" className="flex flex-wrap gap-2">
               {tabs.map(([k, label]) => (
                 <Button key={k} size="sm" variant={filter === k ? "primary" : "secondary"} aria-pressed={filter === k} onClick={() => setFilter(k)}>
+                  {label}
+                </Button>
+              ))}
+            </div>
+            <div role="group" aria-label="Filter by source" className="flex flex-wrap gap-2">
+              {sourceTabs.map(([k, label]) => (
+                <Button key={k} size="sm" variant={sourceF === k ? "primary" : "secondary"} aria-pressed={sourceF === k} onClick={() => setSourceF(k)}>
                   {label}
                 </Button>
               ))}
@@ -143,7 +164,10 @@ function SbfasReview() {
           </div>
         }
       >
-        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
+        <p className="mb-4 text-sm text-on-surface-variant">
+          Highest risk first, pending before decided. Income is shown as a band only. Applications arrive from MOE
+          referrals (families outside the MOEFAS bands) or paper forms entered at the school.
+        </p>
         <p role="status" className="sr-only">{announce}</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}

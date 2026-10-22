@@ -3,16 +3,18 @@ import { useSession } from "../../../session";
 import { SbfasReview } from "./FasApplications";
 import SbfasRules from "./SbfasRules";
 import { MoefasHandbook } from "./MoefasHandbook";
+import HardcopyEntry from "./HardcopyEntry";
 
 const SCHOOL_TABS = [
   { id: "sbfas", label: "SBFAS review" },
   { id: "sbfasRules", label: "SBFAS rules" },
   { id: "handbook", label: "MOEFAS Handbook" },
+  { id: "hardcopy", label: "Hardcopy applications" },
 ] as const;
 
 type TabId = (typeof SCHOOL_TABS)[number]["id"];
 
-/** SBFAS workspace (Req 4): schools review their queue and set their own rules. MOEFAS lives in /admin/moefas (HQ only), so HQ sees the queue read-only. */
+/** SBFAS workspace (Req 4): schools review their queue, set their own rules, enter paper applications and read the national handbook. MOEFAS lives in /admin/moefas (HQ only), so HQ sees the queue read-only. */
 export default function FasSection() {
   const { role } = useSession();
   const [tab, setTab] = useState<TabId>("sbfas");
@@ -20,7 +22,7 @@ export default function FasSection() {
 
   return (
     <div className="space-y-4">
-      <div role="tablist" aria-label="FAS workspace" className="grid gap-2 sm:grid-cols-3">
+      <div role="tablist" aria-label="FAS workspace" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         {SCHOOL_TABS.map((t, i) => {
           const on = tab === t.id;
           return (
@@ -40,7 +42,7 @@ export default function FasSection() {
           );
         })}
       </div>
-      {tab === "sbfas" ? <SbfasReview /> : tab === "sbfasRules" ? <SbfasRules /> : <MoefasHandbook />}
+      {tab === "sbfas" ? <SbfasReview /> : tab === "sbfasRules" ? <SbfasRules /> : tab === "handbook" ? <MoefasHandbook /> : <HardcopyEntry />}
     </div>
   );
 }

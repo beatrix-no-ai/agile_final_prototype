@@ -139,6 +139,13 @@ describe("a family application from the parent portal", () => {
     expect(Object.keys(s.moefas)).toHaveLength(0);
   });
 
+  it("an SBFAS band arrives as a MOE referral with the MyInfo sync date", () => {
+    const s = submit("SBFAS");
+    const added = s.apps.find((a) => a.studentId === ethan.id)!;
+    expect(added.source).toBe("MOE referral");
+    expect(added.incomeSyncedOn).toBe(at.slice(0, 10));
+  });
+
   it("a band above both schemes changes nothing", () => {
     expect(submit(null)).toEqual(initialFasState());
   });
@@ -158,5 +165,44 @@ describe("a family application from the parent portal", () => {
     expect(selectChildFas(ok, ethan.id)).toEqual({ scheme: "SBFAS", status: "Granted", tier: "Tier 3" });
     const no = fasReducer(s, { type: "decide", id: appId, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
     expect(selectChildFas(no, ethan.id)).toEqual({ scheme: "SBFAS", status: "Not granted", reason: "Income above range" });
+  });
+});
+
+describe("a paper (hardcopy) application entered at the school", () => {
+  const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
+  const at = "2026-10-20T14:00:00.000Z";
+  const enter = (studentId: string, s = initialFasState(), suggest?: { level: "MED"; tier: "Tier 2"; fallback: "Tier 3" }) =>
+    fasReducer(s, {
+      type: "addHardcopy", studentId, incomeBand: "S$701 - S$1,000", householdBand: "S$2,501 - S$4,000",
+      note: " handed in at the office ", by: "Alicia Tan", at, suggest,
+    });
+
+  it("creates one pending Hardcopy application with the entered bands and no MyInfo sync", () => {
+    const s = enter(ethan.id, initialFasState(), { level: "MED", tier: "Tier 2", fallback: "Tier 3" });
+    const added = s.apps[s.apps.length - 1];
+    expect(added).toMatchObject({
+      studentId: ethan.id, level: ethan.level, source: "Hardcopy", status: "Pending",
+      incomeBand: "S$701 - S$1,000", householdBand: "S$2,501 - S$4,000",
+      riskScore: 50, recommendedTier: "Tier 2", slaDays: 10,
+    });
+    expect(added.id).toBe("SBFAS0019"); // continues from the highest seed (SBFAS0018)
+    expect(added.incomeSyncedOn).toBeUndefined();
+    expect(added.explanation).toContain("Alicia Tan");
+    expect(added.explanation).toContain("handed in at the office"); // the form note is trimmed into the text
+    expect(Object.keys(s.moefas)).toHaveLength(0); // paper never grants MOEFAS
+  });
+
+  it("falls back to Tier 3 when the school's grouping suggests nothing", () => {
+    const s = enter(ethan.id, initialFasState(), undefined);
+    expect(s.apps[s.apps.length - 1].recommendedTier).toBe("Tier 3");
+  });
+
+  it("never duplicates: a student in the queue, or granted MOEFAS, cannot be entered again", () => {
+    const once = enter(ethan.id);
+    expect(enter(ethan.id, once)).toEqual(once);
+    const seeded = initialFasState().apps[0].studentId;
+    expect(enter(seeded)).toEqual(initialFasState());
+    const granted = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band: { id: "b1", label: "x", tier: "MOEFAS Tier 1" }, at });
+    expect(enter(ethan.id, granted)).toEqual(granted);
   });
 });
