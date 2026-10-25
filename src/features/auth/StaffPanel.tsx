@@ -52,7 +52,7 @@ export default function StaffPanel() {
       <div className="mt-8 border-t border-line pt-5">
         <p className="text-[13px] font-semibold text-on-surface">Demo accounts <span className="font-normal text-on-surface-variant">(click to fill)</span></p>
         <div className="mt-2 grid gap-2">
-          {STAFF.map((s) => (
+          {STAFF.filter((s) => s.active).map((s) => (
             <button
               key={s.email}
               type="button"
