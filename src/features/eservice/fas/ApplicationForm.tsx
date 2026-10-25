@@ -1,17 +1,25 @@
-﻿import { PaperPlaneTilt } from "@phosphor-icons/react";
-import { useRef, useState, type FormEvent } from "react";
+﻿import { ChatCircleDots, PaperPlaneTilt, Sparkle } from "@phosphor-icons/react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Field, inputClass } from "../../../components/ui/Field";
+import { useAssistant, type Marks } from "../assistant/AssistantProvider";
 import { validateForm, type FormValues } from "./logic";
 import { TODAY } from "./shared";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
-type Props ={ values: FormValues; onChange: (v: FormValues) => void; applicant: string; onSubmit: () => void };
+type Props = { values: FormValues; onChange: (v: FormValues) => void; applicant: string; onSubmit: () => void; marks?: Marks; onEdit?: (k: keyof FormValues) => void };
+
+const AiTag = () => (
+  <span className="inline-flex items-center gap-1 rounded-full bg-primary-fixed px-2 py-0.5 text-xs font-semibold text-primary">
+    <Sparkle size={12} weight="fill" aria-hidden="true" />AI-filled, please check
+  </span>
+);
 
 /** The family application: extra income and residents (for GHI and PCI), contact details, an optional note, the declaration and consent. The household and income band come from HOMES in the section above. */
-export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props) {
+export function ApplicationForm({ values, onChange, applicant, onSubmit, marks, onEdit }: Props) {
+  const { ask } = useAssistant();
   const [tried, setTried] = useState(false);
   const [consent, setConsent] = useState(false);
   const [docs, setDocs] = useState<File[]>([]); // ponytail: held in the form only, not sent anywhere (no backend)
@@ -19,7 +27,14 @@ export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props
 
   // After the first submit attempt, errors re-evaluate live.
   const errors = tried ? validateForm(values, consent) : {};
-  const set = (k: keyof FormValues) => (e: { target: { value: string } }) => onChange({ ...values, [k]: e.target.value });
+  const set = (k: keyof FormValues) => (e: { target: { value: string } }) => {
+    onEdit?.(k); // the parent has taken over this field, so the AI mark goes
+    onChange({ ...values, [k]: e.target.value });
+  };
+  // Fields the assistant filled get a tag; fields it could not fill are highlighted (AC-058-03).
+  const hint = (k: keyof FormValues, base?: string): ReactNode =>
+    marks?.[k] === "ai" ? <>{base} <AiTag /></> : marks?.[k] === "missing" ? <>{base} <strong className="text-warning">The assistant did not have this. Please fill it in.</strong></> : base;
+  const cls = (k: keyof FormValues) => `${inputClass}${marks?.[k] === "missing" ? " border-warning! bg-warning-container!" : ""}`;
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -31,22 +46,25 @@ export function ApplicationForm({ values, onChange, applicant, onSubmit }: Props
 
   return (
     <Card title="Your FAS application">
-      <p className="text-sm text-on-surface-variant">One application covers the whole family. Tell us about your household, check your contact details, then submit.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-xl text-sm text-on-surface-variant">One application covers the whole family. Tell us about your household, check your contact details, then submit.</p>
+        <Button size="sm" variant="secondary" onClick={() => ask("Help me fill the FAS form")} icon={<ChatCircleDots size={16} weight="bold" aria-hidden="true" />}>Help me fill this in</Button>
+      </div>
       <form ref={formRef} noValidate onSubmit={submit} className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field required label="Extra monthly money (S$)" error={errors.extraIncome} hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none.">
-            <input name="extraIncome" inputMode="decimal" className={inputClass} value={values.extraIncome} onChange={set("extraIncome")} />
+          <Field required label="Extra monthly money (S$)" error={errors.extraIncome} hint={hint("extraIncome", "Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none.")}>
+            <input name="extraIncome" inputMode="decimal" className={cls("extraIncome")} value={values.extraIncome} onChange={set("extraIncome")} />
           </Field>
-          <Field required label="People currently living in your home" error={errors.residents} hint="Everyone who lives with you now, including you.">
-            <input name="residents" type="number" min={1} max={20} step={1} inputMode="numeric" className={inputClass} value={values.residents} onChange={set("residents")} />
+          <Field required label="People currently living in your home" error={errors.residents} hint={hint("residents", "Everyone who lives with you now, including you.")}>
+            <input name="residents" type="number" min={1} max={20} step={1} inputMode="numeric" className={cls("residents")} value={values.residents} onChange={set("residents")} />
           </Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field required label="Contact number" error={errors.contact} hint="Singapore number, e.g. +65 9123 4567">
-            <input name="contact" type="tel" autoComplete="tel" className={inputClass} value={values.contact} onChange={set("contact")} />
+          <Field required label="Contact number" error={errors.contact} hint={hint("contact", "Singapore number, e.g. +65 9123 4567")}>
+            <input name="contact" type="tel" autoComplete="tel" className={cls("contact")} value={values.contact} onChange={set("contact")} />
           </Field>
-          <Field required label="Mailing address" error={errors.mailingAddress}>
-            <input name="mailingAddress" autoComplete="street-address" className={inputClass} value={values.mailingAddress} onChange={set("mailingAddress")} />
+          <Field required label="Mailing address" error={errors.mailingAddress} hint={hint("mailingAddress")}>
+            <input name="mailingAddress" autoComplete="street-address" className={cls("mailingAddress")} value={values.mailingAddress} onChange={set("mailingAddress")} />
           </Field>
         </div>
         <Field label="Anything else the bursar should know? (optional)">

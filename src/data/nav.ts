@@ -1,5 +1,5 @@
 import {
-  Bank, Buildings, ChalkboardTeacher, Coins, CreditCard, Gear,
+  Bank, Buildings, Eye, ChalkboardTeacher, Coins, CreditCard, Gear,
   GraduationCap, HandHeart, House, Receipt, Tag, UserGear, type Icon,
 } from "@phosphor-icons/react";
 import type { Role } from "../session";
@@ -21,6 +21,7 @@ const HQ: NavItem[] = [
   { to: "/admin/fee-types", label: "Fee", desc: "Fee rates against the national ceilings.", icon: Tag },
   { to: "/admin/moefas", label: "FAS", desc: "MOEFAS applications and assessment rules.", icon: HandHeart },
   { to: "/admin/budgets", label: "Budget", desc: "MOEFAS budget and statistics.", icon: Coins },
+  { to: "/admin/schools", label: "User simulation", desc: "See the system as a School user or Parent.", icon: Eye },
 ];
 
 // School users: the FAS screens are a module the Principal assigns (see SCHOOL_MODULES below).
@@ -56,6 +57,7 @@ export function navGroupsFor(role: Role, access?: Access): NavGroup[] {
     return [
       { group: "School Management", items: pick(HQ, ["/admin/school-maintenance", "/admin/users", "/admin/classes", "/admin/students"]) },
       { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types", "/admin/moefas", "/admin/budgets"]) },
+      { group: "Support", items: pick(HQ, ["/admin/schools"]) },
     ];
   }
   const extra = SCHOOL_MODULES.filter((i) => (i.module ? access?.can(i.module) : access?.canManageUsers)).map(({ module: _m, manage: _g, ...item }) => item);

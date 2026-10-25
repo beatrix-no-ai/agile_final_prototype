@@ -7,6 +7,8 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { guardRedirect } from "../../features/admin/simulation/logic";
 import SimulationBanner from "../../features/admin/simulation/SimulationBanner";
+import { Assistant } from "../../features/eservice/assistant/AssistantPanel";
+import { AssistantProvider } from "../../features/eservice/assistant/AssistantProvider";
 
 const SUBTITLE: Record<Role, string> = {
   hq: "MOE HQ - Education Account & FAS",
@@ -59,6 +61,7 @@ export default function AppShell() {
 
   // icebearhoho header layout: no top bar — the page header (title, actions, bell, avatar) heads the content column.
   return (
+    <AssistantProvider>
     <div className="flex min-h-screen">
       <a
         href="#main"
@@ -88,6 +91,8 @@ export default function AppShell() {
           )}
         </main>
       </div>
+      {role === "parent" && !simulating && <Assistant />}
     </div>
+    </AssistantProvider>
   );
 }

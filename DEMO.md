@@ -15,3 +15,11 @@ The mock data is already in `src/data/` (40 students, schools, fees, FAS applica
 Sec 4 accounts show **Not active** with a Closed date (16th birthday). All other levels show **Active** with Closed "—". Date of birth and Opened are derived mock values.
 
 Suggested flow: HQ login > Students > open Tan Wei Jie (card) > Top up > switch to Parent portal > Overview > pay an outstanding fee.
+
+## AI assistant (Req 8, extra)
+
+Parent portal > button "Ask MOE Assistant" (bottom right). Mock only: canned answers, nothing leaves the browser.
+
+- Try: "How do I pay a fee?" (one follow-up, then steps), "Check my child's balance" (redirects, never shows figures), "Am I eligible for FAS?" (declined), "Talk to a person".
+- FAS auto-fill: "Apply for FAS" > pick people at home > "Skip for now" shows a blank, highlighted field > "Fill the form". The assistant never submits or ticks the consent box.
+- Outage demo: open any parent page with `&ai=down` in the URL.

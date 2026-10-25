@@ -25,6 +25,7 @@ describe("parseSimulating", () => {
   it("accepts a valid value and drops junk", () => {
     expect(parseSimulating(sim)).toEqual(sim);
     expect(parseSimulating({ as: "parent", sessionId: "s", extra: 1 })).toEqual({ as: "parent", sessionId: "s" });
+    expect(parseSimulating({ ...sim, staffEmail: "a@b.c" })).toEqual({ ...sim, staffEmail: "a@b.c" });
     for (const bad of [null, "x", {}, { as: "hq", sessionId: "s" }, { as: "school", sessionId: "" }, { as: "school" }])
       expect(parseSimulating(bad)).toBeNull();
   });

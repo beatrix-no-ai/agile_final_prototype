@@ -4,17 +4,18 @@ import { useNavigate } from "react-router";
 import { AssumptionTag } from "../../../components/ui/AssumptionTag";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { PARENT } from "../../../data/users";
 import { useSession } from "../../../session";
 
 export const READ_ONLY_HINT = "Read-only in simulation: this action is disabled and nothing is saved.";
 
 /** Persistent strip shown while an HQ user simulates a School or Parent. Renders nothing otherwise. */
 export default function SimulationBanner() {
-  const { simulating, stopSimulation } = useSession();
+  const { simulating, stopSimulation, staff } = useSession();
   const navigate = useNavigate();
   if (!simulating) return null;
 
-  const who = simulating.as === "school" ? `School user${simulating.schoolName ? ` - ${simulating.schoolName}` : ""}` : "Parent";
+  const who = simulating.as === "school" ? `${staff?.name ?? "School user"} (${staff?.title ?? "School user"})${simulating.schoolName ? ` - ${simulating.schoolName}` : ""}` : `${PARENT.name} (Parent)`;
   const exit = () => {
     // Commit the role change first, so the route guard has already sent the HQ user to /admin; only then
     // navigate. Batched, the guard's redirect to /admin won this race and the user lost the Schools page.
