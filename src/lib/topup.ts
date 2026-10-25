@@ -38,6 +38,10 @@ export const levelOfClass = (cls: string) => LEVELS.find((l) => cls === l || cls
 /** Does one recipient condition match this account? Range ends are inclusive. */
 export const matchesCondition = (c: Condition, a: Account) => (c.type === "range" ? a.age >= c.min && a.age <= c.max : c.type === "age" ? a.age === c.age : levelOfClass(a.class) === c.level);
 
+/** Amount a rule with per-condition amounts gives this account: the highest amount among the conditions it matches; else `fallback`. */
+export const ruleAmountFor = (rule: Pick<FundRule, "conditions" | "amounts">, a: Account, fallback: number) =>
+  rule.amounts ? Math.max(0, ...rule.conditions.map((c, i) => (matchesCondition(c, a) ? rule.amounts![i] : 0))) : fallback;
+
 export type RuleCriteria = Pick<FundRule, "conditions" | "minBalance" | "maxBalance" | "schooling" | "schools">;
 
 /** Active accounts matching ANY condition (age range / specific age / level) and balance in [min, max), schooling status, school (empty = all). */

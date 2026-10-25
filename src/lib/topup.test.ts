@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { parseAmount } from "./amount";
-import { conditionText, eligibleAccounts, eligibleForRule, matchesCondition, nextRuleId, retryableAccounts, targetLabel, totalFunds, transactionCode, type TopUpRule } from "./topup";
+import { conditionText, eligibleAccounts, eligibleForRule, matchesCondition, nextRuleId, retryableAccounts, ruleAmountFor, targetLabel, totalFunds, transactionCode, type TopUpRule } from "./topup";
 import { initialRegistry } from "../data/registryStore";
 import { FUND_RULES, type Account, type Condition, type Transaction } from "../data/topup";
 import { accountsOf } from "./accounts";
@@ -129,4 +129,12 @@ test("nextRuleId continues from the highest id", () => expect(nextRuleId(FUND_RU
 test("transactionCode is TUT + DDMMYY", () => {
   expect(transactionCode("2026-11-03")).toBe("TUT031126");
   expect(transactionCode("")).toBe("TUT000000");
+});
+
+test("ruleAmountFor: highest matching condition amount, else fallback", () => {
+  const a = { age: 11, class: "P5 Respect" } as Account;
+  const conditions: Condition[] = [{ type: "range", min: 7, max: 10 }, { type: "age", age: 11 }, { type: "level", level: "P5" }];
+  expect(ruleAmountFor({ conditions, amounts: [12, 23, 34] }, a, 99)).toBe(34);
+  expect(ruleAmountFor({ conditions, amounts: [12, 50, 34] }, a, 99)).toBe(50);
+  expect(ruleAmountFor({ conditions }, a, 99)).toBe(99);
 });

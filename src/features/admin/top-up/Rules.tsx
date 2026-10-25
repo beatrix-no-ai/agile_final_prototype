@@ -9,8 +9,10 @@ type Props = { rules: FundRule[]; onChange: (next: FundRule[]) => void; notify: 
 
 const badgeClass = (s: RuleStatus) => (s === "Draft" ? "draft" : s === "Deactivated" ? "deactivated" : "");
 /** One condition row as typed: range = a (min) / b (max); age = a; level = a. */
-type FormCond = { type: Condition["type"]; a: string; b: string };
-const toForm = (c: Condition): FormCond => (c.type === "range" ? { type: "range", a: String(c.min), b: String(c.max) } : c.type === "age" ? { type: "age", a: String(c.age), b: "" } : { type: "level", a: c.level, b: "" });
+type FormCond = { type: Condition["type"]; a: string; b: string; amt?: string };
+const toForm = (c: Condition, amt?: number): FormCond => ({ ...(c.type === "range" ? { type: "range", a: String(c.min), b: String(c.max) } : c.type === "age" ? { type: "age", a: String(c.age), b: "" } : { type: "level", a: c.level, b: "" }), amt: amt === undefined ? "" : String(amt) });
+/** Input sanity only, same cap as the execute form. */
+const MAX_AMOUNT = 99_999_999;
 const DEFAULTS: Record<TargetMode, FormCond[]> = {
   range: [{ type: "range", a: "7", b: "16" }],
   ages: [{ type: "age", a: "7", b: "" }, { type: "age", a: "9", b: "" }],
@@ -71,7 +73,8 @@ function RuleList({ rules, onChange, onAdd, onOpen, notify, ask, closeAsk }: Pro
 function RuleForm({ rules, onChange, onBack, rule: v, ro, notify, ask, closeAsk }: Props & { onBack: () => void; rule: FundRule | null; ro: boolean }) {
   const [name, setName] = useState(v?.name ?? "");
   const [mode, setMode] = useState<TargetMode>(v?.mode ?? "range");
-  const [conds, setConds] = useState<FormCond[]>(v ? v.conditions.map(toForm) : DEFAULTS.range);
+  const [conds, setConds] = useState<FormCond[]>(v ? v.conditions.map((c, i) => toForm(c, v.amounts?.[i])) : DEFAULTS.range);
+  const [perAmt, setPerAmt] = useState(Boolean(v?.amounts));
   const changeMode = (m: TargetMode) => { setMode(m); setConds(DEFAULTS[m]); setError(""); };
   const setCond = (i: number, patch: Partial<FormCond>) => setConds(conds.map((c, n) => (n === i ? { ...c, ...patch } : c)));
   const changeType = (i: number, type: Condition["type"]) => setConds(conds.map((c, n) => (n === i ? NEW_ROW[type] : c)));
@@ -95,9 +98,10 @@ function RuleForm({ rules, onChange, onBack, rule: v, ro, notify, ask, closeAsk 
       : parsed.some(bad) ? (mode === "range" ? "Minimum and maximum age are invalid." : "Enter valid ages, age ranges or levels.")
       : new Set(keys).size !== keys.length ? "Each age, age range or level can only be listed once."
       : !Number.isFinite(bmin) || !Number.isFinite(bmax) || bmin < 0 || bmax <= bmin ? "Balance range is invalid."
-      : !schooling ? "Schooling status is required." : "";
+      : !schooling ? "Schooling status is required."
+      : perAmt && conds.some((c) => { const n = Number(c.amt); return !c.amt || !Number.isSafeInteger(n) || n <= 0 || n > MAX_AMOUNT; }) ? `Enter a whole-dollar amount from S$1 to ${cash(MAX_AMOUNT)} for each condition.` : "";
     if (err) { setError(err); return; }
-    const next: FundRule = { id: v?.id ?? nextRuleId(rules), name: name.trim(), mode, conditions: parsed, minBalance: bmin, maxBalance: bmax, schooling: schooling as RuleSchooling, schools, status: v?.status === "Deactivated" && status === "Draft" ? "Deactivated" : status };
+    const next: FundRule = { id: v?.id ?? nextRuleId(rules), name: name.trim(), mode, conditions: parsed, ...(perAmt ? { amounts: conds.map((c) => Number(c.amt)) } : {}), minBalance: bmin, maxBalance: bmax, schooling: schooling as RuleSchooling, schools, status: v?.status === "Deactivated" && status === "Draft" ? "Deactivated" : status };
     onChange(v ? rules.map((r) => (r.id === v.id ? next : r)) : [...rules, next]);
     onBack(); notify("Batch Top-up Rule saved.");
   };
@@ -121,16 +125,18 @@ function RuleForm({ rules, onChange, onBack, rule: v, ro, notify, ask, closeAsk 
         <div className="field"><label htmlFor="target-mode">Targeting method {req}</label>
           <select id="target-mode" value={mode} onChange={(e) => changeMode(e.target.value as TargetMode)}>{MODES.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
           <div className="help">Specific Ages can include 7 and 9 without 8. Combined criteria supports Age Range, Specific Age and Level in one rule.</div></div>
+        <label className="schoolitem" style={{ marginBottom: 12 }}><input type="checkbox" checked={perAmt} onChange={(e) => setPerAmt(e.target.checked)} /><span>Set an amount for each condition</span><small title="If set, the amount is fixed by the rule and not entered when the batch is run. An account matching several conditions gets the highest amount.">ⓘ</small></label>
         {mode === "range" ? (
           <div id="age-range-wrap" className="formgrid">
             <div className="field"><label htmlFor="age-min">Minimum age (inclusive) {req}</label><input type="number" id="age-min" min={0} step={1} value={conds[0]?.a ?? ""} onChange={(e) => setCond(0, { a: e.target.value })} /></div>
             <div className="field"><label htmlFor="age-max">Maximum age (inclusive) {req}</label><input type="number" id="age-max" min={0} step={1} value={conds[0]?.b ?? ""} onChange={(e) => setCond(0, { b: e.target.value })} /></div>
+            {perAmt && <div className="field"><label>Amount (S$) {req}</label><input aria-label={`Amount for condition ${1}`} type="number" min={1} step={1} placeholder="e.g. 200" value={conds[0].amt ?? ""} onChange={(e) => setCond(0, { amt: e.target.value })} /></div>}
           </div>
         ) : (
           <div id="bands-wrap">
             <div id="band-list" className="band-list">
               {conds.map((c, i) => (
-                <div className="rule-condition-row" key={i}>
+                <div className={`rule-condition-row${perAmt ? " with-amount" : ""}`} key={i}>
                   <div className="field"><label>Condition {i + 1}</label>
                     {mode === "mixed"
                       ? <select aria-label="Condition type" value={c.type} onChange={(e) => changeType(i, e.target.value as Condition["type"])}><option value="range">Age Range</option><option value="age">Specific Age</option><option value="level">Level</option></select>
@@ -141,6 +147,7 @@ function RuleForm({ rules, onChange, onBack, rule: v, ro, notify, ask, closeAsk 
                         : c.type === "age" ? <input aria-label="Specific age" type="number" min={0} step={1} value={c.a} onChange={(e) => setCond(i, { a: e.target.value })} />
                         : <select aria-label="Level" value={c.a} onChange={(e) => setCond(i, { a: e.target.value })}>{LEVELS.map((l) => <option key={l}>{l}</option>)}</select>}
                     </div></div>
+                  {perAmt && <div className="field"><label>Amount (S$) {req}</label><input aria-label={`Amount for condition ${i + 1}`} type="number" min={1} step={1} placeholder="e.g. 200" value={c.amt ?? ""} onChange={(e) => setCond(i, { amt: e.target.value })} /></div>}
                   <button type="button" className="btn small" onClick={() => setConds(conds.filter((_, n) => n !== i))}>Remove</button>
                 </div>
               ))}

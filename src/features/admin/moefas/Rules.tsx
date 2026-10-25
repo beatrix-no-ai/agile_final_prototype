@@ -106,6 +106,7 @@ function Editor({ initial, isNew, readOnly, tiers, onBack, onSave, notify }: { i
             <h3 className="text-sm font-bold">2. Configure conditions</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Rule name" required><input className={inputClass} value={d.name} onChange={(e) => patch({ name: e.target.value })} /></Field>
+              <Field label="Effective from" required hint="For reference only: the rule applies once it is activated."><input type="date" className={inputClass} value={d.effectiveFrom ?? ""} onChange={(e) => patch({ effectiveFrom: e.target.value })} /></Field>
             </div>
             <p className="mt-4 rounded-control bg-surface-container-low p-3 text-sm">Select existing MOEFAS tiers. Income ranges are maintained in Income tiers.</p>
             <div className="mt-4 overflow-x-auto">
@@ -211,11 +212,17 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
     setActivating(null); setEditing(null); setQ(""); setStatus("");
     notify("Rule activated. The previous active rule is now Inactive. Previous application outcomes remain unchanged.");
   };
+  const duplicate = (r: Rule) => {
+    let id: string;
+    try { id = nextRuleId(rules); } catch (e) { return notify((e as Error).message, true); }
+    notify(""); setEditing({ rule: { ...structuredClone(r), id, name: `${r.name} (copy)`, status: "Draft" }, isNew: true, readOnly: false });
+  };
   const save = (r: Rule, wantActive: boolean) => {
     if (!editing) return;
     let id: string;
     try { id = editing.rule.status === "Inactive" ? nextRuleId(rules) : editing.rule.id; } catch (e) { return notify((e as Error).message, true); }
     const record: Rule = { ...r, id, name: r.name.trim(), status: "Draft" };
+    if (!record.effectiveFrom) return notify("Effective from date is required.", true);
     if (wantActive) return requestActivation(record);
     const problem = ruleProblem(record, tiers, true);
     if (problem) return notify(problem, true);
@@ -263,7 +270,7 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
           rowActions={(r) => (
             <>
               <RowAction onClick={() => { notify(""); setEditing({ rule: r, isNew: false, readOnly: true }); }}>View</RowAction>
-              {r.status !== "Active" && <RowAction onClick={() => { notify(""); setEditing({ rule: r, isNew: false, readOnly: false }); }}>Edit</RowAction>}
+              <RowAction onClick={() => duplicate(r)}>Duplicate</RowAction>
               {r.status !== "Active" && <RowAction onClick={() => requestActivation(r)}>Activate</RowAction>}
             </>
           )}

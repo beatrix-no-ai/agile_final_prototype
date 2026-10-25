@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { FREQUENCIES, type Account, type FundRule, type Transaction } from "../../../data/topup";
-import { activeRulesInOrder, conditionText, levelOfClass, overlapCount, stackRules, transactionCode } from "../../../lib/topup";
+import { activeRulesInOrder, conditionText, levelOfClass, overlapCount, ruleAmountFor, stackRules, transactionCode } from "../../../lib/topup";
 import { maskNric } from "../../../lib/nric";
 import { cash, sgToday, type DialogSpec } from "./tuUi";
 
@@ -54,7 +54,9 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
   const single = mode === "single";
   const amt = Number(amount) || 0;
   const n = single ? chosen.length : eligible.length;
-  const total = n * amt;
+  /** Amount box only when some picked rule has no amounts of its own (Specific Accounts always need it). */
+  const needAmount = single || !picked.length || picked.some((r) => !r.amounts);
+  const total = single ? n * amt : stack.reduce((t, s) => t + s.accounts.reduce((u, a) => u + ruleAmountFor(s.rule, a, amt), 0), 0);
   const large = !single && n >= LARGE_BATCH;
 
   const changeMode = (m: "single" | "batch") => { setMode(m); setIds([]); setQuery(""); setOpen(false); setRuleId(""); setAmount(""); };
@@ -67,19 +69,24 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
     if (single && chosen.some((a) => a.status !== "Active")) return notify("Inactive Education Accounts cannot receive top-ups.");
     if (single && followup && chosen.some((a) => !followup.pool.some((p) => p.id === a.id))) return notify("Follow-ups can only include original Failed accounts that have not already been credited.");
     if (!single && !picked.length) return notify("Please select an active Batch Top-up Rule.");
-    if (!Number.isSafeInteger(amt) || amt <= 0 || amt > MAX_AMOUNT) return notify(`Enter a whole-dollar top-up amount from S$1 to ${cash(MAX_AMOUNT)}.`);
+    if (needAmount && !Number.isSafeInteger(amt) || amt <= 0 || amt > MAX_AMOUNT) return notify(`Enter a whole-dollar top-up amount from S$1 to ${cash(MAX_AMOUNT)}.`);
     if (!reason.trim()) return notify("Please enter a reason.");
     if (later && !date) return notify("Please select the execution date.");
+    // One run per amount: a rule with per-condition amounts splits into a run per amount, so each history row has one amount.
     const runs = single
-      ? [{ name: chosen.length === 1 ? chosen[0].name : `${chosen.length} selected accounts`, targets: chosen }]
-      : stack.map((s) => ({ name: s.rule.name, targets: s.accounts }));
+      ? [{ name: chosen.length === 1 ? chosen[0].name : `${chosen.length} selected accounts`, targets: chosen, amt }]
+      : stack.flatMap((s) => {
+        const by = new Map<number, Account[]>();
+        for (const a of s.accounts) { const x = ruleAmountFor(s.rule, a, amt); by.set(x, [...(by.get(x) ?? []), a]); }
+        return by.size ? [...by].map(([x, targets]) => ({ name: s.rule.name, targets, amt: x })) : [{ name: s.rule.name, targets: [] as Account[], amt }];
+      });
     if (!single && runs.every((r) => !r.targets.length)) return notify("No eligible accounts found.");
-    const grand = runs.reduce((t, r) => t + r.targets.length * amt, 0);
+    const grand = runs.reduce((t, r) => t + r.targets.length * r.amt, 0);
     const when = later ? `${date}${time && ` at ${time}`}` : "Execute now";
     ask({
       title: "Review and confirm",
       text: (later ? "Review the scheduled top-up details." : "Review the top-up details before confirming.") + (followup ? ` This creates a NEW top-up linked to ${followup.id}; the original stays unchanged.` : ""),
-      details: `Top-up Type: ${single ? "Specific Accounts" : "Batch"}\n${single ? `Recipients: ${chosen.map((a) => `${a.name} (${maskNric(a.nric)})`).join(", ")}` : `Rule: ${all ? `All active rules (${runs.length}), in creation order` : runs[0].name}`}\nEligible accounts: ${n}${!single && stacked ? ` (${stacked} qualify for more than one rule and receive each top-up)` : ""}\nAmount per account: ${cash(amt)}\nEstimated total: ${cash(grand)}\nReason: ${reason.trim()}\nExecution: ${later ? `${when} · ${freq}` : when}${followup ? `\nFollow-up to: ${followup.id}` : ""}`,
+      details: `Top-up Type: ${single ? "Specific Accounts" : "Batch"}\n${single ? `Recipients: ${chosen.map((a) => `${a.name} (${maskNric(a.nric)})`).join(", ")}` : `Rule: ${all ? `All active rules (${picked.length}), in creation order` : picked[0].name}`}\nEligible accounts: ${n}${!single && stacked ? ` (${stacked} qualify for more than one rule and receive each top-up)` : ""}\nAmount per account: ${needAmount ? cash(amt) : "By rule"}\nEstimated total: ${cash(grand)}\nReason: ${reason.trim()}\nExecution: ${later ? `${when} · ${freq}` : when}${followup ? `\nFollow-up to: ${followup.id}` : ""}`,
       confirmLabel: "Confirm",
       onConfirm: () => {
         const d = later ? date : sgToday();
@@ -91,7 +98,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
             ref: transactionCode(d), type: single ? "Single" : "Batch",
             recipient: single ? (one ? `${one.name} (${maskNric(one.nric)})` : r.name) : r.name,
             detail: single ? `${one ? `Education Account ${maskNric(one.nric)}` : `${r.targets.length} Education Accounts`} · ${reason.trim()}` : reason.trim(),
-            date: d, schedule: later ? [freq, time].filter(Boolean).join(" · ") : "Run now (ad-hoc)", targets: r.targets.map((a) => ({ student: a.name, account: a.nric, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: r.targets.length, amount: amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
+            date: d, schedule: later ? [freq, time].filter(Boolean).join(" · ") : "Run now (ad-hoc)", targets: r.targets.map((a) => ({ student: a.name, account: a.nric, status: later ? ("Pending" as const) : ("Success" as const) })), accounts: r.targets.length, amount: r.amt, status: later ? "Pending" : "Success", by: "Daniel Lee",
             ...(followup ? { followupOf: followup.id } : {}),
           }, later ? [] : r.targets.map((a) => a.id));
         }
@@ -168,12 +175,13 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
                 </select>
                 <div className="help">Rules are created in the Batch Top-up Rule tab. Only Active rules appear here. Rules may overlap: a student who matches several rules receives each top-up, in the order the rules were created.</div></div>
               {all && <div className="rule-summary">{active.map((r) => `${r.id} ${r.name}`).join(" → ")}</div>}
-              {rule && <div className="rule-summary">{`${rule.conditions.map(conditionText).join(" | ")} · ${cash(rule.minBalance)} to under ${cash(rule.maxBalance)} · ${rule.schooling} · ${rule.schools.length ? `${rule.schools.length} schools` : "All schools"}`}</div>}
+              {rule && <div className="rule-summary">{`${rule.conditions.map((c, i) => conditionText(c) + (rule.amounts ? ` (${cash(rule.amounts[i])})` : "")).join(" | ")} · ${cash(rule.minBalance)} to under ${cash(rule.maxBalance)} · ${rule.schooling} · ${rule.schools.length ? `${rule.schools.length} schools` : "All schools"}`}</div>}
             </div>
           )}
 
-          <div className="field" id="amount-field"><label htmlFor="amount">Amount (S$) <span className="required">*</span></label>
-            <input id="amount" type="number" min={1} step={1} placeholder="e.g. 200" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+          {needAmount && <div className="field" id="amount-field"><label htmlFor="amount">Amount (S$) <span className="required">*</span></label>
+            <input id="amount" type="number" min={1} step={1} placeholder="e.g. 200" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            {!single && picked.some((r) => r.amounts) && <div className="help">Rules with their own amounts use those; this amount applies to the other rules.</div>}</div>}
           <div className="field"><label htmlFor="reason">Reason <span className="required">*</span></label>
             <textarea id="reason" maxLength={500} placeholder="e.g. ad-hoc student assistance" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="help">Required for Specific Accounts and Batch top-ups. Max 500 characters. Kept in transaction history.</div></div>
@@ -195,14 +203,14 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
           {row("Type", single ? "Specific Accounts" : "Batch")}
           {row(single ? (chosen.length > 1 ? "Recipients" : "Recipient") : "Target", single ? (chosen.length === 0 ? "Not selected" : chosen.length === 1 ? chosen[0].name : `${chosen.length} accounts selected`) : all ? `All active rules (${active.length})` : rule?.name ?? "Not selected")}
           {!single && row("Eligible accounts", picked.length ? `${eligible.length}${stacked ? ` (${stacked} account(s) stack more than one rule)` : ""}` : "-")}
-          {row("Amount / account", cash(amt))}
+          {row("Amount / account", needAmount ? cash(amt) : "By rule")}
           {row("Reason", reason.trim() || "Not entered")}
           {row("Execution", timing === "now" ? "Execute now" : `Schedule for later · ${[date || "Date not set", freq, time && `${time} SGT`].filter(Boolean).join(" · ")}`)}
           {!single && row("Estimated total", total ? cash(total) : "-")}
           {!single && picked.length > 0 && (
             <div id="batch-eligible-preview" className="eligible-preview"><h3>Eligible accounts</h3>
               <div id="batch-eligible-list" className="eligible-preview-list" role="region" aria-label="Eligible accounts for selected batch rule" tabIndex={0}>
-                {eligible.length ? stack.flatMap((s) => s.accounts.map((a) => <div className="eligible-preview-item" key={`${s.rule.id}-${a.id}`}><div><strong>{a.name}</strong><small>{maskNric(a.nric)} · {levelOfClass(a.class)} · Age {a.age}{all ? ` · ${s.rule.id}` : ""}</small></div><span className="account-ref">{amt > 0 ? cash(amt) : "Amount not entered"}</span></div>))
+                {eligible.length ? stack.flatMap((s) => s.accounts.map((a) => <div className="eligible-preview-item" key={`${s.rule.id}-${a.id}`}><div><strong>{a.name}</strong><small>{maskNric(a.nric)} · {levelOfClass(a.class)} · Age {a.age}{all ? ` · ${s.rule.id}` : ""}</small></div><span className="account-ref">{ruleAmountFor(s.rule, a, amt) > 0 ? cash(ruleAmountFor(s.rule, a, amt)) : "Amount not entered"}</span></div>))
                   : <div className="empty">No eligible accounts for this rule.</div>}
               </div>
             </div>

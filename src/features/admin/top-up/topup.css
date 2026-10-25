@@ -197,10 +197,11 @@
 .tu #rules-list .data-table{min-width:1050px}
 .tu .rule-condition-row{display:grid;grid-template-columns: 180px minmax(180px,1fr) auto;gap:11px;align-items:end;border:1px solid var(--border);border-radius:9px;padding:12px;margin-bottom:9px}
 .tu .rule-condition-row .field{margin-bottom:0}
+.tu .rule-condition-row.with-amount{grid-template-columns: 180px minmax(180px,1fr) 160px auto}
 .tu .rule-condition-row input,.tu .rule-condition-row select{height:39px;width:100%;padding:8px 10px;border:1px solid var(--field);border-radius:8px;background:white}
 .tu .rule-condition-row .rule-condition-values{display:flex;gap:8px;align-items:center}
 .tu .rule-condition-values input{min-width:0}
-@media(max-width:680px){.tu .rule-condition-row{grid-template-columns:1fr}.tu .rule-condition-row .btn{justify-self:start}}
+@media(max-width:680px){.tu .rule-condition-row,.tu .rule-condition-row.with-amount{grid-template-columns:1fr}.tu .rule-condition-row .btn{justify-self:start}}
 
 /* App additions (not in the prototype): fieldset reset for the read-only rule view, details-page status colours */
 .tu .rule-fieldset{border:0;margin:0;padding:0;min-width:0}

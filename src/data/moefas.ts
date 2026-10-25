@@ -102,7 +102,8 @@ export type RuleComponent = { id: string; type: FeeKind; basis: Basis; amounts: 
 export type RuleStatus = "Active" | "Inactive" | "Draft";
 /** A child matches a condition when GHI OR PCI falls in the chosen tier. -1 = not chosen yet (drafts only). */
 export type Condition = { ghi: number; pci: number };
-export type Rule = { id: string; name: string; status: RuleStatus; conditions: Condition[]; components: RuleComponent[] };
+/** `effectiveFrom` (YYYY-MM-DD) is for reference only; a rule applies once it is activated. */
+export type Rule = { id: string; name: string; effectiveFrom?: string; status: RuleStatus; conditions: Condition[]; components: RuleComponent[] };
 
 const comp = (id: string, basis: Basis, amounts: number[]): RuleComponent => ({ id, type: CATALOGUE.find((c) => c.id === id)!.type, basis, amounts });
 const CONDITIONS = (): Condition[] => [{ ghi: 0, pci: 0 }, { ghi: 1, pci: 1 }];

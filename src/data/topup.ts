@@ -36,8 +36,8 @@ export type RuleStatus = "Active" | "Draft" | "Deactivated";
 export type Condition = { type: "range"; min: number; max: number } | { type: "age"; age: number } | { type: "level"; level: string };
 /** How the rule targets recipients: one age range, specific ages, levels, or any mix of the three. */
 export type TargetMode = "range" | "ages" | "levels" | "mixed";
-/** Balance range is [minBalance, maxBalance): max excluded. Empty `schools` = all schools. A rule holds no amount: the amount is entered when the batch is run. */
-export type FundRule = { id: string; name: string; mode: TargetMode; conditions: Condition[]; minBalance: number; maxBalance: number; schooling: RuleSchooling; schools: string[]; status: RuleStatus };
+/** Balance range is [minBalance, maxBalance): max excluded. Empty `schools` = all schools. `amounts` (optional, index-aligned with `conditions`) sets the S$ per condition; without it the amount is entered when the batch is run. */
+export type FundRule = { id: string; name: string; mode: TargetMode; conditions: Condition[]; amounts?: number[]; minBalance: number; maxBalance: number; schooling: RuleSchooling; schools: string[]; status: RuleStatus };
 
 /** Saved batch top-up rules. A saved rule never moves money; batch top-ups pick an Active one. */
 export const FUND_RULES: FundRule[] = [
