@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { FREQUENCIES, type Account, type FundRule, type Transaction } from "../../../data/topup";
-import { activeRulesInOrder, conditionText, levelOfClass, overlapCount, ruleAmountFor, stackRules, transactionCode } from "../../../lib/topup";
+import { activeRulesInOrder, appliedCondition, conditionText, levelOfClass, overlapCount, ruleAmountFor, stackRules, targetLabel, transactionCode } from "../../../lib/topup";
 import { maskNric } from "../../../lib/nric";
 import { cash, sgToday, type DialogSpec } from "./tuUi";
 
@@ -175,7 +175,23 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
                 </select>
                 <div className="help">Rules are created in the Batch Top-up Rule tab. Only Active rules appear here. Rules may overlap: a student who matches several rules receives each top-up, in the order the rules were created.</div></div>
               {all && <div className="rule-summary">{active.map((r) => `${r.id} ${r.name}`).join(" → ")}</div>}
-              {rule && <div className="rule-summary">{`${rule.conditions.map((c, i) => conditionText(c) + (rule.amounts ? ` (${cash(rule.amounts[i])})` : "")).join(" | ")} · ${cash(rule.minBalance)} to under ${cash(rule.maxBalance)} · ${rule.schooling} · ${rule.schools.length ? `${rule.schools.length} schools` : "All schools"}`}</div>}
+              {rule && (<>
+                <div className="rule-summary rule-card">
+                  <div className="rule-card-head"><strong>Rule summary</strong><span>{rule.id}</span></div>
+                  <div className="rule-kv full"><small>Eligibility ({targetLabel(rule)})</small><strong>{rule.conditions.map((c, i) => conditionText(c) + (rule.amounts ? ` (${cash(rule.amounts[i])})` : "")).join(" | ")}</strong></div>
+                  <div className="rule-kv"><small>Balance</small><strong>{cash(rule.minBalance)} to under {cash(rule.maxBalance)}</strong></div>
+                  <div className="rule-kv"><small>Schooling status</small><strong>{rule.schooling}</strong></div>
+                  <div className="rule-kv full"><small>Schools</small><strong>{rule.schools.length ? rule.schools.join(", ") : "All schools"}</strong></div>
+                </div>
+                {rule.amounts && (
+                  <div className="rule-summary rule-card">
+                    <div className="rule-card-head"><strong>Amounts by condition <span title="An account matching several conditions gets the highest amount; it is counted under that condition.">ⓘ</span></strong></div>
+                    <table className="rule-amounts"><thead><tr><th>Condition</th><th>Amount</th><th>Match</th></tr></thead>
+                      <tbody>{rule.conditions.map((c, i) => <tr key={i}><td><strong>{conditionText(c)}</strong></td><td>{cash(rule.amounts![i])}</td><td>{eligible.filter((a) => appliedCondition(rule, a) === i).length}</td></tr>)}</tbody></table>
+                    <div className="help">Edit the rule to change amounts. Highest amount applies when several match.</div>
+                  </div>
+                )}
+              </>)}
             </div>
           )}
 
@@ -208,7 +224,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
           {row("Execution", timing === "now" ? "Execute now" : `Schedule for later · ${[date || "Date not set", freq, time && `${time} SGT`].filter(Boolean).join(" · ")}`)}
           {!single && row("Estimated total", total ? cash(total) : "-")}
           {!single && picked.length > 0 && (
-            <div id="batch-eligible-preview" className="eligible-preview"><h3>Eligible accounts</h3>
+            <div id="batch-eligible-preview" className="eligible-preview"><h3 className="eligible-head">Eligible accounts <span className="count-pill">{eligible.length}</span></h3>
               <div id="batch-eligible-list" className="eligible-preview-list" role="region" aria-label="Eligible accounts for selected batch rule" tabIndex={0}>
                 {eligible.length ? stack.flatMap((s) => s.accounts.map((a) => <div className="eligible-preview-item" key={`${s.rule.id}-${a.id}`}><div><strong>{a.name}</strong><small>{maskNric(a.nric)} · {levelOfClass(a.class)} · Age {a.age}{all ? ` · ${s.rule.id}` : ""}</small></div><span className="account-ref">{ruleAmountFor(s.rule, a, amt) > 0 ? cash(ruleAmountFor(s.rule, a, amt)) : "Amount not entered"}</span></div>))
                   : <div className="empty">No eligible accounts for this rule.</div>}

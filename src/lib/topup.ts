@@ -42,6 +42,10 @@ export const matchesCondition = (c: Condition, a: Account) => (c.type === "range
 export const ruleAmountFor = (rule: Pick<FundRule, "conditions" | "amounts">, a: Account, fallback: number) =>
   rule.amounts ? Math.max(0, ...rule.conditions.map((c, i) => (matchesCondition(c, a) ? rule.amounts![i] : 0))) : fallback;
 
+/** Index of the condition whose amount this account gets (highest matching amount, first on ties); -1 if none. */
+export const appliedCondition = (rule: Pick<FundRule, "conditions" | "amounts">, a: Account) =>
+  rule.conditions.reduce((best, c, i) => (matchesCondition(c, a) && (best < 0 || (rule.amounts?.[i] ?? 0) > (rule.amounts?.[best] ?? 0)) ? i : best), -1);
+
 export type RuleCriteria = Pick<FundRule, "conditions" | "minBalance" | "maxBalance" | "schooling" | "schools">;
 
 /** Active accounts matching ANY condition (age range / specific age / level) and balance in [min, max), schooling status, school (empty = all). */

@@ -207,3 +207,11 @@
 .tu .rule-fieldset{border:0;margin:0;padding:0;min-width:0}
 .tu .badge.failed{background:#fde7ea;color:#a20f29}
 .tu .badge.partial{background:var(--warn);color:var(--warn-ink)}
+.tu .rule-card{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin-top:0}
+.tu .rule-card .rule-card-head,.tu .rule-card .full,.tu .rule-card table,.tu .rule-card .help{grid-column:1/-1}
+.tu .rule-card-head{display:flex;justify-content:space-between;color:var(--text,#2b1d20)}.tu .rule-card-head span{color:var(--sub);font-size:12px}
+.tu .rule-kv small{display:block;color:var(--sub);font-size:11px;margin-bottom:3px}
+.tu .rule-amounts{width:100%;border-collapse:collapse;font-size:13px}.tu .rule-amounts th{text-align:left;color:var(--sub);font-weight:500;padding:6px 0;border-bottom:1px solid var(--border)}
+.tu .rule-amounts td{padding:8px 0;border-bottom:1px solid var(--border)}.tu .rule-amounts th:last-child,.tu .rule-amounts td:last-child{text-align:right}
+.tu .eligible-head{display:flex;justify-content:space-between;align-items:center}.tu .count-pill{background:var(--border);border-radius:999px;padding:2px 9px;font-size:11px}
+@media(max-width:680px){.tu .rule-card{grid-template-columns:1fr}}
