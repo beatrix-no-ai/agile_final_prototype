@@ -24,7 +24,7 @@ type LocalAction =
   | { type: "saveProfile"; form: ProfileForm }
   | { type: "startFas" }
   | { type: "submitFas"; date: string; band: Band; details?: FasDetails };
-export type ParentAction = LocalAction | { type: "pay"; ids: string[]; date: string };
+export type ParentAction = LocalAction | { type: "pay"; ids: string[]; date: string } | { type: "reapplyFas"; reason: string };
 
 export const initialParentState: Local = { profile, fas: { stage: "not-started" } };
 
@@ -67,6 +67,15 @@ export function ParentProvider({ children: kids }: { children: ReactNode }) {
     if (a.type === "pay") {
       // Paying writes to the school's fee records and the student's Education Account, so the school side sees it too.
       for (const act of payActions(state.invoices, state.children, new Set(a.ids))) fees.dispatch(act);
+      return;
+    }
+    if (a.type === "reapplyFas") {
+      // ASSUMPTION (client pending): after an SBFAS rejection the family may ask again — same right as a
+      // paper family walking the form back to the school. Each rejected child gets a new request; the
+      // store's own guards skip any child that is not actually rejected.
+      for (const c of state.children) {
+        if (state.outcomes[c.id]?.status === "Not granted") actions.submitSbfasReapply({ studentId: c.id, reason: a.reason });
+      }
       return;
     }
     dispatchLocal(a);

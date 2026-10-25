@@ -11,12 +11,15 @@ import {
   applicationStatus, CATALOGUE, childResult, FAMILIES, matchedCondition, matchRange, OUTCOMES, snapshotFor,
   type Basis, type Family, type Range, type Rule,
 } from "../../../data/moefas";
+import { useFas } from "../../../data/fasStore";
+import { childOutcomeNow } from "../../../data/familyApplications";
 import { formatSGD } from "../../../lib/format";
 
 const TONE: Record<string, BadgeTone> = {
   "MOEFAS granted": "success", "MOEFAS Granted": "success", Granted: "success", Matched: "success",
-  "SBFAS review": "warning", "Mixed outcomes": "warning", "Pending SBFAS review": "warning",
-  "Not granted": "alert",
+  "SBFAS review": "warning", "Mixed outcomes": "warning", "Pending SBFAS review": "warning", "MOEFAS not granted": "warning",
+  "New SBFAS request": "warning",
+  "Not granted": "alert", "Already covered": "neutral",
 };
 const Pill = ({ s }: { s: string }) => <Badge tone={TONE[s] ?? "neutral"}>{s}</Badge>;
 
@@ -228,6 +231,63 @@ function Detail({ f, rules, onBack }: { f: Family; rules: Rule[]; onBack: () => 
   );
 }
 
+/** Requirement 5, HQ side: paper forms the schools scanned in this session, live from the FAS store. */
+function HardcopyLive() {
+  const { state: fas } = useFas();
+  const rows = fas.familyApps;
+  return (
+    <Card title="Hardcopy applications entered by schools" action={<Badge tone="primary">This session</Badge>}>
+      <p className="mb-4 text-sm text-on-surface-variant">
+        Paper MOE FAS forms scanned in by School users for parents who cannot use the e-Service Portal. Each one is
+        assessed here like an online application: MOEFAS first, and children outside the bands are referred to their
+        school&apos;s SBFAS queue.
+      </p>
+      {rows.length ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className={th}>Application / submitted</th>
+                <th className={th}>Applicant</th>
+                <th className={th}>School</th>
+                <th className={th}>Income band</th>
+                <th className={th}>Children</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((f) => (
+                <tr key={f.id}>
+                  <td className={td}>
+                    <span className="font-semibold">{f.id}</span>
+                    <span className="block text-[13px] text-on-surface-variant">
+                      {new Date(f.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · entered by {f.enteredBy}{f.entryMode === "ocr" ? " (scan + OCR)" : ""}
+                    </span>
+                  </td>
+                  <td className={td}>{f.applicant}<span className="block text-[13px] text-on-surface-variant">{f.contact}</span></td>
+                  <td className={td}>{f.school}</td>
+                  <td className={td}>{f.bandLabel}</td>
+                  <td className={td}>
+                    {f.children.map((c) => {
+                      const co = childOutcomeNow(f, c, fas.apps);
+                      return (
+                        <span key={c.studentId} className="block text-[13px]">
+                          {c.student} · <Badge tone={co.kind === "granted" ? "success" : co.kind === "rejected" ? "alert" : co.kind === "pending" ? "warning" : "neutral"}>{co.label}</Badge>
+                        </span>
+                      );
+                    })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState title="No hardcopy applications yet" hint="Sign in as a School user, open FAS → Hardcopy applications and scan a paper form to see it arrive here." />
+      )}
+    </Card>
+  );
+}
+
 export default function Applications({ rules }: { rules: Rule[] }) {
   const [q, setQ] = useState("");
   const [outcome, setOutcome] = useState("");
@@ -245,6 +305,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
   ];
 
   return (
+    <>
     <Card
       title="Family applications"
       action={<span className="text-[13px] text-on-surface-variant">Academic year 2026</span>}
@@ -268,5 +329,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
       />
       <p className="mt-3 text-[13px] text-on-surface-variant">Showing {rows.length} of {FAMILIES.length} family applications</p>
     </Card>
+    <HardcopyLive />
+    </>
   );
 }

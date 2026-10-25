@@ -8,6 +8,7 @@ import { useMockQuery } from "../../../lib/useMockQuery";
 import { ApplicationForm } from "./ApplicationForm";
 import { ChildResults } from "./ChildResults";
 import { Household } from "./Household";
+import { Reapply } from "./Reapply";
 import { trackerSteps, type FormValues } from "./logic";
 import { StartFas } from "./StartFas";
 import { TODAY } from "./shared";
@@ -49,6 +50,7 @@ export default function FamilyApplication() {
       <Household bandId={sync.bandId} syncedOn={sync.syncedOn} />
       <StartFas stage={stage} submittedOn={submittedOn} onStart={() => dispatch({ type: "startFas" })} />
       {stage === "submitted" && <ChildResults children={state.children} outcomes={state.outcomes} />}
+      {stage === "submitted" && <Reapply />}
       {stage === "preparing" && (
         <ApplicationForm values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => dispatch({ type: "submitFas", date: TODAY, band: BANDS.find((b) => b.id === sync.bandId)!, details: { extraIncome: Number(values.extraIncome), residents: Number(values.residents) } })} />
       )}

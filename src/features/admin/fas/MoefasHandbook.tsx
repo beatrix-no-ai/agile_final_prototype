@@ -45,6 +45,12 @@ export function MoefasHandbook() {
         end-to-end process. Configuration lives in the other tabs — HQ configures FAS rules, each school its own
         SBFAS package.
       </p>
+      <p className="text-sm text-on-surface-variant">
+        An application reaches MOE by two channels — the parent e-Service portal, or a paper form the school scans in
+        for families who cannot go online (Hardcopy applications tab). Both are assessed the same way. After a school
+        rejects SBFAS, the family may bring one new request at a time; from the third request on the reviewer sees a
+        note to look closely, but nothing is blocked.
+      </p>
       <Card title="Income tiers — the official MOE framework" action={<Badge tone="neutral">Reference</Badge>}>
         <div className="space-y-3">
           <p className="text-sm text-on-surface-variant">

@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
+import { SBFAS_APPLICATIONS, attemptOf, sourceOf, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
 import { ruleForSchool, rankOf } from "../../../data/sbfasRule";
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
@@ -25,8 +25,10 @@ import { ReviewModal, RiskBadge } from "./ReviewModal";
 import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
+type SourceFilter = "all" | SbfasSource;
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
+const sourceTone: Record<SbfasSource, BadgeTone> = { "MOE referral": "neutral", Hardcopy: "primary", Resubmission: "warning" };
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
@@ -56,6 +58,7 @@ function SbfasReview() {
   );
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [source, setSource] = useState<SourceFilter>("all");
   // No visible banner (the row just moves tab), but the decision is still announced.
   const [announce, setAnnounce] = useState("");
 
@@ -70,11 +73,12 @@ function SbfasReview() {
     [apps, fees.state.charges, movements, reg.students],
   );
   const rows: Row[] = useMemo(
-    () => enriched.filter((a) => filter === "all"
+    () => enriched.filter((a) => (filter === "all"
       || (filter === "pending" && a.status === "Pending")
       || (filter === "granted" && isGranted(a))
-      || (filter === "declined" && isDeclined(a))),
-    [enriched, filter],
+      || (filter === "declined" && isDeclined(a)))
+      && (source === "all" || sourceOf(a) === source)),
+    [enriched, filter, source],
   );
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
@@ -89,6 +93,8 @@ function SbfasReview() {
 
   // The rule of the school that owns the opened application — SBFAS packages are school-defined.
   const openApp = enriched.find((a) => a.id === openId) ?? null;
+  // The rejected application this resubmission replaced, so the reviewer sees the history in one place.
+  const superseded = openApp?.supersedesId ? enriched.find((a) => a.id === openApp.supersedesId) ?? null : null;
   const openStudent = openApp ? reg.students.find((s) => s.id === openApp.studentId) : undefined;
   const openRule = openApp ? ruleForSchool(sbfas.rules, openStudent ? schoolOfStudent(openStudent, reg.classes) : mySchool ?? "S001") : null;
 
@@ -106,6 +112,12 @@ function SbfasReview() {
       </>
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
+    { key: "source", header: "Source", render: (a) => (
+      <>
+        <Badge tone={sourceTone[sourceOf(a)]}>{sourceOf(a)}</Badge>
+        {attemptOf(a) > 1 && <span className="mt-1 block text-[13px] text-on-surface-variant">Attempt {attemptOf(a)}{a.supersedesId ? ` · after ${a.supersedesId}` : ""}</span>}
+      </>
+    ) },
     { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
       <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         {a.payable ? <span className="font-semibold">{formatSGD(a.payable)}</span> : <span className="text-on-surface-variant">—</span>}
@@ -140,6 +152,12 @@ function SbfasReview() {
                 </Button>
               ))}
             </div>
+            <select className="rounded-control border border-line bg-surface px-3 py-1.5 text-sm" aria-label="Filter by application source" value={source} onChange={(e) => setSource(e.target.value as SourceFilter)}>
+              <option value="all">All sources</option>
+              <option value="MOE referral">MOE referral</option>
+              <option value="Hardcopy">Hardcopy</option>
+              <option value="Resubmission">Resubmission</option>
+            </select>
           </div>
         }
       >
@@ -158,7 +176,7 @@ function SbfasReview() {
           />
         )}
       </Card>
-      <ReviewModal app={openApp} rule={openRule} onClose={() => setOpenId(null)} onDecide={decide} />
+      <ReviewModal app={openApp} rule={openRule} superseded={superseded} onClose={() => setOpenId(null)} onDecide={decide} />
     </div>
   );
 }

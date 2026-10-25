@@ -3,6 +3,13 @@ import { STUDENTS } from "./students";
 /** Tier names are positional: the school decides HOW MANY tiers it offers, so any "Tier N" is valid. */
 export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
+/**
+ * How the application reached the school's queue: "MOE referral" = the family applied online and MOE
+ * referred the case down after it fell outside the MOEFAS bands; "Hardcopy" = a paper form the school
+ * scanned in and submitted to MOE, referred down the same way; "Resubmission" = a NEW paper or online
+ * request the parent made after an SBFAS rejection (see `supersedesId`).
+ */
+export type SbfasSource = "MOE referral" | "Hardcopy" | "Resubmission";
 
 export type SbfasApplication = {
   id: string;
@@ -16,6 +23,19 @@ export type SbfasApplication = {
   householdBand?: string;
   /** ISO date the third-party income API last synced this application's bands. */
   incomeSyncedOn?: string;
+  /** Absent on the seeded MOE referrals (all seeds arrived that way); set on every application created after. */
+  source?: SbfasSource;
+  /** The MOE family application this referral came from (hardcopy channel; online referrals keep the seeded behaviour for now). */
+  familyAppId?: string;
+  /** 1 = first request; 2+ = the parent asked again after a rejection (`supersedesId` points at it). */
+  attemptNo?: number;
+  supersedesId?: string;
+  /** Required from attempt 2 on: what changed since the rejected request. */
+  reapplyReason?: string;
+  /** When the school recorded that it told the parent the outcome (hardcopy families have no portal). */
+  parentNotifiedAt?: string;
+  /** Staff member who entered the paper form; undefined on online submissions. */
+  enteredBy?: string;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
   riskScore: number;
   recommendedTier: SbfasTier;
@@ -28,6 +48,11 @@ export type SbfasApplication = {
   /** ISO timestamp of the decision; set when the application is decided. */
   decidedAt?: string;
 };
+
+/** Source with the legacy default: seeds created before the field existed are MOE referrals. */
+export const sourceOf = (a: Pick<SbfasApplication, "source">): SbfasSource => a.source ?? "MOE referral";
+/** Attempt with the legacy default: every seeded application is a first request. */
+export const attemptOf = (a: Pick<SbfasApplication, "attemptNo">): number => a.attemptNo ?? 1;
 
 /** Income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
 export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
