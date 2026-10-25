@@ -271,7 +271,8 @@ sbfas_applications             -- queue SBFAS hiện tại + 3 field mới
     **tự tạo** SBFAS app (source "Hardcopy", `familyAppId` link, gợi ý tier qua `suggestionOf`, SLA 10 ngày).
   - `submitSbfasReapply { studentId, by, at, reason, ocr? }` → guard (mục 2.2b) → tạo SBFAS app
     attempt n+1 (`supersedes` = đơn rejected gần nhất, `reapply_reason`).
-  - `notifyParent { appId, at, by }` → ghi nhận trường đã báo kết quả cho phụ huynh (AC-029-03).
+  - ~~`notifyParent`~~ (đã bỏ): kết quả giờ **tự gửi SMS/email cho phụ huynh** ngay khi có quyết định
+    (MOE grant khi nộp, hoặc trường Approve/Override/Reject) — không còn thao tác báo thủ công.
   - Guard chống trùng liên kênh (mục 2.2a) mở rộng trong cả `submitFamily` lẫn `submitHardcopy`.
 - `fasActions.ts`: expose các action trên qua `useFasActions` (đi qua `run()` để repricing phí);
   tách `suggestionOf` (port từ upstream).
@@ -297,7 +298,7 @@ sbfas_applications             -- queue SBFAS hiện tại + 3 field mới
 - `fasStore.test.ts`: hardcopy → cấp MOEFAS đúng tier; hardcopy rớt → đơn SBFAS tự sinh có
   `source="Hardcopy"` + `familyAppId`; guard chống trùng **liên kênh** (online rồi paper và
   ngược lại — AC-031); `submitSbfasReapply` (chỉ sau Rejected, bắt lý do, `supersedes` đúng,
-  chặn khi còn Pending); `notifyParent` ghi nhận; filter theo source.
+  chặn khi còn Pending); filter theo source.
 - Câu handbook về kênh giấy (upstream đã có mẫu câu).
 
 **Giai đoạn 5 — Đồng bộ upstream**

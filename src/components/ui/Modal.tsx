@@ -5,10 +5,10 @@ import { X } from "@phosphor-icons/react";
 let locks = 0;
 let savedOverflow = "";
 
-type Props = { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode };
+type Props = { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; /** Wider panel with a scrollable body, for content-rich dialogs (e.g. a review with the full application). */ wide?: boolean };
 
 /** Native <dialog> modal: showModal() gives focus trap + inert background; Esc and backdrop click call onClose. */
-export function Modal({ open, onClose, title, children, footer }: Props) {
+export function Modal({ open, onClose, title, children, footer, wide }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -56,9 +56,11 @@ export function Modal({ open, onClose, title, children, footer }: Props) {
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-line bg-surface-container-lowest p-0 text-on-surface backdrop:bg-inverse-surface/40"
+      className={wide
+        ? "m-auto w-[min(64rem,calc(100vw-2rem))] rounded-card border border-line bg-surface-container-lowest p-0 text-on-surface backdrop:bg-inverse-surface/40"
+        : "m-auto w-[min(32rem,calc(100vw-2rem))] rounded-card border border-line bg-surface-container-lowest p-0 text-on-surface backdrop:bg-inverse-surface/40"}
     >
-      <div className="p-6">
+      <div className={wide ? "max-h-[calc(100vh-4rem)] overflow-y-auto p-6" : "p-6"}>
         <div className="flex items-start justify-between gap-4">
           <h2 id={titleId} className="text-lg font-bold">{title}</h2>
           <button

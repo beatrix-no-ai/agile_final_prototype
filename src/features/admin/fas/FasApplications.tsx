@@ -1,18 +1,16 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { SBFAS_APPLICATIONS, attemptOf, sourceOf, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
-import { ruleForSchool, rankOf } from "../../../data/sbfasRule";
-import { useFasActions } from "../../../data/fasActions";
+import { rankOf } from "../../../data/sbfasRule";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
 import { useMovements } from "../../../data/movements";
 import { useRegistry } from "../../../data/registryStore";
-import { useSbfas } from "../../../data/sbfasStore";
 import { useSession } from "../../../session";
 import { formatSGD } from "../../../lib/format";
 import { balanceOf, chargeStatus } from "../../../lib/fees";
@@ -21,8 +19,8 @@ import { withBalance } from "../../../lib/studentFas";
 import { useMockQuery } from "../../../lib/useMockQuery";
 import { Tiles } from "../fee-types/parts";
 import HqPermissionNote from "../HqPermissionNote";
-import { ReviewModal, RiskBadge } from "./ReviewModal";
-import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
+import { RiskBadge } from "./ReviewPage";
+import { isDeclined, isGranted, sortQueue, statusLabel } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
 type SourceFilter = "all" | SbfasSource;
@@ -40,10 +38,7 @@ function SbfasReview() {
   const { state: fas } = useFas();
   const { state: reg } = useRegistry();
   const movements = useMovements();
-  const { decide: decideApp } = useFasActions();
   const { role, staff } = useSession();
-  // School-defined SBFAS packages (offered tiers + per-tier subsidy rates) live in their own store.
-  const { state: sbfas } = useSbfas();
   // Each school reviews only its own students' applications (BR15); MOE HQ has no school and sees every one.
   // A school account without a school sees nothing rather than everything.
   const mySchool = role === "school" ? staff?.schoolCode ?? "" : null;
@@ -56,11 +51,9 @@ function SbfasReview() {
     }),
     [fas.apps, mySchool, reg.students, reg.classes],
   );
-  const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [source, setSource] = useState<SourceFilter>("all");
-  // No visible banner (the row just moves tab), but the decision is still announced.
-  const [announce, setAnnounce] = useState("");
+  const navigate = useNavigate();
 
   const enriched: Row[] = useMemo(
     () => sortQueue(apps).map((a) => ({
@@ -83,20 +76,6 @@ function SbfasReview() {
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
   const declinedCount = apps.filter(isDeclined).length;
-
-  const decide = (id: string, action: Action, draft: Draft) => {
-    decideApp(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
-    setOpenId(null);
-    const a = apps.find((x) => x.id === id);
-    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
-  };
-
-  // The rule of the school that owns the opened application — SBFAS packages are school-defined.
-  const openApp = enriched.find((a) => a.id === openId) ?? null;
-  // The rejected application this resubmission replaced, so the reviewer sees the history in one place.
-  const superseded = openApp?.supersedesId ? enriched.find((a) => a.id === openApp.supersedesId) ?? null : null;
-  const openStudent = openApp ? reg.students.find((s) => s.id === openApp.studentId) : undefined;
-  const openRule = openApp ? ruleForSchool(sbfas.rules, openStudent ? schoolOfStudent(openStudent, reg.classes) : mySchool ?? "S001") : null;
 
   const columns: Column<Row>[] = [
     { key: "student", header: "Student", sortable: true, render: (a) => (
@@ -162,7 +141,6 @@ function SbfasReview() {
         }
       >
         <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
-        <p role="status" className="sr-only">{announce}</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (
@@ -170,13 +148,12 @@ function SbfasReview() {
             columns={columns}
             rows={rows}
             rowKey={(a) => a.id}
-            rowActions={(a) => <RowAction onClick={() => setOpenId(a.id)}>{a.status === "Pending" ? "Open review" : "View decision"}</RowAction>}
+            rowActions={(a) => <RowAction onClick={() => navigate(`/admin/fas/review/${a.id}`)}>{a.status === "Pending" ? "Open review" : "View decision"}</RowAction>}
             large
             empty={<EmptyState title="No applications in this view" hint={filter === "pending" ? "Every application has been decided." : filter === "granted" ? "Nothing granted yet — approve or override an application from the Pending tab." : filter === "declined" ? "Nothing declined yet — rejected applications appear here with their reason." : "Nothing here yet."} action={<Button variant="secondary" onClick={() => setFilter("all")}>Show all</Button>} />}
           />
         )}
       </Card>
-      <ReviewModal app={openApp} rule={openRule} superseded={superseded} onClose={() => setOpenId(null)} onDecide={decide} />
     </div>
   );
 }

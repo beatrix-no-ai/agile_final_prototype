@@ -336,12 +336,4 @@ describe("a new SBFAS request after a rejection", () => {
     expect(selectChildFas(rejected(), ethan.id)).toMatchObject({ status: "Not granted" });
     expect(selectChildFas(reapply(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
   });
-
-  it("the school can record that the parent was told the outcome (AC-029-03)", () => {
-    const s = rejected();
-    const id = s.apps.find((a) => a.studentId === ethan.id)!.id;
-    const told = fasReducer(s, { type: "notifyParent", id, at });
-    expect(told.apps.find((a) => a.id === id)!.parentNotifiedAt).toBe(at);
-    expect(fasReducer(told, { type: "notifyParent", id, at: "2026-10-21T09:00:00.000Z" })).toEqual(told); // only once
-  });
 });

@@ -15,13 +15,12 @@ export type BudgetChange = { id: string; scope: BudgetScope; target: string; fro
 export type MoefasGrant = { tier: SbfasTier; at: string };
 /** What the school's grouping suggests for one student, computed at arrival and stored static thereafter. */
 export type SbfasSuggestion = { level: RiskLevel | null; tier: SbfasTier | null; fallback?: SbfasTier; subsidy?: string };
-export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant>; familyApps: FamilyApplication[] };
+export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant>; familyApps: FamilyApplication[]; };
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }
-  | { type: "notifyParent"; id: string; at: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [] });
@@ -138,10 +137,6 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       }],
       familyApps: [...familyApp, ...state.familyApps],
     };
-  }
-  if (a.type === "notifyParent") {
-    // Hardcopy families have no portal, so the school records that it told the parent the outcome (AC-029-03).
-    return { ...state, apps: state.apps.map((x) => (x.id === a.id && !x.parentNotifiedAt ? { ...x, parentNotifiedAt: a.at } : x)) };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
   const entry: BudgetChange = { id: `BC-${state.history.length + 1}`, scope: a.scope, target: a.target, from, to: a.amount, by: a.by, at: a.at };
