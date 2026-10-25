@@ -3,7 +3,8 @@ import { applyDecision, isGranted, type Action, type Draft } from "../features/a
 import { sbfasUsage } from "../lib/budget";
 import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
-import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
+import { nextFamilyId, type FamilyApplication, type FamilyChild, type HouseholdMember, type TransportMode } from "./familyApplications";
+import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
 
@@ -12,19 +13,21 @@ export type BudgetScope = "MOEFAS" | "SBFAS";
 export type BudgetChange = { id: string; scope: BudgetScope; target: string; from: number; to: number; by: string; at: string };
 /** MOEFAS is granted automatically by criteria; one grant per student, by student id. */
 export type MoefasGrant = { tier: SbfasTier; at: string };
-export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant> };
 /** What the school's grouping suggests for one student, computed at arrival and stored static thereafter. */
 export type SbfasSuggestion = { level: RiskLevel | null; tier: SbfasTier | null; fallback?: SbfasTier; subsidy?: string };
+export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant>; familyApps: FamilyApplication[] };
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "addHardcopy"; studentId: string; incomeBand: string; householdBand: string; note: string; at: string; by: string; suggest?: SbfasSuggestion }
+  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; recommend?: Record<string, SbfasSuggestion> }
+  | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }
+  | { type: "notifyParent"; id: string; at: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
-export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {} });
+export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [] });
 
 // ASSUMPTION: no model scores a family-submitted application yet, so it gets a neutral mock score and tier for the school to review.
-const FAMILY_EXPLANATION = "Submitted by the family through the FAS form and referred by MOE after it fell outside the MOEFAS income bands. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
+const FAMILY_EXPLANATION = "Submitted by the family through the FAS form. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
 
 /** Pure. A decision is always recorded, even when the budget is already used up (overspend only warns). */
 export function fasReducer(state: FasState, a: FasAction): FasState {
@@ -47,7 +50,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
           incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), source: "MOE referral", riskScore: 50,
           recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
           explanation: rec?.level
-            ? `Submitted by the family through the FAS form and referred by MOE after it fell outside the MOEFAS income bands. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}${rec.subsidy ?? ""}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
+            ? `Submitted by the family through the FAS form. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}${rec.subsidy ?? ""}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
             : FAMILY_EXPLANATION,
           status: "Pending",
         }];
@@ -55,22 +58,90 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
     }
     return { ...state, apps, moefas };
   }
-  if (a.type === "addHardcopy") {
-    // A paper form the school enters by hand — the same one-application-per-student rule applies.
+  if (a.type === "submitHardcopy") {
+    // A paper form a School user scanned in for a parent who cannot use the e-Service portal.
+    // It goes through the SAME assessment as an online application (US-029 / AC-029): MOEFAS first,
+    // and every child outside the MOEFAS bands is referred down to the school's own SBFAS queue.
+    const faId = nextFamilyId(state.familyApps);
+    let apps = state.apps;
+    const moefas = { ...state.moefas };
+    const children: FamilyChild[] = [];
+    for (const id of a.studentIds) {
+      const student = STUDENTS.find((s) => s.id === id);
+      if (!student) continue;
+      if (moefas[id] || apps.some((x) => x.studentId === id)) {
+        // Cross-channel duplicate guard (AC-031): one application per student, paper or online. The
+        // school user transcribes the form as the parent filled it, so the child STAYS on the family
+        // record — marked covered — instead of a second application being created.
+        children.push({ studentId: id, student: student.name, level: student.level, outcome: "Already covered" });
+        continue;
+      }
+      if (a.band.tier === "MOEFAS Tier 1" || a.band.tier === "MOEFAS Tier 2") {
+        const tier = a.band.tier.replace("MOEFAS ", "") as SbfasTier;
+        moefas[id] = { tier, at: a.at };
+        children.push({ studentId: id, student: student.name, level: student.level, outcome: "MOEFAS granted", tier });
+        continue;
+      }
+      // ASSUMPTION (AC-024-02): a paper form outside the MOEFAS bands — including the band above both
+      // schemes — is still a submitted application, so it is referred down instead of vanishing.
+      const rec = a.recommend?.[id];
+      apps = [...apps, {
+        id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
+        incomeBand: a.band.label, source: "Hardcopy", familyAppId: faId, enteredBy: a.by, riskScore: 50,
+        recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
+        explanation: `Paper form ${a.entryMode === "ocr" ? "scanned and read by OCR, then checked" : "keyed in"} by ${a.by} for ${a.applicant}${a.note.trim() ? ` — note on the form: ${a.note.trim()}` : ""}. MOEFAS was assessed first and not granted for this band, so the case is referred to the school. The income band comes from the paper form (no MyInfo sync); review the household and the student's fees before deciding.`,
+        status: "Pending",
+      }];
+      children.push({ studentId: id, student: student.name, level: student.level, outcome: "MOEFAS not granted" });
+    }
+    if (!children.some((c) => c.outcome !== "Already covered")) return state; // nothing new: every child already had an application or a grant
+    const familyApp: FamilyApplication = {
+      id: faId, channel: "Hardcopy", school: a.school, applicant: a.applicant, contact: a.contact, bandLabel: a.band.label,
+      address: a.address || undefined, email: a.email || undefined, transportMode: a.transportMode,
+      hasAdminIncome: a.hasAdminIncome, household: a.hasAdminIncome ? a.household : undefined,
+      welfareHome: a.welfareHome, welfareLetter: a.welfareHome ? a.welfareLetter : undefined,
+      homesOnly: a.homesOnly || undefined,
+      imdaHardcopy: a.imdaHardcopy, declaredAt: a.declaredAt, note: a.note.trim() || undefined,
+      enteredBy: a.by, entryMode: a.entryMode, at: a.at, children,
+    };
+    return { ...state, apps, moefas, familyApps: [familyApp, ...state.familyApps] };
+  }
+  if (a.type === "submitSbfasReapply") {
+    // ASSUMPTION (client pending): a new SBFAS request does NOT re-run the MOEFAS assessment — it goes
+    // straight to the school queue. Only allowed after a FINAL rejection: nothing pending, no MOEFAS
+    // grant, a previous rejection to supersede, and a reason saying what changed.
     const student = STUDENTS.find((s) => s.id === a.studentId);
-    if (!student || state.moefas[a.studentId] || state.apps.some((x) => x.studentId === a.studentId)) return state;
-    // ASSUMPTION: the school has 10 working days to decide a new application, referred or on paper.
+    const mine = state.apps.filter((x) => x.studentId === a.studentId);
+    if (!student || state.moefas[a.studentId] || mine.some((x) => x.status === "Pending") || !a.reason.trim()) return state;
+    const rejected = mine.filter((x) => x.status === "Rejected").sort((x, y) => attemptOf(y) - attemptOf(x))[0];
+    if (!rejected) return state;
+    // Hardcopy flow 2 (the form names a school): the paper form joins the hardcopy history as its own
+    // family record, and the new request points at it. The portal re-apply (no school) creates no record.
+    const faId = nextFamilyId(state.familyApps);
+    const familyApp = a.school ? [{
+      id: faId, channel: "Hardcopy" as const, school: a.school,
+      applicant: a.applicant?.trim() || "—", contact: a.contact ?? "",
+      bandLabel: rejected.incomeBand, note: a.reason.trim(),
+      enteredBy: a.by ?? "School user", entryMode: a.entryMode ?? "manual", at: a.at,
+      children: [{ studentId: student.id, student: student.name, level: student.level, outcome: "New SBFAS request" as const }],
+    }] : [];
     return {
       ...state,
       apps: [...state.apps, {
-        id: nextSbfasId(state.apps), student: student.name, studentId: student.id, level: student.level,
-        incomeBand: a.incomeBand, householdBand: a.householdBand, source: "Hardcopy",
-        riskScore: 50,
-        recommendedTier: a.suggest?.tier ?? a.suggest?.fallback ?? "Tier 3", slaDays: 10,
-        explanation: `Paper form entered at the school by ${a.by}${a.note.trim() ? ` — note on the form: ${a.note.trim()}` : ""}. Income bands are read from the paper form (no MyInfo sync), so the model gives a neutral score; review the household and the student's fees before deciding.`,
+        id: nextSbfasId(state.apps), student: student.name, studentId: a.studentId, level: student.level,
+        incomeBand: rejected.incomeBand, householdBand: rejected.householdBand, incomeSyncedOn: rejected.incomeSyncedOn,
+        source: "Resubmission", familyAppId: a.school ? faId : rejected.familyAppId, attemptNo: attemptOf(rejected) + 1,
+        supersedesId: rejected.id, reapplyReason: a.reason.trim(), enteredBy: a.by, riskScore: 50,
+        recommendedTier: rejected.recommendedTier, slaDays: 10,
+        explanation: `New request after SBFAS application ${rejected.id} was rejected${a.by ? ` — handed in at the school by ${a.by}` : " — submitted through the parent portal"}. What changed: ${a.reason.trim()}. The household bands are carried over from the earlier request; review them before deciding.`,
         status: "Pending",
       }],
+      familyApps: [...familyApp, ...state.familyApps],
     };
+  }
+  if (a.type === "notifyParent") {
+    // Hardcopy families have no portal, so the school records that it told the parent the outcome (AC-029-03).
+    return { ...state, apps: state.apps.map((x) => (x.id === a.id && !x.parentNotifiedAt ? { ...x, parentNotifiedAt: a.at } : x)) };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
   const entry: BudgetChange = { id: `BC-${state.history.length + 1}`, scope: a.scope, target: a.target, from, to: a.amount, by: a.by, at: a.at };
@@ -115,12 +186,16 @@ export function selectMoefas(s: FasState) {
   };
 }
 
+/** The student's most recent SBFAS application (highest attempt): the one every outcome reads from. */
+export const latestAppFor = (apps: SbfasApplication[], studentId: string): SbfasApplication | undefined =>
+  apps.filter((x) => x.studentId === studentId).sort((x, y) => attemptOf(y) - attemptOf(x))[0];
+
 /** What the parent is told about one child: the scheme, whether it is granted yet, and why not if refused. null = no application. */
 export type ChildFas = { scheme: "MOEFAS" | "SBFAS"; status: "Granted" | "Awaiting school decision" | "Not granted"; tier?: string; reason?: string };
 export function selectChildFas(s: FasState, studentId: string): ChildFas | null {
   const grant = s.moefas[studentId];
   if (grant) return { scheme: "MOEFAS", status: "Granted", tier: grant.tier };
-  const a = s.apps.find((x) => x.studentId === studentId);
+  const a = latestAppFor(s.apps, studentId);
   if (!a) return null;
   if (a.status === "Approved" || a.status === "Overridden") return { scheme: "SBFAS", status: "Granted", tier: a.sbfasTier };
   if (a.status === "Rejected") return { scheme: "SBFAS", status: "Not granted", reason: a.justification };

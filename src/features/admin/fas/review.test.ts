@@ -57,18 +57,6 @@ test("every seeded application links to a real student record (name, id and leve
   }
 });
 
-test("every seed carries a source and both arrival channels are represented (MOE referral + Hardcopy)", () => {
-  for (const a of SBFAS_APPLICATIONS) {
-    expect(["MOE referral", "Hardcopy"], a.id).toContain(a.source);
-  }
-  expect(SBFAS_APPLICATIONS.some((a) => a.source === "MOE referral")).toBe(true);
-  expect(SBFAS_APPLICATIONS.some((a) => a.source === "Hardcopy")).toBe(true);
-  // Only referred applications carry a MyInfo sync date — a paper form carries its own bands.
-  for (const a of SBFAS_APPLICATIONS) {
-    expect(a.incomeSyncedOn, a.id).toBe(a.source === "MOE referral" ? a.incomeSyncedOn : undefined);
-  }
-});
-
 test("nextSbfasId: SBFASXXXX format, 4-digit padded, continues from the highest sequence", () => {
   expect(nextSbfasId(SBFAS_APPLICATIONS)).toBe("SBFAS0019");    // highest seed is SBFAS0018
   expect(nextSbfasId([])).toBe("SBFAS0001");                     // empty queue starts the 0001 series

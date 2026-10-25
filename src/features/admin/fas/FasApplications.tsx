@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { SBFAS_APPLICATIONS, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
+import { SBFAS_APPLICATIONS, attemptOf, sourceOf, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
 import { ruleForSchool, rankOf } from "../../../data/sbfasRule";
 import { useFasActions } from "../../../data/fasActions";
 import { useFas } from "../../../data/fasStore";
@@ -25,10 +25,10 @@ import { ReviewModal, RiskBadge } from "./ReviewModal";
 import { isDeclined, isGranted, sortQueue, statusLabel, type Action, type Draft } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
-/** Where an application came from (Req 4): MOE referral (fell out of the MOE assessment) or Hardcopy (paper form the school entered). */
 type SourceFilter = "all" | SbfasSource;
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
+const sourceTone: Record<SbfasSource, BadgeTone> = { "MOE referral": "neutral", Hardcopy: "primary", Resubmission: "warning" };
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
@@ -58,9 +58,7 @@ function SbfasReview() {
   );
   const [openId, setOpenId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  // Where the application came from (Req 4): MOE referral (fell out of the MOE assessment) or Hardcopy
-  // (paper form the school entered). Both run through the same rules — the filter only narrows the view.
-  const [sourceF, setSourceF] = useState<SourceFilter>("all");
+  const [source, setSource] = useState<SourceFilter>("all");
   // No visible banner (the row just moves tab), but the decision is still announced.
   const [announce, setAnnounce] = useState("");
 
@@ -75,12 +73,12 @@ function SbfasReview() {
     [apps, fees.state.charges, movements, reg.students],
   );
   const rows: Row[] = useMemo(
-    () => enriched.filter((a) => (sourceF === "all" || a.source === sourceF)
-      && (filter === "all"
-        || (filter === "pending" && a.status === "Pending")
-        || (filter === "granted" && isGranted(a))
-        || (filter === "declined" && isDeclined(a)))),
-    [enriched, filter, sourceF],
+    () => enriched.filter((a) => (filter === "all"
+      || (filter === "pending" && a.status === "Pending")
+      || (filter === "granted" && isGranted(a))
+      || (filter === "declined" && isDeclined(a)))
+      && (source === "all" || sourceOf(a) === source)),
+    [enriched, filter, source],
   );
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
@@ -95,6 +93,8 @@ function SbfasReview() {
 
   // The rule of the school that owns the opened application — SBFAS packages are school-defined.
   const openApp = enriched.find((a) => a.id === openId) ?? null;
+  // The rejected application this resubmission replaced, so the reviewer sees the history in one place.
+  const superseded = openApp?.supersedesId ? enriched.find((a) => a.id === openApp.supersedesId) ?? null : null;
   const openStudent = openApp ? reg.students.find((s) => s.id === openApp.studentId) : undefined;
   const openRule = openApp ? ruleForSchool(sbfas.rules, openStudent ? schoolOfStudent(openStudent, reg.classes) : mySchool ?? "S001") : null;
 
@@ -113,7 +113,10 @@ function SbfasReview() {
     ) },
     { key: "incomeBand", header: "Income per person", sortable: true },
     { key: "source", header: "Source", render: (a) => (
-      <Badge tone={a.source === "MOE referral" ? "primary" : "neutral"}>{a.source}</Badge>
+      <>
+        <Badge tone={sourceTone[sourceOf(a)]}>{sourceOf(a)}</Badge>
+        {attemptOf(a) > 1 && <span className="mt-1 block text-[13px] text-on-surface-variant">Attempt {attemptOf(a)}{a.supersedesId ? ` · after ${a.supersedesId}` : ""}</span>}
+      </>
     ) },
     { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
       <Link to={`/admin/students/${a.studentId}/fees`} className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
@@ -129,11 +132,6 @@ function SbfasReview() {
     ["granted", `Granted (${grantedCount})`],
     ["declined", `Rejected (${declinedCount})`],
   ];
-  const sourceTabs: [SourceFilter, string][] = [
-    ["all", `All sources (${apps.length})`],
-    ["MOE referral", `MOE referral (${apps.filter((a) => a.source === "MOE referral").length})`],
-    ["Hardcopy", `Hardcopy (${apps.filter((a) => a.source === "Hardcopy").length})`],
-  ];
 
   return (
     <div className="space-y-4">
@@ -146,28 +144,24 @@ function SbfasReview() {
       <Card
         title="SBFAS review queue"
         action={
-          <div className="flex flex-col items-end gap-2">
-            <div role="group" aria-label="Filter applications" className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-4">
+            <div role="group" aria-label="Filter applications" className="flex gap-2">
               {tabs.map(([k, label]) => (
                 <Button key={k} size="sm" variant={filter === k ? "primary" : "secondary"} aria-pressed={filter === k} onClick={() => setFilter(k)}>
                   {label}
                 </Button>
               ))}
             </div>
-            <div role="group" aria-label="Filter by source" className="flex flex-wrap gap-2">
-              {sourceTabs.map(([k, label]) => (
-                <Button key={k} size="sm" variant={sourceF === k ? "primary" : "secondary"} aria-pressed={sourceF === k} onClick={() => setSourceF(k)}>
-                  {label}
-                </Button>
-              ))}
-            </div>
+            <select className="rounded-control border border-line bg-surface px-3 py-1.5 text-sm" aria-label="Filter by application source" value={source} onChange={(e) => setSource(e.target.value as SourceFilter)}>
+              <option value="all">All sources</option>
+              <option value="MOE referral">MOE referral</option>
+              <option value="Hardcopy">Hardcopy</option>
+              <option value="Resubmission">Resubmission</option>
+            </select>
           </div>
         }
       >
-        <p className="mb-4 text-sm text-on-surface-variant">
-          Highest risk first, pending before decided. Income is shown as a band only. Applications arrive from MOE
-          referrals (families outside the MOEFAS bands) or paper forms entered at the school.
-        </p>
+        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
         <p role="status" className="sr-only">{announce}</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
@@ -182,7 +176,7 @@ function SbfasReview() {
           />
         )}
       </Card>
-      <ReviewModal app={openApp} rule={openRule} onClose={() => setOpenId(null)} onDecide={decide} />
+      <ReviewModal app={openApp} rule={openRule} superseded={superseded} onClose={() => setOpenId(null)} onDecide={decide} />
     </div>
   );
 }

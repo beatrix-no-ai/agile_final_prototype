@@ -39,8 +39,13 @@ export default function AppShell() {
     if (state?.focusMain) mainRef.current?.focus();
   }, [key, state]);
 
-  const current = role ? navFor(role, { can, canManageUsers }).find((n) => n.to === pathname) : undefined;
-  const pageTitle = current?.title ?? current?.label ?? (pathname.endsWith("/account") ? "Education Account" : pathname.endsWith("/fees") ? "Student fees" : "MOE");
+  // Child routes (e.g. /admin/fas/hardcopy/FAS20260005) inherit the title of the nav item they sit under.
+  const current = role
+    ? navFor(role, { can, canManageUsers })
+        .filter((n) => pathname === n.to || pathname.startsWith(`${n.to}/`))
+        .sort((a, b) => b.to.length - a.to.length)[0]
+    : undefined;
+  const pageTitle = pathname.endsWith("/account") ? "Education Account" : pathname.endsWith("/fees") ? "Student fees" : current?.title ?? current?.label ?? "MOE";
   useEffect(() => {
     if (!role) return;
     const prev = document.title;

@@ -5,7 +5,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
-import { SBFAS_TIERS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { SBFAS_TIERS, attemptOf, sourceOf, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { rankOf, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
@@ -26,7 +26,14 @@ export type FeeContext = {
   nationality: string;
 };
 
-type Props = { app: (SbfasApplication & FeeContext) | null; rule: SbfasRule | null; onClose: () => void; onDecide: (id: string, action: Action, draft: Draft) => void };
+type Props = {
+  app: (SbfasApplication & FeeContext) | null;
+  rule: SbfasRule | null;
+  /** On a resubmission: the rejected application it replaced, so the reviewer sees the history. */
+  superseded?: (SbfasApplication & FeeContext) | null;
+  onClose: () => void;
+  onDecide: (id: string, action: Action, draft: Draft) => void;
+};
 
 function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -37,7 +44,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
+function ReviewBody({ app, rule, superseded, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -70,13 +77,34 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
           </Link>
         </Dt>
         <Dt label="Nationality">{app.nationality}</Dt>
+        <Dt label="Application source">
+          {sourceOf(app)}{attemptOf(app) > 1 ? ` · attempt ${attemptOf(app)}` : ""}
+          {app.enteredBy && <span className="block text-[13px] font-normal text-on-surface-variant">Entered by {app.enteredBy}</span>}
+        </Dt>
+        <Dt label="Income sync">{app.incomeSyncedOn ?? "Paper form — no MyInfo sync"}</Dt>
         <Dt label="Household income band (monthly)">{app.householdBand ?? "—"}</Dt>
         <Dt label="Per-capita income band (monthly)">{app.incomeBand}</Dt>
         <Dt label="Risk rating"><RiskBadge score={app.riskScore} /></Dt>
         <Dt label="Suggested rank">{rankOf(app.recommendedTier)}</Dt>
-        <Dt label="Application source">{app.source === "Hardcopy" ? "Hardcopy — paper form entered by the school" : "MOE referral — fell out of the MOE assessment"}</Dt>
-        <Dt label="Income sync">{app.incomeSyncedOn ? `MyInfo · ${app.incomeSyncedOn}` : "Not synced — paper form"}</Dt>
       </dl>
+
+      {attemptOf(app) >= 3 && (
+        <p className="rounded-control border border-line bg-surface-container-low px-3 py-2.5 text-[13px] text-on-surface-variant">
+          This is the family&apos;s request no. {attemptOf(app)} for this child. Nothing blocks the school from deciding it,
+          but consider whether the situation has really changed or whether other help fits better.
+        </p>
+      )}
+
+      {superseded && (
+        <div className="rounded-control border border-line bg-surface-container-low p-4">
+          <p className="text-[13px] font-semibold text-on-surface">Resubmission — replaces {superseded.id}</p>
+          {app.reapplyReason && <p className="mt-1.5 text-sm text-on-surface">What changed: {app.reapplyReason}</p>}
+          <p className="mt-1.5 text-[13px] text-on-surface-variant">
+            Previous request {superseded.id} was {statusLabel(superseded.status)}
+            {superseded.justification ? ` — “${superseded.justification}”` : ""}. Household bands are carried over from it.
+          </p>
+        </div>
+      )}
 
       {!isSbfasEligible(app.nationality) && (
         <p className="rounded-control border border-line px-3 py-2.5 text-[13px] text-alert">
@@ -105,6 +133,11 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
         <div className="rounded-control border border-line p-4 text-sm">
           <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${rankOf(app.sbfasTier)}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
+          {app.parentNotifiedAt && (
+            <p className="mt-1 text-[13px] text-on-surface-variant">
+              Parent told the outcome on {new Date(app.parentNotifiedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -147,10 +180,10 @@ function ReviewBody({ app, rule, onDecide }: Omit<Props, "app" | "onClose"> & { 
 }
 
 /** Modal stays mounted so Modal can restore focus to the opener; the body is keyed per application to reset its draft. */
-export function ReviewModal({ app, rule, onClose, onDecide }: Props) {
+export function ReviewModal({ app, rule, superseded, onClose, onDecide }: Props) {
   return (
     <Modal open={app !== null} onClose={onClose} title={app ? `Review application ${app.id}` : "Review application"}>
-      {app && <ReviewBody key={app.id} app={app} rule={rule} onDecide={onDecide} />}
+      {app && <ReviewBody key={app.id} app={app} rule={rule} superseded={superseded} onDecide={onDecide} />}
     </Modal>
   );
 }

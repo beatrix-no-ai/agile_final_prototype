@@ -1,4 +1,4 @@
-import type { FasState } from "../data/fasStore";
+import { latestAppFor, type FasState } from "../data/fasStore";
 import type { Student } from "../data/students";
 
 /**
@@ -6,7 +6,7 @@ import type { Student } from "../data/students";
  * application, its status and tier are the truth (Pending, Approved at a tier, or Rejected). No application = left as it is.
  */
 export function withFas(s: Student, fas: Pick<FasState, "apps" | "moefas">): Student {
-  const a = fas.apps.find((x) => x.studentId === s.id);
+  const a = latestAppFor(fas.apps, s.id);
   const granted = a?.status === "Approved" || a?.status === "Overridden"; // an override is still a grant, at the school's tier
   const sbfas = a ? { ...s, sbfas: granted ? ("Approved" as const) : a.status as "Pending" | "Rejected", sbfasTier: granted ? a.sbfasTier : undefined } : s;
   return fas.moefas[s.id] ? { ...sbfas, moefas: "Approved" } : sbfas;

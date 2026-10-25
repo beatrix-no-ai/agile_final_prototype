@@ -42,10 +42,14 @@ export function MoefasHandbook() {
     <div className="space-y-4">
       <p className="text-sm text-on-surface-variant">
         The national side of FAS, read-only: official income tiers, the Active MOE rule, the two schemes and the
-        end-to-end process. Applications reach the school&apos;s SBFAS queue two ways — MOE refers families that fell
-        outside the MOEFAS income bands, and the school enters paper (hardcopy) forms handed straight to it; both
-        follow the same review. Configuration lives in the other tabs — HQ configures FAS rules, each school its
-        own SBFAS package.
+        end-to-end process. Configuration lives in the other tabs — HQ configures FAS rules, each school its own
+        SBFAS package.
+      </p>
+      <p className="text-sm text-on-surface-variant">
+        An application reaches MOE by two channels — the parent e-Service portal, or a paper form the school scans in
+        for families who cannot go online (Hardcopy applications tab). Both are assessed the same way. After a school
+        rejects SBFAS, the family may bring one new request at a time; from the third request on the reviewer sees a
+        note to look closely, but nothing is blocked.
       </p>
       <Card title="Income tiers — the official MOE framework" action={<Badge tone="neutral">Reference</Badge>}>
         <div className="space-y-3">

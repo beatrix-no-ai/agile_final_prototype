@@ -1,0 +1,930 @@
+{
+  "schools": [
+    {
+      "code": "S001",
+      "name": "Greenfield Secondary School",
+      "level": "Secondary"
+    },
+    {
+      "code": "S002",
+      "name": "Riverbank Primary School",
+      "level": "Primary"
+    },
+    {
+      "code": "S003",
+      "name": "Maple Grove Primary School",
+      "level": "Primary"
+    },
+    {
+      "code": "S004",
+      "name": "Eastlake Secondary School",
+      "level": "Secondary"
+    },
+    {
+      "code": "S005",
+      "name": "Hillcrest Secondary School",
+      "level": "Secondary"
+    },
+    {
+      "code": "S006",
+      "name": "Sunrise Primary School",
+      "level": "Primary"
+    },
+    {
+      "code": "S007",
+      "name": "Northpoint Secondary School",
+      "level": "Secondary"
+    },
+    {
+      "code": "S008",
+      "name": "Westbrook Primary School",
+      "level": "Primary"
+    },
+    {
+      "code": "S009",
+      "name": "Lakeshore Secondary School",
+      "level": "Secondary"
+    },
+    {
+      "code": "S010",
+      "name": "Bayview Secondary School",
+      "level": "Secondary"
+    },
+    {
+      "code": "S011",
+      "name": "Oakwood Primary School",
+      "level": "Primary"
+    },
+    {
+      "code": "S012",
+      "name": "Southgate Secondary School",
+      "level": "Secondary"
+    }
+  ],
+  "staff": [
+    {
+      "name": "Alicia Tan",
+      "title": "Principal",
+      "role": "school",
+      "email": "alicia.tan@school.example",
+      "password": "Sch00l-Demo-26",
+      "schoolCode": "S001"
+    },
+    {
+      "name": "Marcus Ong",
+      "title": "School Admin",
+      "role": "school",
+      "email": "marcus.ong@school.example",
+      "password": "Sch00l-Admin-26",
+      "schoolCode": "S001"
+    },
+    {
+      "name": "Priya Nair",
+      "title": "School Admin",
+      "role": "school",
+      "email": "priya.nair@school.example",
+      "password": "Sch00l-Top-26",
+      "schoolCode": "S001"
+    },
+    {
+      "name": "Geraldine Rajaratnam",
+      "title": "School Admin",
+      "role": "school",
+      "email": "geraldine.rajaratnam@school.example",
+      "password": "Sch00l-Demo-26",
+      "schoolCode": "S002"
+    },
+    {
+      "name": "Daniel Lim",
+      "title": "MOE HQ Officer",
+      "role": "hq",
+      "email": "daniel.lim@moe.example",
+      "password": "HqOfficer-Demo-26",
+      "schoolCode": ""
+    }
+  ],
+  "parent": {
+    "role": "parent",
+    "name": "Rachel Lim",
+    "initials": "RL",
+    "singpassId": "S****567A",
+    "email": "rachel.lim@example.com"
+  },
+  "students": [
+    {
+      "id": "S20260001",
+      "nric": "T1203000I",
+      "name": "Adrian Pereira",
+      "level": "Sec 2",
+      "class": "Sec 2 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3468.1,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260002",
+      "nric": "T1003137G",
+      "name": "Ang Li Ying",
+      "level": "Sec 4",
+      "class": "Sec 4 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 4436.85,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore PR"
+    },
+    {
+      "id": "S20260003",
+      "nric": "T1503274F",
+      "name": "Aqil Zafran bin Salleh",
+      "level": "P5",
+      "class": "P5 Respect",
+      "school": "Riverbank Primary School",
+      "status": "Inactive",
+      "balance": 1895.35,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260004",
+      "nric": "T1803411A",
+      "name": "Arjun s/o Krishnan",
+      "level": "P2",
+      "class": "P2 Integrity",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 538.15,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260005",
+      "nric": "T1003548H",
+      "name": "Bernice Seah Xin Rong",
+      "level": "Sec 4",
+      "class": "Sec 4 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 4502.6,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260006",
+      "nric": "T1203685F",
+      "name": "Chloe Lim",
+      "level": "Sec 2",
+      "class": "Sec 2 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 540.25,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260007",
+      "nric": "T1203822J",
+      "name": "Chloe Lim Wen Xin",
+      "level": "Sec 2",
+      "class": "Sec 2 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 100,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260008",
+      "nric": "T1603959J",
+      "name": "Chloe Wong Shu Ting",
+      "level": "P4",
+      "class": "P4 Harmony",
+      "school": "Riverbank Primary School",
+      "status": "Inactive",
+      "balance": 1604.1,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260009",
+      "nric": "T1804096J",
+      "name": "Chua Jia Hui",
+      "level": "P2",
+      "class": "P2 Respect",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 612.4,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Malaysian"
+    },
+    {
+      "id": "S20260010",
+      "nric": "T1504233D",
+      "name": "Daniel Koh Jun Wei",
+      "level": "P5",
+      "class": "P5 Integrity",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 1978.2,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Dual (Singapore + British)"
+    },
+    {
+      "id": "S20260011",
+      "nric": "T1104370J",
+      "name": "Deepa d/o Govindasamy",
+      "level": "Sec 3",
+      "class": "Sec 3 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 4058.7,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260012",
+      "nric": "T1504507D",
+      "name": "Ethan Lim",
+      "level": "P5",
+      "class": "P5 Integrity",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 320.5,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260013",
+      "nric": "T1504644E",
+      "name": "Ethan Lim Jun Hao",
+      "level": "P5",
+      "class": "P5 Integrity",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 0,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260014",
+      "nric": "T1704781C",
+      "name": "Ethan Teo Kai Ming",
+      "level": "P3",
+      "class": "P3 Resilience",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 1127.05,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260015",
+      "nric": "T1004918G",
+      "name": "Farhan bin Ahmad",
+      "level": "Sec 4",
+      "class": "Sec 4 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 4379.3,
+      "sbfas": "Not applied",
+      "moefas": "Approved",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260016",
+      "nric": "T1205055G",
+      "name": "Foo Mei Ling",
+      "level": "Sec 2",
+      "class": "Sec 2 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3512.75,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260017",
+      "nric": "T1605192B",
+      "name": "Goh Yu Xuan",
+      "level": "P4",
+      "class": "P4 Courage",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 1568.9,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260018",
+      "nric": "T1605329A",
+      "name": "Haziq bin Abdullah",
+      "level": "P4",
+      "class": "P4 Harmony",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 1431.6,
+      "sbfas": "Not applied",
+      "moefas": "Approved",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260019",
+      "nric": "T1105466D",
+      "name": "Imran Shah bin Zulkifli",
+      "level": "Sec 3",
+      "class": "Sec 3 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3921,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260020",
+      "nric": "T1405603Z",
+      "name": "Isabelle Ng Pei Shan",
+      "level": "P6",
+      "class": "P6 Care",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 2641.15,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Filipino"
+    },
+    {
+      "id": "S20260021",
+      "nric": "T1005740F",
+      "name": "Joel Soh Wen Jie",
+      "level": "Sec 4",
+      "class": "Sec 4 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Inactive",
+      "balance": 4418.95,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260022",
+      "nric": "T1305877B",
+      "name": "Jonathan Lau Kai Xiang",
+      "level": "Sec 1",
+      "class": "Sec 1 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 2993.4,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260023",
+      "nric": "T1506014F",
+      "name": "Kavitha d/o Raman",
+      "level": "P5",
+      "class": "P5 Respect",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 2112.8,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260024",
+      "nric": "T1206151F",
+      "name": "Kwok Yong Sheng",
+      "level": "Sec 2",
+      "class": "Sec 2 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3541.25,
+      "sbfas": "Rejected",
+      "moefas": "Not applied",
+      "nationality": "Malaysian"
+    },
+    {
+      "id": "S20260025",
+      "nric": "T1406288I",
+      "name": "Lee Zhi Hao",
+      "level": "P6",
+      "class": "P6 Resilience",
+      "school": "Riverbank Primary School",
+      "status": "Inactive",
+      "balance": 2552,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260026",
+      "nric": "T1906425A",
+      "name": "Lim Xin Yi",
+      "level": "P1",
+      "class": "P1 Harmony",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 242.6,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260027",
+      "nric": "T1106562C",
+      "name": "Marcus Heng Zhe Yu",
+      "level": "Sec 3",
+      "class": "Sec 3 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3874.15,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260028",
+      "nric": "T1806699D",
+      "name": "Meera d/o Ramasamy",
+      "level": "P2",
+      "class": "P2 Integrity",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 574.5,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260029",
+      "nric": "T1306836J",
+      "name": "Mohamed Danish bin Yusof",
+      "level": "Sec 1",
+      "class": "Sec 1 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 2947.85,
+      "sbfas": "Pending",
+      "moefas": "Pending",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260030",
+      "nric": "T1806973Z",
+      "name": "Muhammad Irfan bin Hakim",
+      "level": "P2",
+      "class": "P2 Respect",
+      "school": "Riverbank Primary School",
+      "status": "Inactive",
+      "balance": 497.85,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260031",
+      "nric": "T1207110D",
+      "name": "Nadia binte Jamal",
+      "level": "Sec 2",
+      "class": "Sec 2 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Inactive",
+      "balance": 3395.9,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260032",
+      "nric": "T1907247E",
+      "name": "Nur Aisyah binte Rahman",
+      "level": "P1",
+      "class": "P1 Harmony",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 187.9,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260033",
+      "nric": "T1407384H",
+      "name": "Nurul Huda binte Ismail",
+      "level": "P6",
+      "class": "P6 Resilience",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 2469.25,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260034",
+      "nric": "T1707521C",
+      "name": "Ong Zi Han",
+      "level": "P3",
+      "class": "P3 Care",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 1043.2,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260035",
+      "nric": "T1707658I",
+      "name": "Priya d/o Subramaniam",
+      "level": "P3",
+      "class": "P3 Care",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 986.75,
+      "sbfas": "Not applied",
+      "moefas": "Approved",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260036",
+      "nric": "T1107795H",
+      "name": "Rachel Chia Wen Hui",
+      "level": "Sec 3",
+      "class": "Sec 3 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3987.45,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Dual (Singapore + British)"
+    },
+    {
+      "id": "S20260037",
+      "nric": "T1607932J",
+      "name": "Rohan s/o Pillai",
+      "level": "P4",
+      "class": "P4 Courage",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 1493.45,
+      "sbfas": "Rejected",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260038",
+      "nric": "T1308069G",
+      "name": "Shreya d/o Nair",
+      "level": "Sec 1",
+      "class": "Sec 1 Bright",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3086.3,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Indian"
+    },
+    {
+      "id": "S20260039",
+      "nric": "T1508206I",
+      "name": "Sim Hui Min",
+      "level": "P5",
+      "class": "P5 Integrity",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 2036.55,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Dual (Singapore + Malaysian)"
+    },
+    {
+      "id": "S20260040",
+      "nric": "T1708343G",
+      "name": "Siti Nurhaliza binte Osman",
+      "level": "P3",
+      "class": "P3 Resilience",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 902.3,
+      "sbfas": "Pending",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260041",
+      "nric": "T1908480E",
+      "name": "Tan Wei Jie",
+      "level": "P1",
+      "class": "P1 Courage",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 214.35,
+      "sbfas": "Not applied",
+      "moefas": "Approved",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260042",
+      "nric": "T1308617B",
+      "name": "Tay Jing Wen",
+      "level": "Sec 1",
+      "class": "Sec 1 Aspire",
+      "school": "Greenfield Secondary School",
+      "status": "Active",
+      "balance": 3014.6,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore PR"
+    },
+    {
+      "id": "S20260043",
+      "nric": "T1408754G",
+      "name": "Vikram s/o Chandran",
+      "level": "P6",
+      "class": "P6 Resilience",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 2503.7,
+      "sbfas": "Approved",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    },
+    {
+      "id": "S20260044",
+      "nric": "T1408891H",
+      "name": "Yeo Rui En",
+      "level": "P6",
+      "class": "P6 Care",
+      "school": "Riverbank Primary School",
+      "status": "Active",
+      "balance": 2587.9,
+      "sbfas": "Not applied",
+      "moefas": "Not applied",
+      "nationality": "Singapore Citizen"
+    }
+  ],
+  "sbfasQueue": [
+    {
+      "id": "SBFAS0001",
+      "student": "Kavitha d/o Raman",
+      "level": "P5",
+      "incomeBand": "Up to S$450",
+      "riskScore": 89,
+      "recommendedTier": "Tier 1",
+      "slaDays": 1,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0002",
+      "student": "Foo Mei Ling",
+      "level": "Sec 2",
+      "incomeBand": "Up to S$450",
+      "riskScore": 82,
+      "recommendedTier": "Tier 1",
+      "slaDays": 2,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0003",
+      "student": "Ethan Teo Kai Ming",
+      "level": "P3",
+      "incomeBand": "S$451 - S$700",
+      "riskScore": 76,
+      "recommendedTier": "Tier 2",
+      "slaDays": 0,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0005",
+      "student": "Yeo Rui En",
+      "level": "P6",
+      "incomeBand": "S$701 - S$1,000",
+      "riskScore": 54,
+      "recommendedTier": "Tier 3",
+      "slaDays": 4,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0007",
+      "student": "Marcus Heng Zhe Yu",
+      "level": "Sec 3",
+      "incomeBand": "S$1,001 - S$1,500",
+      "riskScore": 36,
+      "recommendedTier": "Tier 4",
+      "slaDays": 7,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0008",
+      "student": "Goh Yu Xuan",
+      "level": "P4",
+      "incomeBand": "S$1,001 - S$1,500",
+      "riskScore": 28,
+      "recommendedTier": "Tier 4",
+      "slaDays": 5,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0009",
+      "student": "Lim Xin Yi",
+      "level": "P1",
+      "incomeBand": "S$1,001 - S$1,500",
+      "riskScore": 18,
+      "recommendedTier": "Tier 4",
+      "slaDays": 8,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0010",
+      "student": "Adrian Pereira",
+      "level": "Sec 2",
+      "incomeBand": "S$1,001 - S$1,500",
+      "riskScore": 12,
+      "recommendedTier": "Tier 4",
+      "slaDays": 9,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0011",
+      "student": "Sim Hui Min",
+      "level": "P5",
+      "incomeBand": "S$451 - S$700",
+      "riskScore": 63,
+      "recommendedTier": "Tier 2",
+      "slaDays": 2,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0012",
+      "student": "Arjun s/o Krishnan",
+      "level": "P2",
+      "incomeBand": "S$451 - S$700",
+      "riskScore": 68,
+      "recommendedTier": "Tier 2",
+      "slaDays": 4,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0013",
+      "student": "Meera d/o Ramasamy",
+      "level": "P2",
+      "incomeBand": "Up to S$450",
+      "riskScore": 85,
+      "recommendedTier": "Tier 1",
+      "slaDays": 3,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0014",
+      "student": "Siti Nurhaliza binte Osman",
+      "level": "P3",
+      "incomeBand": "S$701 - S$1,000",
+      "riskScore": 47,
+      "recommendedTier": "Tier 3",
+      "slaDays": 6,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0015",
+      "student": "Aqil Zafran bin Salleh",
+      "level": "P5",
+      "incomeBand": "S$451 - S$700",
+      "riskScore": 72,
+      "recommendedTier": "Tier 2",
+      "slaDays": 1,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0016",
+      "student": "Mohamed Danish bin Yusof",
+      "level": "Sec 1",
+      "incomeBand": "S$701 - S$1,000",
+      "riskScore": 45,
+      "recommendedTier": "Tier 3",
+      "slaDays": 7,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0017",
+      "student": "Deepa d/o Govindasamy",
+      "level": "Sec 3",
+      "incomeBand": "S$451 - S$700",
+      "riskScore": 66,
+      "recommendedTier": "Tier 2",
+      "slaDays": 5,
+      "status": "Pending"
+    },
+    {
+      "id": "SBFAS0018",
+      "student": "Daniel Koh Jun Wei",
+      "level": "P5",
+      "incomeBand": "S$701 - S$1,000",
+      "riskScore": 52,
+      "recommendedTier": "Tier 3",
+      "slaDays": 3,
+      "status": "Pending"
+    }
+  ],
+  "families": [
+    {
+      "id": "FAS20260001",
+      "parent": "Rachel Lim",
+      "children": [
+        "Ethan Lim Jun Hao",
+        "Chloe Lim Wen Xin"
+      ],
+      "income": {
+        "g": [
+          1000,
+          1800
+        ],
+        "p": [
+          600,
+          700
+        ]
+      }
+    },
+    {
+      "id": "FAS20260002",
+      "parent": "Nur Aisyah Binte Abdullah",
+      "children": [
+        "Adam Muhammad"
+      ],
+      "income": {
+        "g": [
+          5001,
+          6000
+        ],
+        "p": [
+          1250.01,
+          1500
+        ]
+      }
+    },
+    {
+      "id": "FAS20260004",
+      "parent": "Michelle Tan",
+      "children": [
+        "Lucas Tan Wei Jie",
+        "Emma Tan Hui Min"
+      ],
+      "income": {
+        "g": [
+          1000,
+          1800
+        ],
+        "p": [
+          450,
+          520
+        ]
+      }
+    }
+  ],
+  "catalogue": [
+    {
+      "id": "MFC-001",
+      "type": "School fee",
+      "name": "Tuition",
+      "fee": 100
+    },
+    {
+      "id": "MFC-002",
+      "type": "Miscellaneous fee",
+      "name": "Standard miscellaneous",
+      "fee": 20
+    },
+    {
+      "id": "MFC-003",
+      "type": "Examination fee",
+      "name": "Examination",
+      "fee": 30
+    },
+    {
+      "id": "MFC-004",
+      "type": "Miscellaneous fee",
+      "name": "Supplementary miscellaneous",
+      "fee": 10
+    }
+  ]
+}

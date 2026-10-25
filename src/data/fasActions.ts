@@ -3,6 +3,7 @@ import { withFas } from "../lib/studentFas";
 import { fasReducer, useFas, type FasAction, type SbfasSuggestion } from "./fasStore";
 import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
+import type { FamilyApplication, HouseholdMember, TransportMode } from "./familyApplications";
 import { useRegistry } from "./registryStore";
 import { useSbfas } from "./sbfasStore";
 import { levelForBands, ruleForSchool, suggestedTierOf, subsidySummary, type SbfasRule } from "./sbfasRule";
@@ -13,7 +14,7 @@ import type { Action, Draft } from "../features/admin/fas/review";
 const PCI_OF_BAND: Record<string, number> = { b1: 1, b2: 2, b3: 4, b4: 5 };
 
 /** What the school's grouping suggests for a per-capita band, with the fallback tier the school actually offers. */
-const suggestionOf = (rule: SbfasRule, pci: number): SbfasSuggestion => {
+export const suggestionOf = (rule: SbfasRule, pci: number): SbfasSuggestion => {
   const level = levelForBands(rule, null, pci);
   const tier = level ? suggestedTierOf(rule.levelTiers[level]) : null;
   // The explanation tells the reviewer what the suggested tier is worth — % of the fee or a fixed amount,
@@ -25,9 +26,9 @@ const suggestionOf = (rule: SbfasRule, pci: number): SbfasSuggestion => {
 };
 
 /**
- * The three things that change a student's FAS: the school deciding an SBFAS application, the parent submitting
- * the family application, and the school entering a paper (hardcopy) application. All go through here so the
- * FAS store and the student's unpaid charges always change together.
+ * The things that change a student's FAS: the school deciding an SBFAS application, the parent submitting
+ * the family application, the school entering a paper (hardcopy) application, and a new SBFAS request after
+ * a rejection. All go through here so the FAS store and the student's unpaid charges always change together.
  */
 export function useFasActions() {
   const fas = useFas();
@@ -47,32 +48,41 @@ export function useFasActions() {
     }
   };
 
+  const suggest = (studentIds: string[], band: Band): Record<string, SbfasSuggestion> => {
+    // Each child is assessed against their OWN school's grouping — children may attend different schools.
+    const pci = PCI_OF_BAND[band.id] ?? 4;
+    const recommend: Record<string, SbfasSuggestion> = {};
+    for (const id of studentIds) {
+      const student = reg.students.find((s) => s.id === id);
+      if (!student) continue;
+      recommend[id] = suggestionOf(ruleForSchool(sbfas.state.rules, schoolOfLevel(student.level)), pci);
+    }
+    return recommend;
+  };
+
   return {
     decide(id: string, action: Action, draft: Draft) {
       const app = fas.state.apps.find((a) => a.id === id);
       if (app) run({ type: "decide", id, action, draft, at: new Date().toISOString() }, [app.studentId]);
     },
     submitFamily(studentIds: string[], band: Band) {
-      // Each child is assessed against their OWN school's grouping — children may attend different schools.
-      const pci = PCI_OF_BAND[band.id] ?? 4;
-      const recommend: Record<string, SbfasSuggestion> = {};
-      for (const id of studentIds) {
-        const student = reg.students.find((s) => s.id === id);
-        if (!student) continue;
-        const rule = ruleForSchool(sbfas.state.rules, schoolOfLevel(student.level));
-        recommend[id] = suggestionOf(rule, pci);
-      }
-      run({ type: "submitFamily", studentIds, band, at: new Date().toISOString(), recommend }, studentIds);
+      run({ type: "submitFamily", studentIds, band, at: new Date().toISOString(), recommend: suggest(studentIds, band) }, studentIds);
     },
-    addHardcopy(input: { studentId: string; incomeBand: string; householdBand: string; note: string; by: string; pciIndex: number }) {
-      // The paper form's per-capita band decides what the school's grouping suggests, same as an online arrival.
-      const student = reg.students.find((s) => s.id === input.studentId);
-      if (!student) return;
-      const rule = ruleForSchool(sbfas.state.rules, schoolOfLevel(student.level));
+    submitHardcopy(input: {
+      studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr";
+      address?: string; email?: string; transportMode?: TransportMode;
+      hasAdminIncome?: boolean; household?: HouseholdMember[];
+      welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string;
+    }) {
       run({
-        type: "addHardcopy", studentId: input.studentId, incomeBand: input.incomeBand, householdBand: input.householdBand,
-        note: input.note, by: input.by, at: new Date().toISOString(), suggest: suggestionOf(rule, input.pciIndex),
-      }, [input.studentId]);
+        type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),
+      }, input.studentIds);
+    },
+    submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }) {
+      run({ type: "submitSbfasReapply", ...input, at: new Date().toISOString() }, [input.studentId]);
+    },
+    notifyParent(id: string) {
+      run({ type: "notifyParent", id, at: new Date().toISOString() }, []);
     },
   };
 }

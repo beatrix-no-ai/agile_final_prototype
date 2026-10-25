@@ -4,11 +4,12 @@ import { STUDENTS } from "./students";
 export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
 /**
- * Where the application came from: "MOE referral" = the family applied centrally and MOE referred the case
- * down after it fell outside the MOEFAS income bands; "Hardcopy" = a paper form handed straight to the
- * school, which staff entered into the same queue. Both follow the same review rules.
+ * How the application reached the school's queue: "MOE referral" = the family applied online and MOE
+ * referred the case down after it fell outside the MOEFAS bands; "Hardcopy" = a paper form the school
+ * scanned in and submitted to MOE, referred down the same way; "Resubmission" = a NEW paper or online
+ * request the parent made after an SBFAS rejection (see `supersedesId`).
  */
-export type SbfasSource = "MOE referral" | "Hardcopy";
+export type SbfasSource = "MOE referral" | "Hardcopy" | "Resubmission";
 
 export type SbfasApplication = {
   id: string;
@@ -20,9 +21,21 @@ export type SbfasApplication = {
   incomeBand: string;
   /** Gross household income band; a big household can sit in a higher band than its per-capita band. Absent on family-submitted applications. */
   householdBand?: string;
-  /** ISO date the third-party income API last synced this application's bands. Absent on paper (hardcopy) applications. */
+  /** ISO date the third-party income API last synced this application's bands. */
   incomeSyncedOn?: string;
-  source: SbfasSource;
+  /** Absent on the seeded MOE referrals (all seeds arrived that way); set on every application created after. */
+  source?: SbfasSource;
+  /** The MOE family application this referral came from (hardcopy channel; online referrals keep the seeded behaviour for now). */
+  familyAppId?: string;
+  /** 1 = first request; 2+ = the parent asked again after a rejection (`supersedesId` points at it). */
+  attemptNo?: number;
+  supersedesId?: string;
+  /** Required from attempt 2 on: what changed since the rejected request. */
+  reapplyReason?: string;
+  /** When the school recorded that it told the parent the outcome (hardcopy families have no portal). */
+  parentNotifiedAt?: string;
+  /** Staff member who entered the paper form; undefined on online submissions. */
+  enteredBy?: string;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
   riskScore: number;
   recommendedTier: SbfasTier;
@@ -35,6 +48,11 @@ export type SbfasApplication = {
   /** ISO timestamp of the decision; set when the application is decided. */
   decidedAt?: string;
 };
+
+/** Source with the legacy default: seeds created before the field existed are MOE referrals. */
+export const sourceOf = (a: Pick<SbfasApplication, "source">): SbfasSource => a.source ?? "MOE referral";
+/** Attempt with the legacy default: every seeded application is a first request. */
+export const attemptOf = (a: Pick<SbfasApplication, "attemptNo">): number => a.attemptNo ?? 1;
 
 /** Income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
 export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
@@ -85,30 +103,16 @@ const H2 = "S$1,501 - S$2,500";
 const H3 = "S$2,501 - S$4,000";
 const H4 = "Above S$4,000";
 
-/** The bands printed on the paper application form, offered when a school enters a hardcopy application. */
-export const PAPER_INCOME_BANDS = { perCapita: [B1, B2, B3, B4], household: [H1, H2, H3, H4] };
-/** Each paper per-capita band's slot in HQ's default per-capita tiers (0-based) — the same slots the online
- * form's bands map to — so the school's grouping can suggest a rank for a paper form too. */
-export const PAPER_PCI_INDEX = [1, 2, 4, 5];
-
 // Applications are seeded against real student records so the queue can show each family's fee payable.
 const of = (name: string) => STUDENTS.find((s) => s.name === name)!;
 
 // ASSUMPTION: risk scores, recommended tiers and explanations are mock AI output.
-// The two arrival channels are both seeded: the low per-capita / high-household cases came as MOE referrals
-// (they fell out of the MOE assessment); higher-band families applied on paper and the school entered them.
 const p = (
   id: string, student: string, incomeBand: string, householdBand: string, incomeSyncedOn: string,
   riskScore: number, recommendedTier: SbfasTier, slaDays: number, explanation: string,
 ): SbfasApplication => {
   const s = of(student);
-  const source: SbfasSource = incomeBand === B1 || incomeBand === B2 ? "MOE referral" : "Hardcopy";
-  return {
-    id, student, studentId: s.id, level: s.level, incomeBand, householdBand, source,
-    // Only referred applications are synced by the income API — a paper form carries its own bands.
-    incomeSyncedOn: source === "MOE referral" ? incomeSyncedOn : undefined,
-    riskScore, recommendedTier, slaDays, explanation, status: "Pending",
-  };
+  return { id, student, studentId: s.id, level: s.level, incomeBand, householdBand, incomeSyncedOn, riskScore, recommendedTier, slaDays, explanation, status: "Pending" };
 };
 
 // Foreign nationals cannot apply for either scheme, so none is seeded. Daniel Koh is the dual-citizen (Singapore + British) case.
