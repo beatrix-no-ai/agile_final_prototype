@@ -1,7 +1,8 @@
 import type { Role } from "../../../session";
 import type { School } from "../../../data/schools";
 
-export type Simulating = { as: "school" | "parent"; sessionId: string; schoolName?: string };
+/** `staffEmail`: the School user being simulated (their modules decide the screens). */
+export type Simulating = { as: "school" | "parent"; sessionId: string; schoolName?: string; staffEmail?: string };
 
 /** The role whose nav, routes and guards apply: the simulated one while simulating, else the real one. */
 export const effectiveRole = (real: Role | null, sim: Simulating | null): Role | null => (real === "hq" && sim ? sim.as : real);
@@ -25,6 +26,7 @@ export function parseSimulating(raw: unknown): Simulating | null {
     as: r.as,
     sessionId: r.sessionId,
     ...(typeof r.schoolName === "string" && r.schoolName ? { schoolName: r.schoolName } : {}),
+    ...(typeof r.staffEmail === "string" && r.staffEmail ? { staffEmail: r.staffEmail } : {}),
   };
 }
 

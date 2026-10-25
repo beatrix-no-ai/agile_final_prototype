@@ -10,14 +10,14 @@ type Session = {
   realRole: Role | null;
   /** The person actually signed in (the HQ user while simulating, never the simulated one). */
   user: User;
-  /** The staff account acting right now (the first school account while an HQ user simulates a School user); null for parents and guests. */
+  /** The staff account acting right now (the simulated School user while an HQ user simulates one); null for parents and guests. */
   staff: StaffAccount | null;
   /** Whether the acting user may use a module. HQ always can; parents never. */
   can(m: Module): boolean;
   /** True for the school Principal (and HQ). */
   canManageUsers: boolean;
   simulating: Simulating | null;
-  startSimulation(as: "school" | "parent", schoolName?: string): void;
+  startSimulation(as: "school" | "parent", schoolName?: string, staffEmail?: string): void;
   stopSimulation(): void;
   signIn(role: Role, email?: string): void;
   signOut(): void;
@@ -92,7 +92,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   };
   const signed = realRole === "hq" || realRole === "school" ? (staffByEmail(email)?.role === realRole ? staffByEmail(email) : undefined) ?? STAFF.find((s) => s.role === realRole) ?? null : null;
-  const staff = role === "school" && realRole === "hq" ? STAFF.find((s) => s.role === "school") ?? null : role === "hq" || role === "school" ? signed : null;
+  const staff = role === "school" && realRole === "hq" ? (staffByEmail(simulating?.staffEmail) ?? STAFF.find((s) => s.role === "school")) ?? null : role === "hq" || role === "school" ? signed : null;
   const value: Session = {
     role,
     staff,
@@ -100,9 +100,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     canManageUsers: role === "hq" || (role === "school" && staff?.title === "Principal"),
     realRole,
     simulating,
-    startSimulation: (as, schoolName) => {
+    startSimulation: (as, schoolName, staffEmail) => {
       if (realRole === "hq") {
-        setSimulating({ as, sessionId: newSessionId(), ...(schoolName ? { schoolName } : {}) });
+        setSimulating({ as, sessionId: newSessionId(), ...(schoolName ? { schoolName } : {}), ...(staffEmail ? { staffEmail } : {}) });
         setNote("Simulation started");
       }
     },
