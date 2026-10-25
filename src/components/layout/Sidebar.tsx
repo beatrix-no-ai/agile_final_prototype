@@ -11,9 +11,9 @@ const row = "relative flex min-h-11 shrink-0 items-center rounded-full motion-sa
 type Tip = { label: string; top: number };
 
 export default function Sidebar({ pinned, onTogglePin }: { pinned: boolean; onTogglePin(): void }) {
-  const { role, signOut, can, canManageUsers } = useSession();
+  const { role, signOut, can, canManageUsers, isHqAdmin, hqTabs } = useSession();
   const [tip, setTip] = useState<Tip | null>(null);
-  const groups = role ? navGroupsFor(role, { can, canManageUsers }) : [];
+  const groups = role ? navGroupsFor(role, { can, canManageUsers, isHqAdmin, hqTabs }) : [];
 
   // Tooltip is position:fixed so the scrolling nav list cannot clip it. Rail only.
   const show = (label: string) => (e: MouseEvent | FocusEvent) => {

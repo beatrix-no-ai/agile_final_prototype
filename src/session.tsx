@@ -16,6 +16,10 @@ type Session = {
   can(m: Module): boolean;
   /** True for the school Principal (and HQ). */
   canManageUsers: boolean;
+  /** True for an MOE HQ admin (not while simulating): may manage the other MOE HQ accounts. */
+  isHqAdmin: boolean;
+  /** MOE HQ tabs the acting user may open; undefined = all. */
+  hqTabs?: string[];
   simulating: Simulating | null;
   startSimulation(as: "school" | "parent", schoolName?: string, staffEmail?: string): void;
   stopSimulation(): void;
@@ -98,6 +102,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     staff,
     can: (m) => role === "hq" || (role === "school" && !!staff?.modules.includes(m)),
     canManageUsers: role === "hq" || (role === "school" && staff?.title === "Principal"),
+    isHqAdmin: role === "hq" && !!staff?.hqAdmin,
+    hqTabs: role === "hq" && !staff?.hqAdmin ? staff?.hqTabs : undefined,
     realRole,
     simulating,
     startSimulation: (as, schoolName, staffEmail) => {

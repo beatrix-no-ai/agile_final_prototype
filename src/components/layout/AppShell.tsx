@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
-import { homeFor, navFor } from "../../data/nav";
+import { HQ_TABS, homeFor, navFor } from "../../data/nav";
 import { useSession, type Role } from "../../session";
 import type { Module } from "../../data/users";
 import Header from "./Header";
@@ -31,7 +31,7 @@ export function RequireAccess({ module, manage, children }: { module?: Module; m
 }
 
 export default function AppShell() {
-  const { role, simulating, can, canManageUsers } = useSession();
+  const { role, simulating, can, canManageUsers, isHqAdmin, hqTabs } = useSession();
   const { pathname } = useLocation();
   const [pinned, setPinned] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
@@ -43,7 +43,7 @@ export default function AppShell() {
 
   // Child routes (e.g. /admin/fas/hardcopy/FAS20260005) inherit the title of the nav item they sit under.
   const current = role
-    ? navFor(role, { can, canManageUsers })
+    ? navFor(role, { can, canManageUsers, isHqAdmin, hqTabs })
         .filter((n) => pathname === n.to || pathname.startsWith(`${n.to}/`))
         .sort((a, b) => b.to.length - a.to.length)[0]
     : undefined;
@@ -58,6 +58,10 @@ export default function AppShell() {
   const redirect = guardRedirect(role, pathname);
   if (redirect) return <Navigate to={redirect} replace />;
   if (!role) return null;
+  // MOE HQ users only open the tabs the HQ admin gave them.
+  if (role === "hq" && hqTabs && HQ_TABS.some((t) => (pathname === t.to || pathname.startsWith(`${t.to}/`)) && !hqTabs.includes(t.to))) {
+    return hqTabs[0] ? <Navigate to={hqTabs[0]} replace /> : <p className="p-6 text-sm">No tabs have been assigned to your account. Ask an MOE HQ admin.</p>;
+  }
 
   // icebearhoho header layout: no top bar — the page header (title, actions, bell, avatar) heads the content column.
   return (

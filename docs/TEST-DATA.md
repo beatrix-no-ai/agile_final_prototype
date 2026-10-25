@@ -15,7 +15,6 @@ Vào `/signin`. Tab **School or MOE staff** điền email + password (màn hình
 
 | Tài khoản | Email | Password | Vai trò |
 |---|---|---|---|
-| Alicia Tan | `alicia.tan@school.example` | `Sch00l-Demo-26` | Principal — **Greenfield Secondary (S001, cấp 2)** |
 | Marcus Ong | `marcus.ong@school.example` | `Sch00l-Admin-26` | School Admin — Greenfield (S001) |
 | Priya Nair | `priya.nair@school.example` | `Sch00l-Top-26` | School Admin — Greenfield (S001) |
 | Geraldine Rajaratnam | `geraldine.rajaratnam@school.example` | `Sch00l-Demo-26` | School Admin — **Riverbank Primary (S002, cấp 1)** |

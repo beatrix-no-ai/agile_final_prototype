@@ -23,6 +23,10 @@ export type StaffAccount = User & {
   /** School users only. */
   modules: Module[];
   active: boolean;
+  /** MOE HQ admin: everything an HQ officer has, plus managing the other MOE HQ accounts. */
+  hqAdmin?: boolean;
+  /** MOE HQ only: the tabs (nav paths) this user may open; undefined = all. Admins always have all. */
+  hqTabs?: string[];
 };
 
 // ASSUMPTION: mock identities and test-only credentials; real auth is out of scope (SingPass and staff SSO are simulated).
@@ -35,11 +39,13 @@ export const PARENT: ParentAccount = {
 };
 
 export const STAFF: StaffAccount[] = [
-  { role: "school", name: "Alicia Tan", initials: "AT", title: "Principal", email: "alicia.tan@school.example", password: "Sch00l-Demo-26", schoolCode: "S001", modules: [...MODULES], active: true },
+  { role: "school", name: "Alicia Tan", initials: "AT", title: "Principal", email: "alicia.tan@school.example", password: "Sch00l-Demo-26", schoolCode: "S001", modules: [...MODULES], active: false /* hidden for now */ },
   { role: "school", name: "Marcus Ong", initials: "MO", title: "School Admin", email: "marcus.ong@school.example", password: "Sch00l-Admin-26", schoolCode: "S001", modules: ["FAS"], active: true },
   { role: "school", name: "Priya Nair", initials: "PN", title: "School Admin", email: "priya.nair@school.example", password: "Sch00l-Top-26", schoolCode: "S001", modules: ["FAS"], active: true },
   // S002 (Riverbank Primary) account: each school reviews only its own students' FAS applications (BR15).
   { role: "school", name: "Geraldine Rajaratnam", initials: "GR", title: "School Admin", email: "geraldine.rajaratnam@school.example", password: "Sch00l-Demo-26", schoolCode: "S002", modules: ["FAS"], active: true },
+  // Hidden for now (MOE HQ Admin / MOE User tab not configured yet):
+  // { role: "hq", name: "Siti Rahman", initials: "SR", title: "MOE HQ Admin", email: "siti.rahman@moe.example", password: "HqAdmin-Demo-26", modules: [...MODULES], active: true, hqAdmin: true },
   { role: "hq", name: "Daniel Lim", initials: "DL", title: "MOE HQ Officer", email: "daniel.lim@moe.example", password: "HqOfficer-Demo-26", modules: [...MODULES], active: true },
 ];
 
@@ -85,6 +91,30 @@ export function createSchoolUser(v: UserInput): StaffAccount {
     modules: v.position === "Principal" ? [...MODULES] : MODULES.filter((m) => v.modules.includes(m)), active: true,
   };
   STAFF.push(acct);
+  return acct;
+}
+
+export type MoeUserInput = { name: string; email: string; hqAdmin: boolean; hqTabs: string[] };
+
+export function validateMoeUser(v: MoeUserInput, editing?: StaffAccount): Partial<Record<keyof MoeUserInput, string>> {
+  const e: Partial<Record<keyof MoeUserInput, string>> = {};
+  if (v.name.trim().length < 2) e.name = "Enter the user's name.";
+  const email = v.email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Enter a valid email address.";
+  else if (STAFF.some((s) => s !== editing && s.email === email)) e.email = "This email already has an account.";
+  return e;
+}
+
+/** Creates or updates an MOE HQ account (HQ admin only). Sign-in comes from staff SSO, so no password is issued. */
+export function saveMoeUser(v: MoeUserInput, editing?: StaffAccount): StaffAccount {
+  const acct = editing ?? { role: "hq" as const, name: "", initials: "", title: "", email: "", password: "", modules: [...MODULES], active: true };
+  acct.name = v.name.trim();
+  acct.initials = initialsOf(v.name);
+  acct.email = v.email.trim().toLowerCase();
+  acct.hqAdmin = v.hqAdmin;
+  acct.hqTabs = v.hqAdmin ? undefined : [...v.hqTabs];
+  acct.title = v.hqAdmin ? "MOE HQ Admin" : "MOE HQ Officer";
+  if (!editing) STAFF.push(acct);
   return acct;
 }
 

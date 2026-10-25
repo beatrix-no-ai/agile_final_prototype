@@ -78,6 +78,7 @@ export const router = createBrowserRouter([
           { path: "fas/hardcopy/:faId", ...page(() => import("./features/admin/fas/HardcopyDetailPage"), false, false, "FAS") },
           { path: "moefas", ...page(() => import("./features/admin/moefas/Moefas"), true) },
           { path: "users", ...page(() => import("./features/admin/users/Users"), false, false, "users") },
+          // Hidden for now: { path: "moe-users", ...page(() => import("./features/admin/users/MoeUsers"), true) },
           { path: "budgets", ...page(() => import("./features/admin/budgets/Budgets"), false, false, "FAS") },
           { path: "top-up", ...page(() => import("./features/admin/top-up/TopUp"), true) },
           { path: "schools", ...page(() => import("./features/admin/simulation/SchoolRegistry"), true) },

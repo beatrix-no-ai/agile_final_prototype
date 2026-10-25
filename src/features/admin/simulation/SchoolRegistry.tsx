@@ -5,18 +5,13 @@ import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { inputClass } from "../../../components/ui/Field";
-import { navFor } from "../../../data/nav";
 import { FAMILY_STUDENT_NAMES } from "../../../data/parent";
 import { useRegistry } from "../../../data/registryStore";
-import { PARENT, usersOfSchool, type StaffAccount } from "../../../data/users";
+import { PARENT, usersOfSchool } from "../../../data/users";
 import { useSession } from "../../../session";
 import { filterSchools } from "./logic";
 
 type View = "school" | "parent";
-
-/** Screens a School user sees: same rule as their sidebar (modules + Principal manages users). */
-const screensOf = (s: StaffAccount) =>
-  navFor("school", { can: (m) => s.modules.includes(m), canManageUsers: s.title === "Principal" }).map((n) => n.label);
 
 function Step({ n, title, hint, children }: { n: number; title: string; hint: string; children: ReactNode }) {
   return (
@@ -70,7 +65,6 @@ export default function SchoolRegistry() {
   const parents = [PARENT].filter((p) => `${p.name} ${p.singpassId}`.toLowerCase().includes(q.trim().toLowerCase()));
   const schools = filterSchools(reg.schools, q);
   const ready = view === "school" ? !!staff : parentPicked;
-  const screens = view === "parent" ? navFor("parent").map((n) => n.label) : staff ? screensOf(staff) : [];
 
   const pickView = (v: View) => {
     setView(v);
@@ -95,7 +89,6 @@ export default function SchoolRegistry() {
           ["Position", staff?.title ?? "Select a user"],
         ] as [string, string][])
       : ([["Parent", parentPicked ? PARENT.name : "Not selected yet"]] as [string, string][])),
-    ["Data scope", view === "school" ? (school ? "Selected school only" : "Choose a record to continue") : parentPicked ? `${FAMILY_STUDENT_NAMES.length} linked children` : "Choose a record to continue"],
     ["Session mode", "Read-only"],
   ];
 
@@ -189,10 +182,6 @@ export default function SchoolRegistry() {
                 </div>
               ))}
             </dl>
-            <p className="mb-2 mt-5 text-[11px] uppercase tracking-wide text-on-surface-variant">Screens available to this user</p>
-            <div className="flex min-h-6 flex-wrap gap-1.5">
-              {screens.map((s) => <span key={s} className="rounded-md border border-line px-2 py-1 text-xs">{s}</span>)}
-            </div>
             <div className="my-5 flex gap-2.5 rounded-control border border-line bg-surface-container-low p-3 text-xs text-on-surface-variant">
               <Info size={16} aria-hidden className="mt-0.5 shrink-0 text-primary" />
               <span>MOE HQ can only view. Create, edit, approve, submit and payment actions stay disabled, even if the selected user can perform them.</span>

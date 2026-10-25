@@ -1,6 +1,6 @@
 import {
   Bank, Buildings, Eye, ChalkboardTeacher, Coins, CreditCard, Gear,
-  GraduationCap, HandHeart, House, Receipt, Tag, UserGear, type Icon,
+  GraduationCap, HandHeart, IdentificationBadge, House, Receipt, Tag, UserGear, type Icon,
 } from "@phosphor-icons/react";
 import type { Role } from "../session";
 import type { Module } from "./users";
@@ -12,7 +12,7 @@ export type NavGroup = { group?: string; items: NavItem[] };
 export const homeFor = (role: Role) => (role === "parent" ? "/parent" : "/admin");
 
 // Admin navigation is intentionally compact; the e-Service navigation exposes the parent requirements.
-const HQ: NavItem[] = [
+export const HQ_TABS: NavItem[] = [
   { to: "/admin/school-maintenance", label: "School", desc: "Maintain the school master list.", icon: Buildings },
   { to: "/admin/users", label: "User", desc: "Create school users and assign their modules.", icon: UserGear },
   { to: "/admin/classes", label: "Class", desc: "Classes and their rosters.", icon: ChalkboardTeacher },
@@ -21,6 +21,7 @@ const HQ: NavItem[] = [
   { to: "/admin/fee-types", label: "Fee", desc: "Fee rates against the national ceilings.", icon: Tag },
   { to: "/admin/moefas", label: "FAS", desc: "MOEFAS applications and assessment rules.", icon: HandHeart },
   { to: "/admin/budgets", label: "Budget", desc: "MOEFAS budget and statistics.", icon: Coins },
+  { to: "/admin/moe-users", label: "MOE User", desc: "Manage the MOE HQ accounts.", icon: IdentificationBadge },
   { to: "/admin/schools", label: "User simulation", desc: "See the system as a School user or Parent.", icon: Eye },
 ];
 
@@ -40,7 +41,7 @@ const PARENT: NavItem[] = [
 ];
 
 /** What the signed-in user may use; School users see only the modules they were given. */
-export type Access = { can(m: Module): boolean; canManageUsers: boolean };
+export type Access = { can(m: Module): boolean; canManageUsers: boolean; isHqAdmin?: boolean; hqTabs?: string[] };
 
 const SCHOOL_MODULES: (NavItem & { module?: Module; manage?: true })[] = [
   { to: "/admin/fas", label: "FAS", desc: "SBFAS applications and decisions.", icon: HandHeart, module: "FAS" },
@@ -54,11 +55,12 @@ const pick = (items: NavItem[], paths: string[]) => items.filter((i) => paths.in
 export function navGroupsFor(role: Role, access?: Access): NavGroup[] {
   if (role === "parent") return [{ items: PARENT }];
   if (role === "hq") {
+    const hq = HQ_TABS.filter((i) => !access?.hqTabs || access.hqTabs.includes(i.to));
     return [
-      { group: "School Management", items: pick(HQ, ["/admin/school-maintenance", "/admin/users", "/admin/classes", "/admin/students"]) },
-      { group: "Finance", items: pick(HQ, ["/admin/top-up", "/admin/fee-types", "/admin/moefas", "/admin/budgets"]) },
-      { group: "Support", items: pick(HQ, ["/admin/schools"]) },
-    ];
+      { group: "School Management", items: pick(hq, ["/admin/school-maintenance", "/admin/users", "/admin/classes", "/admin/students"]) },
+      { group: "Finance", items: pick(hq, ["/admin/top-up", "/admin/fee-types", "/admin/moefas", "/admin/budgets"]) },
+      { group: "Support", items: pick(hq, ["/admin/schools"]) },
+    ].filter((g) => g.items.length);
   }
   const extra = SCHOOL_MODULES.filter((i) => (i.module ? access?.can(i.module) : access?.canManageUsers)).map(({ module: _m, manage: _g, ...item }) => item);
   const items = [...SCHOOL, ...extra];
