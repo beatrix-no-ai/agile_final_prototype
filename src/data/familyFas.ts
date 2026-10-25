@@ -25,31 +25,3 @@ export const initialBandId = "b3";
 
 /** Reference of the application on file (shown on the tracker once submitted). */
 export const application = { id: fasStatus.applicationId, submittedOn: fasStatus.submittedOn };
-
-// ASSUMPTION: mock AI helper. Canned questions, one at a time; answers are picked from options.
-export type Question = { id: "mailing" | "contact"; text: string; options: { value: string; label: string }[] };
-
-export const questions: Question[] = [
-  {
-    id: "mailing",
-    text: "Should we send letters to your registered address?",
-    options: [
-      { value: "same", label: "Yes, same address" },
-      { value: "different", label: "No, I will type another" },
-    ],
-  },
-  {
-    id: "contact",
-    text: "Which number should the school use to reach you?",
-    options: [
-      { value: "same", label: "The number on my profile" },
-      { value: "different", label: "A different number" },
-    ],
-  },
-];
-
-export const autoFillSource = {
-  contact: profile.contact,
-  mailingAddress: profile.mailingAddress,
-  note: "Household income reduced since August; two children in school.",
-};

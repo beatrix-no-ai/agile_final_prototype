@@ -1,4 +1,4 @@
-import { autoFillSource, type Band } from "../../../data/familyFas";
+import { type Band } from "../../../data/familyFas";
 import type { FasStage } from "../../../data/parentStore";
 
 export type SyncStatus = "idle" | "loading" | "success" | "error";
@@ -46,26 +46,4 @@ export function validateForm(v: FormValues, consent: boolean): FormErrors {
   if (!v.mailingAddress.trim()) e.mailingAddress = "Enter a mailing address.";
   if (!consent) e.consent = "Tick the box to consent before submitting.";
   return e;
-}
-
-/** ASSUMPTION: mock AI auto-fill with fixed data. Only empty fields are filled; `count` says how many. */
-export function autoFill(cur: FormValues): { values: FormValues; count: number } {
-  const values = { ...cur };
-  let count = 0;
-  for (const k of Object.keys(autoFillSource) as (keyof typeof autoFillSource)[]) {
-    if (!cur[k].trim()) {
-      values[k] = autoFillSource[k];
-      count++;
-    }
-  }
-  return { values, count };
-}
-
-/** "different" leaves the field as typed so the parent can enter their own value. */
-export function answersToForm(a: Partial<Record<"mailing" | "contact", string>>, cur: FormValues): FormValues {
-  return {
-    ...cur,
-    mailingAddress: a.mailing === "same" ? autoFillSource.mailingAddress : cur.mailingAddress,
-    contact: a.contact === "same" ? autoFillSource.contact : cur.contact,
-  };
 }

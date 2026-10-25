@@ -1,6 +1,6 @@
 import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from "react";
 
-type Props = { label: string; required?: boolean; error?: string; hint?: string; className?: string; children: ReactNode };
+type Props = { label: string; required?: boolean; error?: string; hint?: ReactNode; className?: string; children: ReactNode };
 
 /** Shared class for text inputs / selects placed inside <Field>. */
 export const inputClass =

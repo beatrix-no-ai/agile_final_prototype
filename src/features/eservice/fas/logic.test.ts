@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { BANDS, autoFillSource } from "../../../data/familyFas";
-import { assess, autoFill, answersToForm, trackerSteps, validateForm } from "./logic";
+import { BANDS } from "../../../data/familyFas";
+import { assess, trackerSteps, validateForm } from "./logic";
 
 test("assess: MOEFAS tiers first, SBFAS only when MOEFAS is not granted, never both", () => {
   expect(assess(BANDS[0])).toMatchObject({ scheme: "MOEFAS", tier: "Tier 1", status: "Indicative" });
@@ -39,22 +39,4 @@ test("validateForm checks extra money and residents (for GHI and PCI)", () => {
   expect(validateForm({ ...ok, extraIncome: "-5" }, true).extraIncome).toBeTruthy();
   expect(validateForm({ ...ok, residents: "0" }, true).residents).toBeTruthy();
   expect(validateForm({ ...ok, residents: "2.5" }, true).residents).toBeTruthy();
-});
-
-test("autoFill fills only empty fields and counts them", () => {
-  const empty = { ...hh, contact: "", mailingAddress: "", note: "" };
-  expect(autoFill(empty)).toEqual({ values: { ...hh, ...autoFillSource }, count: 3 });
-  expect(validateForm(autoFill(empty).values, true)).toEqual({});
-  const typed = { ...empty, note: "my own words", contact: "9000 0000" };
-  expect(autoFill(typed)).toEqual({ values: { ...hh, ...autoFillSource, note: "my own words", contact: "9000 0000" }, count: 1 });
-  expect(autoFill({ ...hh, ...autoFillSource }).count).toBe(0);
-});
-
-test("answersToForm maps picks and keeps the typed value when the parent will type their own", () => {
-  const empty = { ...hh, contact: "", mailingAddress: "", note: "" };
-  expect(answersToForm({ mailing: "same", contact: "same" }, empty)).toMatchObject({
-    contact: autoFillSource.contact,
-    mailingAddress: autoFillSource.mailingAddress,
-  });
-  expect(answersToForm({ contact: "different" }, { ...empty, contact: "9000 0000" }).contact).toBe("9000 0000");
 });
