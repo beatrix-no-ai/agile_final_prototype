@@ -81,8 +81,5 @@ export function useFasActions() {
     submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }) {
       run({ type: "submitSbfasReapply", ...input, at: new Date().toISOString() }, [input.studentId]);
     },
-    notifyParent(id: string) {
-      run({ type: "notifyParent", id, at: new Date().toISOString() }, []);
-    },
   };
 }

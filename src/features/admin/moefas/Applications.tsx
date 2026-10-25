@@ -12,7 +12,8 @@ import {
   type Basis, type Family, type Range, type Rule,
 } from "../../../data/moefas";
 import { useFas } from "../../../data/fasStore";
-import { childOutcomeNow } from "../../../data/familyApplications";
+import { childOutcomeNow, type FamilyApplication } from "../../../data/familyApplications";
+import { FamilyApplicationSections, KIND_TONE } from "../fas/FamilySections";
 import { formatSGD } from "../../../lib/format";
 
 const TONE: Record<string, BadgeTone> = {
@@ -231,93 +232,125 @@ function Detail({ f, rules, onBack }: { f: Family; rules: Rule[]; onBack: () => 
   );
 }
 
-/** Requirement 5, HQ side: paper forms the schools scanned in this session, live from the FAS store. */
-function HardcopyLive() {
+/** One list for MOE: seeded e-Service arrivals plus the paper forms schools scanned in this session. */
+type Row = Family | FamilyApplication;
+const isHardcopy = (f: Row): f is FamilyApplication => "channel" in f;
+
+/** Application-level rollup for a hardcopy row, using the live school decisions — the strings match
+ *  the status filter so both channels filter together. */
+function hardcopyStatus(fa: FamilyApplication, apps: Parameters<typeof childOutcomeNow>[2]): string {
+  const kinds = fa.children.map((c) => childOutcomeNow(fa, c, apps).kind);
+  if (kinds.includes("pending")) return "SBFAS review";
+  const granted = kinds.includes("granted") || kinds.includes("neutral");
+  const rejected = kinds.includes("rejected");
+  if (granted && rejected) return "Mixed outcomes";
+  if (rejected) return "MOEFAS not granted";
+  if (granted) return "MOEFAS Granted";
+  return "Already covered";
+}
+
+/** A scanned-in paper form, opened from the merged list — laid out exactly like an online application
+ *  (FamilyApplicationSections), because for MOE it is one. */
+function HardcopyApplicationDetail({ fa, onBack }: { fa: FamilyApplication; onBack: () => void }) {
   const { state: fas } = useFas();
-  const rows = fas.familyApps;
+  const dateFmt = (at?: string) => (at ? new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—");
   return (
-    <Card title="Hardcopy applications entered by schools" action={<Badge tone="primary">This session</Badge>}>
-      <p className="mb-4 text-sm text-on-surface-variant">
-        Paper MOE FAS forms scanned in by School users for parents who cannot use the e-Service Portal. Each one is
-        assessed here like an online application: MOEFAS first, and children outside the bands are referred to their
-        school&apos;s SBFAS queue.
-      </p>
-      {rows.length ? (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-sm">
-            <thead>
-              <tr>
-                <th className={th}>Application / submitted</th>
-                <th className={th}>Applicant</th>
-                <th className={th}>School</th>
-                <th className={th}>Income band</th>
-                <th className={th}>Children</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((f) => (
-                <tr key={f.id}>
-                  <td className={td}>
-                    <span className="font-semibold">{f.id}</span>
-                    <span className="block text-[13px] text-on-surface-variant">
-                      {new Date(f.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} · entered by {f.enteredBy}{f.entryMode === "ocr" ? " (scan + OCR)" : ""}
-                    </span>
-                  </td>
-                  <td className={td}>{f.applicant}<span className="block text-[13px] text-on-surface-variant">{f.contact}</span></td>
-                  <td className={td}>{f.school}</td>
-                  <td className={td}>{f.bandLabel}</td>
-                  <td className={td}>
-                    {f.children.map((c) => {
-                      const co = childOutcomeNow(f, c, fas.apps);
-                      return (
-                        <span key={c.studentId} className="block text-[13px]">
-                          {c.student} · <Badge tone={co.kind === "granted" ? "success" : co.kind === "rejected" ? "alert" : co.kind === "pending" ? "warning" : "neutral"}>{co.label}</Badge>
-                        </span>
-                      );
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="space-y-4">
+      <button type="button" onClick={onBack} className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        <ArrowLeft size={16} weight="bold" aria-hidden="true" /> All applications
+      </button>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] text-on-surface-variant">Family application / {fa.id}{" "}<Badge tone="primary">Hardcopy</Badge></p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">{fa.applicant}&apos;s application</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">Submitted {dateFmt(fa.at)} · Paper form entered by {fa.enteredBy}{fa.entryMode === "ocr" ? " (PDF + OCR)" : ""} · All linked children included</p>
         </div>
-      ) : (
-        <EmptyState title="No hardcopy applications yet" hint="Sign in as a School user, open FAS → Hardcopy applications and scan a paper form to see it arrive here." />
-      )}
-    </Card>
+        <Pill s={hardcopyStatus(fa, fas.apps)} />
+      </div>
+      <FamilyApplicationSections fa={fa} />
+    </div>
   );
 }
 
 export default function Applications({ rules }: { rules: Rule[] }) {
+  const { state: fas } = useFas();
   const [q, setQ] = useState("");
+  const [channel, setChannel] = useState("");
   const [outcome, setOutcome] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const open = FAMILIES.find((f) => f.id === openId);
+  const openPortal = FAMILIES.find((f) => f.id === openId);
+  const openHardcopy = openPortal ? undefined : fas.familyApps.find((f) => f.id === openId);
 
-  if (open) return <Detail key={open.id} f={open} rules={rules} onBack={() => setOpenId(null)} />;
+  if (openPortal) return <Detail key={openPortal.id} f={openPortal} rules={rules} onBack={() => setOpenId(null)} />;
+  if (openHardcopy) return <HardcopyApplicationDetail key={openHardcopy.id} fa={openHardcopy} onBack={() => setOpenId(null)} />;
 
-  const rows = FAMILIES.filter((f) => (!outcome || applicationStatus(f) === outcome) && [f.id, f.parent, ...f.children].join(" ").toLowerCase().includes(q.trim().toLowerCase()));
-  const columns: Column<Family>[] = [
-    { key: "id", header: "Application / submitted", sortable: true, render: (f) => <><span className="font-semibold">{f.id}</span><span className="block text-[13px] text-on-surface-variant">18 Oct 2026 · 09:{12 + FAMILIES.indexOf(f) * 7} SGT</span></> },
-    { key: "parent", header: "Applicant", sortable: true, render: (f) => <>{f.parent}<span className="block text-[13px] text-on-surface-variant">Parent / guardian</span></> },
-    { key: "children", header: "Children", render: (f) => <>{f.children.length} {f.children.length > 1 ? "children" : "child"}{f.children.map((n, i) => <span key={n} className="block text-[13px] text-on-surface-variant">{n} · {childResult(f, i)}</span>)}</> },
-    { key: "outcome", header: "Application status", render: (f) => <Pill s={applicationStatus(f)} /> },
+  const all: Row[] = [...FAMILIES, ...fas.familyApps];
+  const statusOf = (f: Row) => (isHardcopy(f) ? hardcopyStatus(f, fas.apps) : applicationStatus(f));
+  const rows = all.filter((f) => (!channel || (isHardcopy(f) ? "Hardcopy" : "e-Service") === channel)
+    && (!outcome || statusOf(f) === outcome) && (isHardcopy(f)
+    ? [f.id, f.applicant, ...f.children.map((c) => c.student)]
+    : [f.id, f.parent, ...f.children]).join(" ").toLowerCase().includes(q.trim().toLowerCase()));
+  const columns: Column<Row>[] = [
+    {
+      key: "id", header: "Application / submitted", sortable: true,
+      render: (f) => isHardcopy(f) ? (
+        <>
+          <span className="font-semibold">{f.id}</span>{" "}<Badge tone="primary">Hardcopy</Badge>
+          <span className="block text-[13px] text-on-surface-variant">
+            {new Date(f.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · entered by {f.enteredBy}{f.entryMode === "ocr" ? " (PDF + OCR)" : ""}
+          </span>
+        </>
+      ) : (
+        <><span className="font-semibold">{f.id}</span><span className="block text-[13px] text-on-surface-variant">18 Oct 2026 · 09:{12 + FAMILIES.indexOf(f) * 7} SGT</span></>
+      ),
+    },
+    {
+      key: "applicant", header: "Applicant",
+      render: (f) => isHardcopy(f)
+        ? <>{f.applicant}<span className="block text-[13px] text-on-surface-variant">{f.contact} · {f.school}</span></>
+        : <>{f.parent}<span className="block text-[13px] text-on-surface-variant">Parent / guardian</span></>,
+    },
+    {
+      key: "children", header: "Children",
+      render: (f) => isHardcopy(f) ? (
+        <>{f.children.length} {f.children.length > 1 ? "children" : "child"}
+          {f.children.map((c) => {
+            const co = childOutcomeNow(f, c, fas.apps);
+            return (
+              <span key={c.studentId} className="block text-[13px]">
+                {c.student} · <Badge tone={KIND_TONE[co.kind]}>{co.label}</Badge>
+              </span>
+            );
+          })}
+        </>
+      ) : (
+        <>{f.children.length} {f.children.length > 1 ? "children" : "child"}{f.children.map((n, i) => <span key={n} className="block text-[13px] text-on-surface-variant">{n} · {childResult(f, i)}</span>)}</>
+      ),
+    },
+    { key: "outcome", header: "Application status", render: (f) => <Pill s={statusOf(f)} /> },
   ];
 
   return (
-    <>
     <Card
       title="Family applications"
       action={<span className="text-[13px] text-on-surface-variant">Academic year 2026</span>}
     >
-      <p className="mb-4 text-sm text-on-surface-variant">Submitted through the parent e-Service portal. Each child is assessed separately.</p>
+      <p className="mb-4 text-sm text-on-surface-variant">
+        From the parent e-Service portal, plus paper MOE FAS forms schools scanned in for parents who cannot use the
+        portal — marked Hardcopy. Each child is assessed separately.
+      </p>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input className={`${inputClass} max-w-sm`} aria-label="Search applications" placeholder="Search application, parent or child" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className={`${inputClass} max-w-48`} aria-label="Filter channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
+          <option value="">All channels</option>
+          <option value="e-Service">e-Service (online)</option>
+          <option value="Hardcopy">Hardcopy (paper)</option>
+        </select>
         <select className={`${inputClass} max-w-52`} aria-label="Filter application status" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
           <option value="">All statuses</option>
-          {OUTCOMES.map((o) => <option key={o}>{o}</option>)}
+          {[...OUTCOMES, "MOEFAS not granted", "Already covered"].map((o) => <option key={o}>{o}</option>)}
         </select>
-        <Button variant="secondary" onClick={() => { setQ(""); setOutcome(""); }}>Reset</Button>
+        <Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); }}>Reset</Button>
       </div>
       <DataTable
         columns={columns}
@@ -325,11 +358,9 @@ export default function Applications({ rules }: { rules: Rule[] }) {
         rowKey={(f) => f.id}
         rowActions={(f) => <RowAction onClick={() => setOpenId(f.id)}>View details</RowAction>}
         large
-        empty={<EmptyState title="No matching applications" hint="Try another search or reset the filters." action={<Button variant="secondary" onClick={() => { setQ(""); setOutcome(""); }}>Reset</Button>} />}
+        empty={<EmptyState title="No matching applications" hint="Try another search or reset the filters." action={<Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); }}>Reset</Button>} />}
       />
-      <p className="mt-3 text-[13px] text-on-surface-variant">Showing {rows.length} of {FAMILIES.length} family applications</p>
+      <p className="mt-3 text-[13px] text-on-surface-variant">Showing {rows.length} of {all.length} family applications</p>
     </Card>
-    <HardcopyLive />
-    </>
   );
 }

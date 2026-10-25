@@ -1,16 +1,28 @@
-import { useRef, useState, type RefObject } from "react";
-import { Link } from "react-router";
-import { Sparkle } from "@phosphor-icons/react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { ArrowLeft, Sparkle } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
+import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { Modal } from "../../../components/ui/Modal";
 import { SBFAS_TIERS, attemptOf, sourceOf, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
-import { rankOf, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
+import { useFas } from "../../../data/fasStore";
+import { useFasActions } from "../../../data/fasActions";
+import { useFees } from "../../../data/feeStore";
+import { useMovements } from "../../../data/movements";
+import { useRegistry } from "../../../data/registryStore";
+import { useSbfas } from "../../../data/sbfasStore";
+import { rankOf, ruleForSchool, subsidySummary, type ComponentRates, type SbfasRule, type SubsidyBasis } from "../../../data/sbfasRule";
 import { isSbfasEligible } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
+import { balanceOf, chargeStatus } from "../../../lib/fees";
 import { riskLevel } from "../../../lib/fas";
-import { statusLabel, validateDecision, type Action, type Draft, type DecisionError } from "./review";
+import { schoolOfStudent } from "../../../lib/registry";
+import { withBalance } from "../../../lib/studentFas";
+import { useSession } from "../../../session";
+import { statusLabel, validateDecision, type Action, type DecisionError, type Draft } from "./review";
+import { FamilyApplicationSections } from "./FamilySections";
 
 export const riskTone = { Low: "success", Medium: "warning", High: "alert" } as const;
 
@@ -19,21 +31,14 @@ export function RiskBadge({ score }: { score: number }) {
   return <Badge tone={riskTone[level]}>{level} - {score}</Badge>;
 }
 
-/** Extra fields carried alongside the application (computed in the queue from real student records and charges). */
+/** Extra fields carried alongside the application (computed from real student records and charges). */
 export type FeeContext = {
   payable: number;
   balance: number;
   nationality: string;
 };
 
-type Props = {
-  app: (SbfasApplication & FeeContext) | null;
-  rule: SbfasRule | null;
-  /** On a resubmission: the rejected application it replaced, so the reviewer sees the history. */
-  superseded?: (SbfasApplication & FeeContext) | null;
-  onClose: () => void;
-  onDecide: (id: string, action: Action, draft: Draft) => void;
-};
+type Enriched = SbfasApplication & FeeContext;
 
 function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -44,7 +49,9 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-function ReviewBody({ app, rule, superseded, onDecide }: Omit<Props, "app" | "onClose"> & { app: SbfasApplication & FeeContext }) {
+/** The review body, shared by nothing else anymore but kept as its own component so the page can key
+ *  it per application (resets the decision draft when the reviewer opens another one). */
+function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: SbfasRule | null; superseded: SbfasApplication | null; onDecide: (id: string, action: Action, draft: Draft) => void }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -52,9 +59,15 @@ function ReviewBody({ app, rule, superseded, onDecide }: Omit<Props, "app" | "on
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
+  // BR15: a school reviewer only sees their own students in the family sections; MOE sees all.
+  const { role, staff } = useSession();
   const tierRef = useRef<HTMLSelectElement>(null);
   const justRef = useRef<HTMLTextAreaElement>(null);
   const decided = app.status !== "Pending";
+  const { state: fas } = useFas();
+  // A hardcopy case carries the paper family application it came from — shown in full, by section,
+  // the same way MOE sees it, so the reviewer reads the household off the actual form.
+  const familyApp = app.familyAppId ? fas.familyApps.find((f) => f.id === app.familyAppId) : undefined;
 
   const act = (action: Action) => {
     const draft = { justification, tier };
@@ -129,15 +142,22 @@ function ReviewBody({ app, rule, superseded, onDecide }: Omit<Props, "app" | "on
         <p className="mt-1.5 text-sm text-on-surface">{app.explanation}</p>
       </div>
 
+      {familyApp && (
+        <div className="space-y-4">
+          <p className="text-[13px] font-semibold text-on-surface">
+            The paper family application ({familyApp.id}) — by section, as MOE sees it
+          </p>
+          <FamilyApplicationSections fa={familyApp} initialStudentId={app.studentId} onlySchoolCode={role === "school" ? staff?.schoolCode : undefined} />
+        </div>
+      )}
+
       {decided ? (
         <div className="rounded-control border border-line p-4 text-sm">
           <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${rankOf(app.sbfasTier)}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
-          {app.parentNotifiedAt && (
-            <p className="mt-1 text-[13px] text-on-surface-variant">
-              Parent told the outcome on {new Date(app.parentNotifiedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
-            </p>
-          )}
+          <p className="mt-1 text-[13px] text-on-surface-variant">
+            Outcome sent to the parent by SMS/email automatically on the decision date.
+          </p>
         </div>
       ) : (
         <>
@@ -179,11 +199,89 @@ function ReviewBody({ app, rule, superseded, onDecide }: Omit<Props, "app" | "on
   );
 }
 
-/** Modal stays mounted so Modal can restore focus to the opener; the body is keyed per application to reset its draft. */
-export function ReviewModal({ app, rule, superseded, onClose, onDecide }: Props) {
+/** The SBFAS review as its own page (like the MOE application detail) — the queue's "Open review"
+ *  navigates here instead of opening a popup, so the full application, including a hardcopy form's
+ *  sections, has room and a shareable URL. */
+export default function ReviewPage() {
+  const { appId = "" } = useParams();
+  const navigate = useNavigate();
+  const { state: fas } = useFas();
+  const { state: reg } = useRegistry();
+  const { state: sbfas } = useSbfas();
+  const fees = useFees();
+  const movements = useMovements();
+  const { decide } = useFasActions();
+  const { staff } = useSession();
+  const [announce, setAnnounce] = useState("");
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [appId]);
+
+  const app = fas.apps.find((a) => a.id === appId);
+  const student = app ? reg.students.find((s) => s.id === app.studentId) : undefined;
+  const enriched: Enriched | null = app && student ? {
+    ...app,
+    nationality: student.nationality ?? "Singapore Citizen",
+    // What the family still owes (after any FAS subsidy and payments) — separate from the account's top-up balance.
+    payable: fees.state.charges.filter((c) => c.studentId === app.studentId && chargeStatus(c) !== "paid").reduce((t, c) => t + balanceOf(c), 0),
+    balance: withBalance(student, movements).balance,
+  } : null;
+  // The rule of the school that owns the application — SBFAS packages are school-defined.
+  const school = student ? schoolOfStudent(student, reg.classes) : staff?.schoolCode ?? "S001";
+  const rule = enriched ? ruleForSchool(sbfas.rules, school) : null;
+  const superseded = enriched?.supersedesId ? fas.apps.find((a) => a.id === enriched.supersedesId) ?? null : null;
+  const back = () => navigate("/admin/fas", { state: { fasTab: "sbfas" } });
+
+  const onDecide = (id: string, action: Action, draft: Draft) => {
+    decide(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
+    const a = fas.apps.find((x) => x.id === id);
+    if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
+  };
+
+  const backLink = (
+    <button
+      type="button"
+      onClick={back}
+      className="inline-flex items-center gap-1.5 rounded text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <ArrowLeft size={16} weight="bold" aria-hidden="true" /> Back to SBFAS review
+    </button>
+  );
+
+  if (!enriched) {
+    return (
+      <div className="space-y-4">
+        {backLink}
+        <Card title={`Review application ${appId}`}>
+          <EmptyState
+            title="This application is not in the current session"
+            hint="Demo data lives in memory and resets on reload — the seeded queue returns when you reopen this page from the SBFAS review tab."
+          />
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <Modal open={app !== null} onClose={onClose} title={app ? `Review application ${app.id}` : "Review application"}>
-      {app && <ReviewBody key={app.id} app={app} rule={rule} superseded={superseded} onDecide={onDecide} />}
-    </Modal>
+    <div className="space-y-4">
+      {backLink}
+      <p role="status" className="sr-only">{announce}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-[13px] text-on-surface-variant">SBFAS review / {enriched.id}</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">{enriched.student}&apos;s application</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">
+            {sourceOf(enriched)} · {enriched.level} · {reg.schools.find((s) => s.code === school)?.name ?? school}
+          </p>
+        </div>
+        <Badge tone={enriched.status === "Pending" ? "neutral" : enriched.status === "Rejected" ? "alert" : "success"}>
+          {statusLabel(enriched.status)}{enriched.sbfasTier ? ` · ${rankOf(enriched.sbfasTier)}` : ""}
+        </Badge>
+      </div>
+      <Card title="Review the application">
+        <ReviewBody key={enriched.id} app={enriched} rule={rule} superseded={superseded} onDecide={onDecide} />
+      </Card>
+    </div>
   );
 }

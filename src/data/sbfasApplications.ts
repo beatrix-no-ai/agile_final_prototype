@@ -33,7 +33,6 @@ export type SbfasApplication = {
   /** Required from attempt 2 on: what changed since the rejected request. */
   reapplyReason?: string;
   /** When the school recorded that it told the parent the outcome (hardcopy families have no portal). */
-  parentNotifiedAt?: string;
   /** Staff member who entered the paper form; undefined on online submissions. */
   enteredBy?: string;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */

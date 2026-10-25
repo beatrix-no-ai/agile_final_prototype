@@ -1,16 +1,17 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CaretRight, FilePdf, Plus, Scan, X } from "@phosphor-icons/react";
+import { CaretRight, FilePdf, Plus, UploadSimple, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { Modal } from "../../../components/ui/Modal";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type TransportMode } from "../../../data/familyApplications";
+import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type TransportMode } from "../../../data/familyApplications";
 import { useFasActions } from "../../../data/fasActions";
 import { latestAppFor, useFas } from "../../../data/fasStore";
 import { BANDS, type Band } from "../../../data/familyFas";
-import { attemptOf, sourceOf, type SbfasApplication } from "../../../data/sbfasApplications";
+import { attemptOf, type SbfasApplication } from "../../../data/sbfasApplications";
 import { schoolOfLevel } from "../../../data/schoolMgmt";
 import { useRegistry } from "../../../data/registryStore";
 import type { Level } from "../../../data/students";
@@ -73,6 +74,23 @@ const blankChild = (): ChildDraft => ({ nric: "", name: "", school: "", level: "
 
 /** Tone for the live per-child outcome (childOutcomeNow): follows the school's SBFAS decision. */
 const LIVE_TONE: Record<ChildOutcomeNow["kind"], BadgeTone> = { granted: "success", pending: "warning", rejected: "alert", neutral: "neutral" };
+
+/** Section VII's one-line MOE verdict for a flow-1 form: the assessment ran at submission and is
+ *  final, so it is told here once instead of repeating a badge on every child row. */
+function moeVerdict(fa: FamilyApplication): string {
+  const granted = fa.children.filter((c) => c.outcome === "MOEFAS granted");
+  const referred = fa.children.filter((c) => c.outcome === "MOEFAS not granted");
+  const covered = fa.children.filter((c) => c.outcome === "Already covered");
+  const names = (xs: FamilyChild[]) => xs.map((c) => c.student).join(", ");
+  if (granted.length && !referred.length) return `MOE assessed at submission: MOEFAS granted — ${names(granted)}.`;
+  if (referred.length && !granted.length)
+    return `MOE assessed at submission: MOEFAS not granted for ${names(referred)} — outside the MOEFAS bands, referred to each school's SBFAS review queue.`;
+  const parts: string[] = [];
+  if (granted.length) parts.push(`MOEFAS granted for ${names(granted)}`);
+  if (referred.length) parts.push(`not granted for ${names(referred)} — referred to SBFAS`);
+  if (covered.length) parts.push(`${names(covered)} already covered`);
+  return parts.length ? `MOE assessed at submission: ${parts.join("; ")}.` : "MOE assessed at submission.";
+}
 const statusTone: Record<SbfasApplication["status"], BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
 
 /** Small numbered section heading, mirroring the paper form's sections. */
@@ -96,7 +114,7 @@ function PaperRow({ fa, apps, schoolOf, onOpen }: { fa: FamilyApplication; apps:
           <p className="text-sm font-semibold">{fa.id} · {fa.applicant}</p>
           <p className="text-[13px] text-on-surface-variant">
             {new Date(fa.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {fa.bandLabel} · entered by {fa.enteredBy}
-            {fa.entryMode === "ocr" ? " (scanned + OCR)" : ""}
+            {fa.entryMode === "ocr" ? " (PDF upload + OCR)" : ""}
           </p>
         </div>
         <span className="flex items-center gap-1.5">
@@ -112,7 +130,10 @@ function PaperRow({ fa, apps, schoolOf, onOpen }: { fa: FamilyApplication; apps:
               <span className="font-medium text-on-surface">
                 {c.student} <span className="font-normal text-on-surface-variant">({c.level}{schoolOf(c.level) !== fa.school ? ` · ${schoolOf(c.level)}` : ""})</span>
               </span>
-              <Badge tone={LIVE_TONE[co.kind]}>{co.label}</Badge>
+              <span className="flex flex-wrap items-center gap-1.5">
+                {/* Single live badge; MOE's instant verdict is told once, in Section VII of the detail page. */}
+                <Badge tone={LIVE_TONE[co.kind]}>{co.label}</Badge>
+              </span>
             </li>
           );
         })}
@@ -143,7 +164,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
     <div className="space-y-5">
       <p className="text-[13px] text-on-surface-variant">
         {new Date(fa.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {fa.school} · entered by {fa.enteredBy}
-        {fa.entryMode === "ocr" ? " (scanned + OCR)" : " (keyed in)"}
+        {fa.entryMode === "ocr" ? " (PDF upload + OCR)" : " (keyed in)"}
       </p>
       <section className="space-y-2">
         <SectionTitle n="I" title="Particulars of the child" />
@@ -155,7 +176,9 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
                 ? "MOEFAS was not granted, but the school granted SBFAS — the subsidy is applied to the eligible fees."
                 : co.kind === "rejected"
                   ? "SBFAS not granted — the parent may hand the school a separate new request if circumstances change."
-                  : outcomeNote(c);
+                  : co.kind === "pending" && c.outcome === "MOEFAS not granted"
+                    ? `Referred to ${schoolOf(c.level) === fa.school ? "this school's" : `${schoolOf(c.level)}'s`} SBFAS review queue — awaiting the decision.`
+                    : outcomeNote(c);
             return (
               <li key={c.studentId} className="space-y-0.5">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -230,17 +253,42 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         <p className="text-sm font-medium">
           {flow2 ? "To this school's SBFAS review queue — a separate request after a rejection" : "To MOE for assessment — the first application"}
         </p>
-        {linked.length > 0 && (
+        {/* The MOE verdict is instant and final at submission — it is told here, once, not repeated
+            as a second badge on every child row above. */}
+        {!flow2 && <p className="text-[13px] text-on-surface-variant">{moeVerdict(fa)}</p>}
+        {/* MOE route: every child's pass/fail is known at submission, so the rows carry the verdict
+            itself (the school's live SBFAS status stays on each child in Section I). Flow 2 never
+            reaches MOE — its rows keep the school queue status. */}
+        {flow2 ? (
+          linked.length > 0 && (
+            <ul className="space-y-1.5">
+              {linked.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>
+                    <span className="font-medium">{a.id}</span> · {a.student}
+                    <span className="text-[13px] text-on-surface-variant">{attemptOf(a) > 1 ? ` · attempt ${attemptOf(a)}` : ""}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</span>
+                  </span>
+                  <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}</Badge>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : (
           <ul className="space-y-1.5">
-            {linked.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span>
-                  <span className="font-medium">{a.id}</span> · {a.student}
-                  <span className="text-[13px] text-on-surface-variant">{attemptOf(a) > 1 ? ` · attempt ${attemptOf(a)}` : ""}{a.sbfasTier ? ` · ${a.sbfasTier}` : ""}</span>
-                </span>
-                <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}</Badge>
-              </li>
-            ))}
+            {fa.children.map((c) => {
+              const a = linked.filter((x) => x.studentId === c.studentId).sort((x, y) => (y.attemptNo ?? 1) - (x.attemptNo ?? 1))[0];
+              return (
+                <li key={c.studentId} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span>
+                    {c.student}
+                    {a && <span className="text-[13px] text-on-surface-variant"> · {a.id}</span>}
+                  </span>
+                  <Badge tone={c.outcome === "MOEFAS granted" ? "success" : c.outcome === "Already covered" ? "neutral" : "warning"}>
+                    {c.outcome === "MOEFAS granted" ? `MOEFAS granted${c.tier ? ` · ${c.tier}` : ""}` : c.outcome === "Already covered" ? "Already covered" : "MOEFAS not granted"}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -249,7 +297,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
 }
 
 export default function HardcopyEntry() {
-  const { state: fas, dispatch } = useFas();
+  const { state: fas } = useFas();
   const { state: reg } = useRegistry();
   const actions = useFasActions();
   const { staff } = useSession();
@@ -308,6 +356,8 @@ export default function HardcopyEntry() {
   const [submitMode, setSubmitMode] = useState<"moe" | "sbfas">("moe");
   // The final check: a separate read-only page with every field frozen — Submit only lives there.
   const [reviewing, setReviewing] = useState(false);
+  // Submit asks once more in a dialog before the form leaves the staff member's hands.
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
 
   // Flow 2 shares the same form: what changed since the rejected request, read off the new form.
@@ -338,24 +388,15 @@ export default function HardcopyEntry() {
   // History drill-down: each row navigates to its own page (see HardcopyDetailPage), so the list
   // stays scannable however long it gets.
   const navigate = useNavigate();
-  // This school's hardcopy-channel SBFAS cases (first requests and resubmissions) for the notify tick.
-  const paperSbfas = useMemo(
-    () => fas.apps.filter((a) => sourceOf(a) !== "MOE referral" && mine.some((s) => s.id === a.studentId)),
-    [fas.apps, mine],
-  );
-  // Decided hardcopy cases the school has not yet recorded as told to the parent — the actionable count.
-  const toNotify = paperSbfas.filter((a) => a.status !== "Pending" && !a.parentNotifiedAt).length;
-
   // One entry form: the submit step decides where it goes (MOE-first, or straight to this school's
   // SBFAS queue after a rejection), then the two lists.
-  type View = "new" | "apps" | "notify";
+  type View = "new" | "apps";
   // Returning from a paper-application page reopens the list the staff member came from.
   const initialView = (useLocation().state as { hardcopyView?: View } | null)?.hardcopyView;
   const [view, setView] = useState<View>(initialView ?? "new");
   const views: [View, string][] = [
     ["new", "New form"],
     ["apps", `Applications (${paperApps.length})`],
-    ["notify", `Tell the parent (${toNotify})`],
   ];
 
   const scan = () => {
@@ -526,7 +567,7 @@ export default function HardcopyEntry() {
       {view === "new" && (
       <Card
         title="Submit a paper MOE FAS form"
-        action={<Button size="sm" variant="secondary" onClick={scan} disabled={scanning || reviewing}><Scan size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading form…" : "Scan form (demo OCR)"}</Button>}
+        action={<Button size="sm" variant="secondary" onClick={scan} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF (demo OCR)"}</Button>}
       >
         {reviewing ? (
         <div className="space-y-5">
@@ -608,7 +649,7 @@ export default function HardcopyEntry() {
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
           <div className="flex justify-between gap-3">
             <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
-            <Button onClick={submit}>Submit</Button>
+            <Button onClick={() => setConfirming(true)}>Submit</Button>
           </div>
         </div>
         ) : (
@@ -972,36 +1013,27 @@ export default function HardcopyEntry() {
       </>
       )}
 
-      {view === "notify" && (
-      <Card title="Hardcopy SBFAS cases — telling the parent">
-        <p className="mb-4 text-sm text-on-surface-variant">
-          These families have no portal, so the school tells them the outcome in person and records it here (once per decision).
+      <Modal
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Submit this application?"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button onClick={() => { setConfirming(false); submit(); }}>Submit</Button>
+          </>
+        }
+      >
+        <p className="text-sm text-on-surface">
+          One application for {childrenRows.filter(rowFilled).map((r) => r.name.trim() || "—").join(", ")} — it goes{" "}
+          {submitMode === "moe"
+            ? "to MOE for assessment: MOEFAS is decided instantly, and children outside the bands are referred to their school's SBFAS review queue."
+            : "straight to this school's SBFAS review queue as a separate request after a rejection."}
         </p>
-        {paperSbfas.length ? (
-          <ul className="space-y-2">
-            {paperSbfas.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-line px-4 py-2.5 text-sm">
-                <span>
-                  <span className="font-semibold">{a.id}</span> · {a.student}
-                  <span className="block text-[13px] text-on-surface-variant">
-                    {sourceOf(a)}{attemptOf(a) > 1 ? ` · attempt ${attemptOf(a)}` : ""} · {statusLabel(a.status)}
-                  </span>
-                </span>
-                {a.status !== "Pending" && !a.parentNotifiedAt && (
-                  <Button size="sm" variant="secondary" onClick={() => dispatch({ type: "notifyParent", id: a.id, at: new Date().toISOString() })}>
-                    Parent told the outcome
-                  </Button>
-                )}
-                {a.parentNotifiedAt && <Badge tone="success">Parent told · {new Date(a.parentNotifiedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</Badge>}
-                {a.status === "Pending" && <Badge tone={statusTone[a.status]}>Awaiting this school&apos;s decision</Badge>}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState title="Nothing to report yet" hint="Paper-channel SBFAS cases appear here once MOE refers them down." />
-        )}
-      </Card>
-      )}
+        <p className="mt-2 text-[13px] text-on-surface-variant">
+          The submitted form becomes read-only, and the outcome is sent to the parent by SMS/email automatically once decided.
+        </p>
+      </Modal>
     </div>
   );
 }

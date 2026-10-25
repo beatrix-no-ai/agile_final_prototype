@@ -23,7 +23,7 @@ Vào `/signin`. Tab **School or MOE staff** điền email + password (màn hình
 
 ## 2. Hai trường được gán học sinh
 
-Mỗi tài khoản school user **chỉ thấy học sinh trường mình** (queue SBFAS, hardcopy, notify đều lọc theo trường của trẻ):
+Mỗi tài khoản school user **chỉ thấy học sinh trường mình** (queue SBFAS, hardcopy đều lọc theo trường của trẻ):
 
 - **S001 Greenfield Secondary School** — toàn bộ Sec 1–4
 - **S002 Riverbank Primary School** — toàn bộ P1–P6
@@ -150,7 +150,7 @@ Tuition $100 (School fee) · Standard miscellaneous $20 · Examination $30 · Su
 1. **Flow 1 — form giấy lần đầu**: Alicia → FAS → Hardcopy applications → *Scan form* → sửa gì cần → *Review the form* (trang đóng băng) → *Submit* (mặc định đi MOE). Kết quả: Chloe vào queue Greenfield, Ethan vào queue Riverbank; tab **Applications** thấy FAS20260005 — bấm vào dòng để xem chi tiết form như đã nộp.
 2. **Flow 2 — đơn SBFAS mới sau khi bị từ chối**: ở SBFAS review, Reject một đơn (ghi justification) → Hardcopy → New form → *Scan* → Section VII chọn **"Submit to this school's SBFAS review queue"** → nhập *What changed* → bỏ dòng trẻ không đủ điều kiện (ví dụ Ethan còn Pending sẽ bị chặn) → Review → Submit → đơn attempt 2 vào queue + Applications ghi FAS2026xxxx kiểu "New SBFAS request".
 3. **Quyết định trong queue**: SBFAS review → Open review → Approve / Override rank / Reject (cần justification). Xem phí được giảm ngay ở Student → Fees.
-4. **Báo kết quả cho phụ huynh** (kênh giấy): Hardcopy → Tell the parent → "Parent told the outcome".
+4. **Báo kết quả cho phụ huynh**: tự động — khi trường quyết (hoặc MOE grant ngay khi nộp), kết quả được gửi SMS/email cho phụ huynh; không cần thao tác thủ công (feature Tell the parent đã bỏ).
 5. **Parent e-Service**: Rachel Lim (SingPass) → nộp đơn FAS online cho 2 con, xem invoices, thanh toán.
 6. **MOE HQ**: Daniel Lim → Income tiers, FAS rules (FASR26100001 Active), Applications, budgets.
 
