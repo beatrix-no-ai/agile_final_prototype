@@ -179,11 +179,11 @@ describe("a hardcopy application entered at the school (Requirement 5)", () => {
     expect(s.familyApps[0].children.map((c) => c.outcome)).toEqual(["MOEFAS granted", "MOEFAS granted"]);
   });
 
-  it("a band outside MOEFAS refers every child to the school's SBFAS queue, tagged Hardcopy and linked to the form", () => {
+  it("a band outside MOEFAS refers every child to the school's SBFAS queue as a MOE referral linked to the form", () => {
     const s = paper("SBFAS");
     const added = s.apps.slice(initialFasState().apps.length);
     expect(added.map((a) => a.studentId)).toEqual([ethan.id, chloe.id]);
-    expect(added.every((a) => a.source === "Hardcopy" && a.familyAppId === "FAS20260005" && a.enteredBy === "Alicia Tan" && a.status === "Pending")).toBe(true);
+    expect(added.every((a) => a.source === "MOE referral" && a.familyAppId === "FAS20260005" && a.enteredBy === "Alicia Tan" && a.status === "Pending")).toBe(true);
     expect(s.familyApps[0].children.every((c) => c.outcome === "MOEFAS not granted")).toBe(true);
   });
 

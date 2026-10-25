@@ -4,12 +4,13 @@ import { STUDENTS } from "./students";
 export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
 /**
- * How the application reached the school's queue: "MOE referral" = the family applied online and MOE
- * referred the case down after it fell outside the MOEFAS bands; "Hardcopy" = a paper form the school
- * scanned in and submitted to MOE, referred down the same way; "Resubmission" = a NEW paper or online
- * request the parent made after an SBFAS rejection (see `supersedesId`).
+ * How the application reached the school's queue: "MOE referral" = MOE assessed first (an online
+ * e-Service submission or a paper form the school scanned in) and referred the case down after it
+ * fell outside the MOEFAS bands — the paper channel is told by `familyAppId`, not the source;
+ * "Resubmission" = a NEW paper or online request the parent made after an SBFAS rejection
+ * (see `supersedesId`), which goes straight to the school without a MOE assessment.
  */
-export type SbfasSource = "MOE referral" | "Hardcopy" | "Resubmission";
+export type SbfasSource = "MOE referral" | "Resubmission";
 
 export type SbfasApplication = {
   id: string;

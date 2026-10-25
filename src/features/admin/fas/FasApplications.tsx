@@ -26,7 +26,7 @@ type Filter = "all" | "pending" | "granted" | "declined";
 type SourceFilter = "all" | SbfasSource;
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
-const sourceTone: Record<SbfasSource, BadgeTone> = { "MOE referral": "neutral", Hardcopy: "primary", Resubmission: "warning" };
+const sourceTone: Record<SbfasSource, BadgeTone> = { "MOE referral": "neutral", Resubmission: "warning" };
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
@@ -134,7 +134,6 @@ function SbfasReview() {
             <select className="rounded-control border border-line bg-surface px-3 py-1.5 text-sm" aria-label="Filter by application source" value={source} onChange={(e) => setSource(e.target.value as SourceFilter)}>
               <option value="all">All sources</option>
               <option value="MOE referral">MOE referral</option>
-              <option value="Hardcopy">Hardcopy</option>
               <option value="Resubmission">Resubmission</option>
             </select>
           </div>

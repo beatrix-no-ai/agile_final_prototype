@@ -34,27 +34,64 @@ import { statusLabel } from "./review";
 // Section VII is the school's own step (not on the paper form): where the form goes — MOE or straight
 // to the SBFAS queue — and the staff member's confirmation that every field was checked.
 
-/** Mock OCR: what the scanner "read" off a demo paper form. Every cell stays editable because the
- *  OCR can misread — the staff member checks them all on the review page before submitting. */
-const OCR_DEMO = {
-  applicant: "Benson Chua",
-  contact: "+65 8112 9743",
-  address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
-  email: "benson.chua@example.com",
-  transportMode: "Public transport" as TransportMode,
-  note: "Second child entering Sec 1 next year; household income dropped after May.",
-  // Section I rows the scanner read off the form's child table: one child at this school, one at
-  // another. Child 2's school came back smudged ("Greenfield Secondary Schoo").
-  children: [
-    { nric: "T1504644E", name: "Ethan Lim Jun Hao", school: "Riverbank Primary School", level: "P5" },
-    { nric: "T1203822J", name: "Chloe Lim Wen Xin", school: "Greenfield Secondary Schoo", level: "Sec 2" },
-  ] as ChildDraft[],
-  // Section II rows the scanner read off the form (this household declared other administrative income).
-  // They pre-fill the table and the staff member can fix every cell — the OCR can misread.
-  members: [
-    { name: "Benson Chua", nric: "S1234567D", relationship: "Father", age: "44", occupation: "Employed", gross: "2600", other: "0" },
-    { name: "Jenny Chua", nric: "S9876543B", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1900", other: "120" },
-  ] as MemberDraft[],
+/** Mock OCR: what the scanner "read" off two sample paper forms. Every cell stays editable because
+ *  the OCR can misread — the staff member checks them all on the review page before submitting.
+ *  The Chua form lands in the SBFAS referral band; the Pereira form sits inside the MOEFAS bands,
+ *  so MOE grants Tier 1 the moment it is submitted. */
+type OcrForm = {
+  file: string;
+  applicant: string;
+  contact: string;
+  address: string;
+  email: string;
+  transportMode: TransportMode;
+  note: string;
+  imdaHardcopy: "yes" | "no";
+  children: ChildDraft[];
+  members: MemberDraft[];
+};
+const OCR_FORMS: Record<"sbfas" | "moefas", OcrForm> = {
+  sbfas: {
+    file: "MOE-FAS-form-chua-signed.pdf",
+    applicant: "Benson Chua",
+    contact: "+65 8112 9743",
+    address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
+    email: "benson.chua@example.com",
+    transportMode: "Public transport",
+    note: "Second child entering Sec 1 next year; household income dropped after May.",
+    imdaHardcopy: "yes", // the demo form asked for a hard copy of the IMDA application form
+    // Section I rows the scanner read off the form's child table: one child at this school, one at
+    // another. Child 2's school came back smudged ("Greenfield Secondary Schoo").
+    children: [
+      { nric: "T1504644E", name: "Ethan Lim Jun Hao", school: "Riverbank Primary School", level: "P5" },
+      { nric: "T1203822J", name: "Chloe Lim Wen Xin", school: "Greenfield Secondary Schoo", level: "Sec 2" },
+    ],
+    // Section II rows the scanner read off the form (this household declared other administrative income).
+    // They pre-fill the table and the staff member can fix every cell — the OCR can misread.
+    members: [
+      { name: "Benson Chua", nric: "S1234567D", relationship: "Father", age: "44", occupation: "Employed", gross: "2600", other: "0" },
+      { name: "Jenny Chua", nric: "S9876543B", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1900", other: "120" },
+    ],
+  },
+  moefas: {
+    file: "MOE-FAS-form-seah-signed.pdf",
+    applicant: "Catherine Seah",
+    contact: "+65 9722 4085",
+    address: "Blk 418 Jurong West St 42, #11-107, Singapore 650418",
+    email: "catherine.seah@example.com",
+    transportMode: "Public transport",
+    note: "Father passed away in June; the mother runs a hawker stall and also declared dividend income.",
+    imdaHardcopy: "no",
+    // One child, at this school — the declared income sits inside the MOEFAS bands, so this form is
+    // granted the moment it is submitted and never reaches the SBFAS queue.
+    children: [
+      { nric: "T1003548H", name: "Bernice Seah Xin Rong", school: "Greenfield Secondary School", level: "Sec 4" },
+    ],
+    // GHI S$1,390 ÷ 2 in the household = S$695 per person — "Up to $750 per person" → MOEFAS Tier 1.
+    members: [
+      { name: "Catherine Seah", nric: "S6908141C", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1300", other: "90" },
+    ],
+  },
 };
 
 const TRANSPORT_MODES: { mode: TransportMode; note: string; primaryOnly?: boolean }[] = [
@@ -64,6 +101,15 @@ const TRANSPORT_MODES: { mode: TransportMode; note: string; primaryOnly?: boolea
 ];
 /** Mock OCR of the attached welfare home letter: what the scanner "read" off the PDF. */
 const WELFARE_LETTER_OCR = { home: "Sunbeam Welfare Home", dated: "30 Sep 2026" };
+/** Mock rendering of the attached welfare home letter for the click-to-view dialog. */
+const formDocImage = (file: string, applicant: string) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Scanned MOE FAS form · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="15">File: ${file}</text><text x="75" y="200" font-family="Arial" font-size="17">Applicant: ${applicant || "—"}</text><text x="75" y="260" font-family="Arial" font-size="16">Sections I–VI as filled in by the parent</text><text x="75" y="310" font-family="Arial" font-size="14">Mock scan rendering — the OCR pre-filled the entry fields from it.</text><text x="75" y="340" font-family="Arial" font-size="14">Verify every field against this scan before submitting.</text></svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+};
+const letterDocImage = (l: { file: string; ocr?: { home: string; dated: string } }) => {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="500"><rect width="700" height="500" fill="#faf8f6"/><rect x="40" y="35" width="620" height="430" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Welfare home letter · SAMPLE</text><text x="75" y="150" font-family="Arial" font-size="15">File: ${l.file}</text><text x="75" y="200" font-family="Arial" font-size="16">OCR: ${l.ocr?.home ?? "not read yet"}</text><text x="75" y="230" font-family="Arial" font-size="14">Dated: ${l.ocr?.dated ?? "—"}</text><text x="75" y="290" font-family="Arial" font-size="14">Mock scan rendering — not an actual document.</text></svg>`;
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+};
 const OCCUPATIONS = ["Employed", "Self-employed", "Student", "Unemployed"] as const;
 /** One Section II row as the staff types it (strings straight from the inputs). */
 type MemberDraft = { name: string; nric: string; relationship: string; age: string; occupation: string; gross: string; other: string };
@@ -192,7 +238,6 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
             );
           })}
         </ul>
-        <p className="text-sm"><span className="text-on-surface-variant">Applicant: </span><span className="font-medium">{fa.applicant}</span></p>
         <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{fa.contact || "—"}</span></p>
         {fa.address && <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{fa.address}</span></p>}
         {fa.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{fa.email}</span></p>}
@@ -346,6 +391,12 @@ export default function HardcopyEntry() {
   // The welfare home letter (PDF) the exception rests on, with the OCR reading of it.
   const [letter, setLetter] = useState<{ file: string; ocr?: { home: string; dated: string } } | null>(null);
   const [letterReading, setLetterReading] = useState(false);
+  // Click-to-view dialog for the attached letter.
+  const [letterView, setLetterView] = useState(false);
+  // The uploaded form PDF itself (demo): the OCR read the fields off it — click the chip to view it,
+  // remove it to start over with another file.
+  const [formFile, setFormFile] = useState<string | null>(null);
+  const [formView, setFormView] = useState(false);
   const [members, setMembers] = useState<MemberDraft[]>([blankMember()]);
   // Section IV & VI, plus Section V's hard-copy request.
   const [transportMode, setTransportMode] = useState<TransportMode | "">("");
@@ -396,32 +447,32 @@ export default function HardcopyEntry() {
   const [view, setView] = useState<View>(initialView ?? "new");
   const views: [View, string][] = [
     ["new", "New form"],
-    ["apps", `Applications (${paperApps.length})`],
+    ["apps", "Applications"],
   ];
 
-  const scan = () => {
+  const scan = (demo: OcrForm) => {
     setScanning(true);
     setError("");
     // Mock OCR: a short "reading the form" pause, then the fields pre-fill for verification.
     window.setTimeout(() => {
       setScanned(true);
       setScanning(false);
-      setApplicant(OCR_DEMO.applicant);
-      setContact(OCR_DEMO.contact);
-      setAddress(OCR_DEMO.address);
-      setEmail(OCR_DEMO.email);
-      setNote(OCR_DEMO.note);
-      setTransportMode(OCR_DEMO.transportMode);
-      setImdaCopy("yes"); // the demo form asked for a hard copy of the IMDA application form
+      setFormFile(demo.file);
+      setApplicant(demo.applicant);
+      setContact(demo.contact);
+      setAddress(demo.address);
+      setEmail(demo.email);
+      setNote(demo.note);
+      setTransportMode(demo.transportMode);
+      setImdaCopy(demo.imdaHardcopy);
       setDeclared(true); // the declaration box is ticked on the paper form
       // The form declared other administrative income, so the scanner read the Section II rows too —
       // they pre-fill the table and every cell stays editable (the staff member checks the OCR reading).
       setAdminIncome(true);
       setHomesOnly(false);
-      setMembers(OCR_DEMO.members.map((m) => ({ ...m })));
-      // A paper form can list several children: the scanner read the child table — two rows, one at
-      // this school and one at another (child 2's school smudged; its amber flag clears once fixed).
-      setChildrenRows((rows) => (rows.some(rowFilled) ? rows : OCR_DEMO.children.map((c) => ({ ...c }))));
+      setMembers(demo.members.map((m) => ({ ...m })));
+      // The scanner read the form's child table — the rows pre-fill and stay editable.
+      setChildrenRows((rows) => (rows.some(rowFilled) ? rows : demo.children.map((c) => ({ ...c }))));
     }, 1200);
   };
 
@@ -431,6 +482,7 @@ export default function HardcopyEntry() {
     setAdminIncome(false); setWelfareHome(false); setHomesOnly(false); setLetter(null); setLetterReading(false);
     setMembers([blankMember()]); setTransportMode(""); setImdaCopy(""); setDeclared(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
+    setFormFile(null); setFormView(false);
   };
 
   const setChildRow = (i: number, patch: Partial<ChildDraft>) =>
@@ -486,7 +538,7 @@ export default function HardcopyEntry() {
     }
     if (welfareHome && !letter) return "Attach the welfare home letter (PDF) — Section II is only skipped with the letter.";
     if (!chosen.length || !applicant.trim() || !contact.trim() || !address.trim() || !declared) {
-      return "Complete Sections I and VI: list at least one child, the applicant name, contact and home address, and the signed declaration.";
+      return "Complete Sections I and VI: list at least one child, the contact and home address, and sign off the declaration with the parent/guardian name.";
     }
     const fresh = chosen.filter((r) => !r.blocked);
     if (!fresh.length) return "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031).";
@@ -567,13 +619,29 @@ export default function HardcopyEntry() {
       {view === "new" && (
       <Card
         title="Submit a paper MOE FAS form"
-        action={<Button size="sm" variant="secondary" onClick={scan} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF (demo OCR)"}</Button>}
+        action={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button size="sm" variant="secondary" onClick={() => scan(OCR_FORMS.sbfas)} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF · SBFAS band (demo OCR)"}</Button>
+            <Button size="sm" variant="secondary" onClick={() => scan(OCR_FORMS.moefas)} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF · MOEFAS band (demo OCR)"}</Button>
+          </div>
+        }
       >
         {reviewing ? (
         <div className="space-y-5">
           <div className="space-y-1 rounded-control border border-line bg-surface-container-low p-4">
             <p className="text-sm font-semibold text-on-surface">Check every field against the paper form</p>
             <p className="text-[13px] text-on-surface-variant">The fields are frozen on this page — go back to fix anything, then submit.</p>
+            {formFile && (
+              <p className="text-[13px]">
+                <button
+                  type="button"
+                  onClick={() => setFormView(true)}
+                  className="rounded font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  View the uploaded scan ({formFile})
+                </button>
+              </p>
+            )}
           </div>
           <section className="space-y-2">
             <SectionTitle n="I" title="Particulars of the child" />
@@ -592,7 +660,6 @@ export default function HardcopyEntry() {
                 );
               })}
             </ul>
-            <p className="text-sm"><span className="text-on-surface-variant">Applicant: </span><span className="font-medium">{applicant.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{contact.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{address.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{email.trim() || "—"}</span></p>
@@ -654,6 +721,27 @@ export default function HardcopyEntry() {
         </div>
         ) : (
         <div className="space-y-5">
+          {formFile && (
+            <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
+              <span className="text-on-surface-variant">Uploaded form:</span>
+              <button
+                type="button"
+                onClick={() => setFormView(true)}
+                className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 font-medium text-primary hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <FilePdf size={14} weight="bold" aria-hidden="true" /> {formFile}
+              </button>
+              <span className="text-on-surface-variant">· fields pre-filled by OCR — verify every one</span>
+              <button
+                type="button"
+                aria-label="Remove the uploaded form"
+                className="rounded-control p-1 hover:bg-surface-container-lowest"
+                onClick={reset}
+              >
+                <X size={14} weight="bold" aria-hidden="true" />
+              </button>
+            </div>
+          )}
           <section className="space-y-3">
             <SectionTitle n="I" title="Particulars of the child" />
             <Field label="Children on the form" required>
@@ -716,9 +804,6 @@ export default function HardcopyEntry() {
               </div>
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Applicant (parent / guardian)" required>
-                <input className={inputClass} value={applicant} onChange={(e) => setApplicant(e.target.value)} placeholder="Name as written on the form" />
-              </Field>
               <Field label="Contact number" required>
               <input
                 className={inputClass}
@@ -727,13 +812,13 @@ export default function HardcopyEntry() {
                 placeholder="+65 …"
               />
               </Field>
+              <Field label="Email address">
+                <input className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
+              </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Home address" required>
                 <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Blk / street / postal code" />
-              </Field>
-              <Field label="Email address">
-                <input className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
               </Field>
             </div>
           </section>
@@ -772,13 +857,19 @@ export default function HardcopyEntry() {
                     </label>
                     {letter && (
                       <span className="inline-flex items-center gap-2 text-[13px] text-on-surface-variant">
-                        <span className="font-medium text-on-surface">{letter.file}</span>
+                        <button
+                          type="button"
+                          onClick={() => setLetterView(true)}
+                          className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 font-medium text-primary hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                          <FilePdf size={14} weight="bold" aria-hidden="true" /> {letter.file}
+                        </button>
                         {letterReading && "· reading the letter…"}
                         <button
                           type="button"
                           aria-label="Remove the letter"
                           className="rounded-control p-1 hover:bg-surface-container-low"
-                          onClick={() => { setLetter(null); setLetterReading(false); }}
+                          onClick={() => { setLetter(null); setLetterReading(false); setLetterView(false); }}
                         >
                           <X size={14} weight="bold" aria-hidden="true" />
                         </button>
@@ -947,6 +1038,10 @@ export default function HardcopyEntry() {
               <li>MOE and the schools may verify the information, reassess the household, and share the data needed to administer the scheme.</li>
               <li>The information given is true — false information is an offence under Section 182 of the Penal Code 1871.</li>
             </ul>
+            {/* The paper form collects the parent/guardian name only here — at the declaration the applicant signs. */}
+            <Field label="Parent / guardian name (as signed on the declaration)" required>
+              <input className={inputClass} value={applicant} onChange={(e) => setApplicant(e.target.value)} placeholder="Name as written on the form" />
+            </Field>
             <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
               <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
               <span>
@@ -1012,6 +1107,52 @@ export default function HardcopyEntry() {
         </Card>
       </>
       )}
+
+      <Modal
+        open={formView && !!formFile}
+        onClose={() => setFormView(false)}
+        title={formFile ?? "Scanned form"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setFormView(false); reset(); }}>Remove & upload another</Button>
+            <Button onClick={() => setFormView(false)}>Close</Button>
+          </>
+        }
+      >
+        {formFile && (
+          <>
+            <p className="mb-3 text-[13px] text-on-surface-variant">
+              The OCR pre-filled the entry fields from this scan — applicant: <span className="font-semibold text-on-surface">{applicant.trim() || "—"}</span>. Removing the file clears the form for a fresh upload.
+            </p>
+            <img src={formDocImage(formFile, applicant)} alt="Sample scanned MOE FAS form" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
+          </>
+        )}
+      </Modal>
+
+      <Modal
+        open={letterView && !!letter}
+        onClose={() => setLetterView(false)}
+        title={letter?.file ?? "Welfare home letter"}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => { setLetter(null); setLetterReading(false); setLetterView(false); }}>
+              Remove & attach another
+            </Button>
+            <Button onClick={() => setLetterView(false)}>Close</Button>
+          </>
+        }
+      >
+        {letter && (
+          <>
+            <p className="mb-3 text-[13px] text-on-surface-variant" role="status">
+              {letter.ocr
+                ? <>OCR read <span className="font-semibold text-on-surface">{letter.ocr.home}</span> · dated {letter.ocr.dated} · for {pickedStudents[0]?.name ?? "the child on the form"}</>
+                : "Not read yet."}
+            </p>
+            <img src={letterDocImage(letter)} alt="Sample welfare home letter scan" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
+          </>
+        )}
+      </Modal>
 
       <Modal
         open={confirming}

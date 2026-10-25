@@ -86,7 +86,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       const rec = a.recommend?.[id];
       apps = [...apps, {
         id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
-        incomeBand: a.band.label, source: "Hardcopy", familyAppId: faId, enteredBy: a.by, riskScore: 50,
+        incomeBand: a.band.label, source: "MOE referral", familyAppId: faId, enteredBy: a.by, riskScore: 50,
         recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
         explanation: `Paper form ${a.entryMode === "ocr" ? "scanned and read by OCR, then checked" : "keyed in"} by ${a.by} for ${a.applicant}${a.note.trim() ? ` — note on the form: ${a.note.trim()}` : ""}. MOEFAS was assessed first and not granted for this band, so the case is referred to the school. The income band comes from the paper form (no MyInfo sync); review the household and the student's fees before deciding.`,
         status: "Pending",
