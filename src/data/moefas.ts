@@ -114,10 +114,11 @@ export const blankRule = (id: string): Rule => ({ id, name: "", status: "Draft",
 export const SEED: Rule[] = [
   { id: "FASR26100001", name: "MOEFAS 2026 — Standard assistance", status: "Active", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [80, 50]), comp("MFC-002", "fixed", [20, 10])] },
   { id: "FASR26100002", name: "MOEFAS 2025 — Standard assistance", status: "Inactive", conditions: CONDITIONS(), components: [comp("MFC-003", "percent", [75, 40])] },
+  { id: "FASR26100004", name: "MOEFAS 2027 — Scheduled assistance", effectiveFrom: "2027-01-01", status: "Pending", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
   { id: "FASR26100003", name: "MOEFAS 2027 — Proposed assistance", status: "Draft", conditions: CONDITIONS(), components: [comp("MFC-002", "fixed", [15, 8]), comp("MFC-004", "percent", [60, 30])] },
 ];
 
-const KEY = "moefas-conditions-or-v2";
+const KEY = "moefas-conditions-or-v3";
 
 /** Rules live in localStorage so edits survive a reload; falls back to the seed. */
 export function useRules() {
