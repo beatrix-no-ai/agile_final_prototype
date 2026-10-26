@@ -7,7 +7,7 @@ import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Modal } from "../../../components/ui/Modal";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { childOutcomeNow, nextDraftId, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type FamilyDraft } from "../../../data/familyApplications";
+import { childOutcomeNow, draftByCode, nextDraftId, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type FamilyDraft } from "../../../data/familyApplications";
 import { openDraftPrint } from "./draftPrint";
 import { guardianByNric, normNric, type GuardianRecord } from "../../../data/familyRegistry";
 import { useFasActions } from "../../../data/fasActions";
@@ -46,7 +46,10 @@ import { statusLabel } from "./review";
 // awaiting return" with the children it was issued for, so the school always knows exactly which
 // students hold a form. Keying in the returned copy requires cross-checking it against that draft
 // (a required confirmation), and on submit the draft flips to "Returned", linked to the FAS2026####
-// application the copy became — both flows, MOE and the SBFAS queue.
+// application the copy became — both flows, MOE and the SBFAS queue. The returned paper carries its
+// DRF no. in the header, so the staff usually pulls the form by that code (the pre-printed fields
+// lock and only the parent's hand-filled Sections II–III are keyed in); the NRIC lookup remains for
+// forms the system never printed.
 
 /** Mock rendering of a scanned form for a record that still carries one (HQ applications screen). */
 export const formDocImage = (file: string, applicant: string) => {
@@ -389,11 +392,57 @@ export default function HardcopyEntry() {
   const [looking, setLooking] = useState(false);
   const [lookedUp, setLookedUp] = useState<GuardianRecord | null>(null);
   const [lookupMiss, setLookupMiss] = useState(false);
+  // The draft-code path (primary when a printed form exists): the staff types the DRF no. printed in
+  // the returned paper's header and the WHOLE family comes off the draft record — the same registry
+  // values the form was pre-filled with. The pre-printed fields lock; the staff keys in only what
+  // the parent filled in by hand (Section II and the declaration).
+  const [draftCode, setDraftCode] = useState("");
+  const [draftFound, setDraftFound] = useState<FamilyDraft | null>(null);
+  const [draftReturned, setDraftReturned] = useState<FamilyDraft | null>(null);
+  const [draftMiss, setDraftMiss] = useState(false);
+  const clearDraftLookup = () => {
+    setDraftCode("");
+    setDraftFound(null);
+    setDraftReturned(null);
+    setDraftMiss(false);
+    setCheckedAgainst(false);
+    setChildrenRows((rs) => (rs.some((r) => r.db) ? [blankChild()] : rs));
+  };
+  const pullDraft = () => {
+    const found = draftByCode(fas.drafts, draftCode);
+    setDraftMiss(false);
+    setDraftReturned(null);
+    setDraftFound(null);
+    if (!found) {
+      setDraftMiss(true);
+      return;
+    }
+    if (found.status !== "draft") {
+      setDraftReturned(found); // already keyed in once — nothing to enter again
+      return;
+    }
+    setDraftFound(found);
+    setChildrenRows(found.children.map((c) => ({ nric: c.nric, name: c.name, school: c.school, level: c.level, db: true })));
+    setApplicant((v) => (v.trim() ? v : found.applicant));
+    setContact(found.contact);
+    setAddress(found.address);
+    setEmail(found.email ?? "");
+    // The two lookups are alternative entry paths — taking the draft clears the NRIC path.
+    setLookupNric("");
+    setLookedUp(null);
+    setLookupMiss(false);
+    setCheckedAgainst(false);
+  };
   const lookupFamily = () => {
     const rec = guardianByNric(lookupNric);
     setLooking(true);
     setLookupMiss(false);
     setLookedUp(null);
+    // Taking the NRIC path clears the draft path.
+    setDraftCode("");
+    setDraftFound(null);
+    setDraftReturned(null);
+    setDraftMiss(false);
     // Mock registry call: a short pause, then the family lands (or does not).
     window.setTimeout(() => {
       setLooking(false);
@@ -494,6 +543,7 @@ export default function HardcopyEntry() {
     setExtraIncome(""); setResidents(""); setDeclared(false); setCheckedAgainst(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
     setLookupNric(""); setLookedUp(null); setLookupMiss(false); setLooking(false);
+    setDraftCode(""); setDraftFound(null); setDraftReturned(null); setDraftMiss(false);
   };
 
   const setChildRow = (i: number, patch: Partial<ChildDraft>) =>
@@ -517,8 +567,10 @@ export default function HardcopyEntry() {
     if (unmatched) return `Row ${unmatched.i + 1} doesn't match a child in the registry — check the NRIC (BC/NRIC no.) and name against the form, or clear the row.`;
     // The returned copy must be cross-checked against the draft the form was issued as (mandatory —
     // both flows, MOE and the SBFAS queue): the staff member ticks the confirmation under the lookup.
-    if (lookedUp && draftOf && !checkedAgainst)
-      return `Cross-check required: compare this entry against draft ${draftOf.id} — the form issued to this family — and tick the confirmation under the family lookup.`;
+    // Whichever way the draft was found — by its printed code, or by the family's NRIC.
+    const checkRef = draftFound ?? draftOf;
+    if ((draftFound || (lookedUp && draftOf)) && !checkedAgainst)
+      return `Cross-check required: compare this entry against draft ${checkRef?.id} — the form issued to this family — and tick the confirmation under the family lookup.`;
     if (submitMode === "sbfas") {
       const eligible = chosen.filter((r) => rejectedIds.has(r.student.id));
       const notEligible = chosen.filter((r) => !rejectedIds.has(r.student.id));
@@ -567,7 +619,8 @@ export default function HardcopyEntry() {
       eligible.forEach((r) => actions.submitSbfasReapply({
         studentId: r.student.id, reason: reason.trim(), by,
         school: schoolName, applicant: applicant.trim(), contact: contact.trim(),
-        guardianNric: lookedUp?.nric,
+        guardianNric: draftFound?.guardianNric ?? lookedUp?.nric,
+        draftId: draftFound?.id,
       }));
     } else {
       actions.submitHardcopy({
@@ -577,7 +630,8 @@ export default function HardcopyEntry() {
         extraIncome: Number(extraIncome) || 0,
         residents: Number(residents) || 0,
         declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
-        guardianNric: lookedUp?.nric,
+        guardianNric: draftFound?.guardianNric ?? lookedUp?.nric,
+        draftId: draftFound?.id,
       });
     }
     reset();
@@ -602,7 +656,8 @@ export default function HardcopyEntry() {
               Print the form first, key in the returned copy (Sprint 3 refinement): key in the parent/guardian NRIC, print the
               form the registry pre-fills, and hand it to the parent. The parent checks the pre-filled fields, declares the
               household income (Section II) and signs (Section III). When the signed form comes back, key it in on the{" "}
-              <span className="font-semibold text-on-surface">New form</span> tab — it is checked against the draft recorded here.
+              <span className="font-semibold text-on-surface">New form</span> tab using the DRF no. printed in its header — the
+              entry is checked against the draft recorded here.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -759,10 +814,10 @@ export default function HardcopyEntry() {
             <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{contact.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{address.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{email.trim() || "—"}</span></p>
-            {draftOf && (
+            {(draftFound ?? draftOf) && (
               <p className="text-[13px] text-on-surface-variant">
-                Returned copy of <span className="font-medium text-on-surface">{draftOf.id}</span>, issued{" "}
-                {new Date(draftOf.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — cross-checked against the draft.
+                Returned copy of <span className="font-medium text-on-surface">{(draftFound ?? draftOf)!.id}</span>, issued{" "}
+                {new Date((draftFound ?? draftOf)!.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — cross-checked against the draft.
               </p>
             )}
           </section>
@@ -800,55 +855,107 @@ export default function HardcopyEntry() {
         </div>
         ) : (
         <div className="space-y-5">
-          {/* Sprint 3 refinement — step 0: the parent/guardian NRIC keys the whole family out of the
-              shared MOE registry. No match = the staff types the children in by hand, as before. */}
+          {/* Sprint 3 — the returned form comes back with its own DRF no. printed in the header: keying
+              that code in pulls the family off the draft and locks the pre-printed fields. The NRIC
+              lookup below stays for forms the system never printed (hand-written). */}
           <section className="space-y-2 rounded-control border border-line bg-surface-container-low p-3">
-            <p className="text-sm font-semibold text-on-surface">Family lookup — parent / guardian NRIC</p>
+            <p className="text-sm font-semibold text-on-surface">The returned form — enter its draft no.</p>
             <p className="text-[13px] text-on-surface-variant">
-              Take the NRIC from the paper form&apos;s declaration. The applicant, contact, address and every child come from the shared MOE registry — the child rows below arrive filled and locked (not editable). Nothing matches? Type the children in by hand in Section I.
+              Every printed form carries its DRF no. in the header. Pulling the draft fills the family and locks the pre-printed fields — you key in only what the parent filled in by hand: the Section II household declarations and the Section III signature.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 className={`${inputClass} max-w-72`}
-                aria-label="Parent or guardian NRIC"
-                placeholder="e.g. S1234567D"
-                value={lookupNric}
-                onChange={(e) => setLookupNric(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && lookupNric.trim() && !looking) lookupFamily(); }}
+                aria-label="Draft no. printed on the returned form"
+                placeholder="e.g. DRF-0001"
+                value={draftCode}
+                onChange={(e) => setDraftCode(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && draftCode.trim()) pullDraft(); }}
               />
-              <Button size="sm" onClick={lookupFamily} disabled={looking || !lookupNric.trim()}>
-                {looking ? "Searching…" : "Look up family"}
+              <Button size="sm" onClick={pullDraft} disabled={!draftCode.trim()}>
+                Pull the form
               </Button>
-              {lookedUp && (
-                <Button size="sm" variant="secondary" onClick={clearLookup}>
-                  Clear lookup
+              {draftFound && (
+                <Button size="sm" variant="secondary" onClick={clearDraftLookup}>
+                  Clear draft
                 </Button>
               )}
             </div>
-            {lookedUp && (
+            {draftFound && (
               <p className="text-[13px] font-medium text-success" role="status">
-                {lookedUp.name} ({lookedUp.relationship}) — {lookedUp.children.length}{" "}
-                {lookedUp.children.length > 1 ? "children" : "child"} pulled from the registry. The rows in Section I are locked; if the paper form disagrees, the form was filled in wrongly.
+                {draftFound.id} · {draftFound.applicant} — {draftFound.children.length}{" "}
+                {draftFound.children.length > 1 ? "children" : "child"} pulled from the issued form. Section I and the contact details are locked (the printed form told the parent not to amend them); fill in Sections II–III from the signed paper.
               </p>
             )}
-            {lookedUp && draftOf && (
-              <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
-                <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
-                <p className="text-on-surface-variant">
-                  {draftOf.id} was printed for this family on{" "}
-                  {new Date(draftOf.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draftOf.issuedBy}.
-                  This entry is the returned copy — the child rows above came from the same registry record as the printed form; compare the parent&apos;s Section II declarations against the signed form before submitting.
-                </p>
-                <label className="mt-2 flex items-start gap-2.5">
-                  <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => setCheckedAgainst(e.target.checked)} />
-                  <span>
-                    I have compared this entry with the signed form and draft {draftOf.id} — the children match and Section II is as the parent declared.{" "}
-                    <span className="text-alert" aria-hidden>*</span>
-                  </span>
-                </label>
-              </div>
+            {draftReturned && (
+              <p className="text-[13px] text-on-surface-variant">
+                {draftReturned.id} already came back — keyed in as {draftReturned.returnedAppId}. A form handed out again is a fresh issue on the Issue form tab.
+              </p>
             )}
-            {lookedUp && !draftOf && (returnedOf ? (
+            {draftMiss && (
+              <p className="text-[13px] font-medium text-alert" role="alert">
+                No draft matches this code — check the DRF no. printed in the form header, or look the family up by NRIC below.
+              </p>
+            )}
+            <div className="mt-3 space-y-2 border-t border-line pt-3">
+              <p className="text-[13px] font-semibold text-on-surface">No printed form? Family lookup — parent / guardian NRIC</p>
+              <p className="text-[13px] text-on-surface-variant">
+                Take the NRIC from the paper form&apos;s declaration. The applicant, contact, address and every child come from the shared MOE registry — the child rows below arrive filled and locked (not editable). Nothing matches? Type the children in by hand in Section I.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className={`${inputClass} max-w-72`}
+                  aria-label="Parent or guardian NRIC"
+                  placeholder="e.g. S1234567D"
+                  value={lookupNric}
+                  onChange={(e) => setLookupNric(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && lookupNric.trim() && !looking) lookupFamily(); }}
+                />
+                <Button size="sm" onClick={lookupFamily} disabled={looking || !lookupNric.trim()}>
+                  {looking ? "Searching…" : "Look up family"}
+                </Button>
+                {lookedUp && (
+                  <Button size="sm" variant="secondary" onClick={clearLookup}>
+                    Clear lookup
+                  </Button>
+                )}
+              </div>
+              {lookedUp && (
+                <p className="text-[13px] font-medium text-success" role="status">
+                  {lookedUp.name} ({lookedUp.relationship}) — {lookedUp.children.length}{" "}
+                  {lookedUp.children.length > 1 ? "children" : "child"} pulled from the registry. The rows in Section I are locked; if the paper form disagrees, the form was filled in wrongly.
+                </p>
+              )}
+              {lookupMiss && (
+                <p className="text-[13px] font-medium text-alert" role="alert">
+                  No family in the registry matches this NRIC — key the children in by hand in Section I below.
+                </p>
+              )}
+            </div>
+            {(() => {
+              // The cross-check reference: the draft pulled by its printed code, else the family's
+              // open draft found through the NRIC lookup.
+              const ref = draftFound ?? draftOf;
+              if (!ref) return null;
+              return (
+                <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
+                  <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
+                  <p className="text-on-surface-variant">
+                    {ref.id} was printed for this family on{" "}
+                    {new Date(ref.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {ref.issuedBy}.
+                    This entry is the returned copy — the child rows above came from the same registry record as the printed form; compare the parent&apos;s Section II declarations against the signed form before submitting.
+                  </p>
+                  <label className="mt-2 flex items-start gap-2.5">
+                    <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => setCheckedAgainst(e.target.checked)} />
+                    <span>
+                      I have compared this entry with the signed form and draft {ref.id} — the children match and Section II is as the parent declared.{" "}
+                      <span className="text-alert" aria-hidden>*</span>
+                    </span>
+                  </label>
+                </div>
+              );
+            })()}
+            {lookedUp && !draftOf && !draftFound && (returnedOf ? (
               <p className="text-[13px] text-on-surface-variant">
                 The form issued to this family ({returnedOf.id}) already came back — keyed in as {returnedOf.returnedAppId}. A new form would be a fresh issue on the Issue form tab.
               </p>
@@ -857,11 +964,6 @@ export default function HardcopyEntry() {
                 No pre-filled form was issued for this family through the system — the parent may have written the form by hand.
               </p>
             ))}
-            {lookupMiss && (
-              <p className="text-[13px] font-medium text-alert" role="alert">
-                No family in the registry matches this NRIC — key the children in by hand in Section I below.
-              </p>
-            )}
           </section>
           <section className="space-y-3">
             <SectionTitle n="I" title="Particulars of the child" />
@@ -930,22 +1032,26 @@ export default function HardcopyEntry() {
                 </div>
               </div>
             </Field>
+            {/* From a pulled draft these are the values the form was PRINTED with — the parent was told
+                not to amend them, so they lock like the registry rows above. */}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Contact number" required>
-              <input
-                className={inputClass}
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                placeholder="+65 …"
-              />
+                <input
+                  className={`${inputClass} ${draftFound ? "bg-surface-container-low" : ""}`}
+                  value={contact}
+                  aria-readonly={!!draftFound}
+                  disabled={!!draftFound}
+                  onChange={(e) => setContact(e.target.value)}
+                  placeholder="+65 …"
+                />
               </Field>
               <Field label="Email address">
-                <input className={inputClass} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
+                <input className={`${inputClass} ${draftFound ? "bg-surface-container-low" : ""}`} value={email} aria-readonly={!!draftFound} disabled={!!draftFound} onChange={(e) => setEmail(e.target.value)} placeholder="optional" />
               </Field>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Home address" required>
-                <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Blk / street / postal code" />
+                <input className={`${inputClass} ${draftFound ? "bg-surface-container-low" : ""}`} value={address} aria-readonly={!!draftFound} disabled={!!draftFound} onChange={(e) => setAddress(e.target.value)} placeholder="Blk / street / postal code" />
               </Field>
             </div>
           </section>

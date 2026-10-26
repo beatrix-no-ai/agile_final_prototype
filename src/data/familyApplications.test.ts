@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { childOutcomeNow, type FamilyApplication, type FamilyChild } from "./familyApplications";
+import { childOutcomeNow, draftByCode, type FamilyApplication, type FamilyChild } from "./familyApplications";
 import type { SbfasApplication } from "./sbfasApplications";
 
 const fa = (id: string): FamilyApplication => ({
@@ -54,5 +54,29 @@ describe("childOutcomeNow — the live per-child outcome on the history lists", 
     expect(childOutcomeNow(fa("FAS20260005"), child("Already covered"), [])).toEqual({
       label: "Already covered", kind: "neutral",
     });
+  });
+});
+
+describe("draftByCode — keying in a returned form by its printed DRF no.", () => {
+  const drafts = [
+    { id: "DRF-0002", status: "draft" as const },
+    { id: "DRF-0001", status: "returned" as const },
+  ];
+
+  it("matches the exact code, whatever its status", () => {
+    expect(draftByCode(drafts, "DRF-0001")?.id).toBe("DRF-0001");
+    expect(draftByCode(drafts, "DRF-0002")?.id).toBe("DRF-0002");
+  });
+
+  it("tolerates how a human reads the number off a paper form", () => {
+    expect(draftByCode(drafts, "drf1")?.id).toBe("DRF-0001");
+    expect(draftByCode(drafts, "DRF 2")?.id).toBe("DRF-0002");
+    expect(draftByCode(drafts, "drf-0002")?.id).toBe("DRF-0002");
+  });
+
+  it("returns nothing for an unknown or empty code", () => {
+    expect(draftByCode(drafts, "DRF-0009")).toBeUndefined();
+    expect(draftByCode(drafts, "")).toBeUndefined();
+    expect(draftByCode(drafts, "DRF")).toBeUndefined();
   });
 });

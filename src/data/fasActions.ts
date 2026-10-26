@@ -83,12 +83,15 @@ export function useFasActions() {
       welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string;
       /** The guardian NRIC the form was issued under — closes the family's open draft on submit. */
       guardianNric?: string;
+      /** The DRF no. printed on the returned paper — closes exactly that draft (several can be open
+       *  for one family after a re-issue). */
+      draftId?: string;
     }) {
       run({
         type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),
       }, input.studentIds);
     },
-    submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr"; guardianNric?: string }) {
+    submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr"; guardianNric?: string; draftId?: string }) {
       run({ type: "submitSbfasReapply", ...input, at: new Date().toISOString() }, [input.studentId]);
     },
     // Issuing a form touches no student's FAS, so it goes straight to the store — no fee sync.

@@ -447,4 +447,19 @@ describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", 
     expect(s.drafts.find((d) => d.id === "DRF-0002")!.status).toBe("returned");
     expect(s.drafts.find((d) => d.id === "DRF-0001")!.status).toBe("draft");
   });
+
+  it("keying in by the printed DRF no. closes exactly that draft, not the newer re-issue", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "issueDraft", draft: { ...draft("DRF-0002"), issuedAt: "2026-10-27" } });
+    // The parent returns the FIRST copy (the second was printed because the first looked lost).
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at: "2026-10-28T09:00:00.000Z", guardianNric: "S1234567D", draftId: "DRF-0001",
+    });
+    expect(s.drafts.find((d) => d.id === "DRF-0001")!.status).toBe("returned");
+    expect(s.drafts.find((d) => d.id === "DRF-0001")!.returnedAppId).toBe(s.familyApps[0].id);
+    expect(s.drafts.find((d) => d.id === "DRF-0002")!.status).toBe("draft");
+  });
 });
