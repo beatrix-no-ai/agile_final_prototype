@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CaretRight, FilePdf, Plus, UploadSimple, X } from "@phosphor-icons/react";
+import { CaretRight, Plus, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Modal } from "../../../components/ui/Modal";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type TransportMode } from "../../../data/familyApplications";
+import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild } from "../../../data/familyApplications";
 import { guardianByNric, normNric, type GuardianRecord } from "../../../data/familyRegistry";
 import { useFasActions } from "../../../data/fasActions";
 import { latestAppFor, useFas } from "../../../data/fasStore";
@@ -25,87 +25,22 @@ import { statusLabel } from "./review";
 // applicant, contact, address and EVERY child of the family come from the shared MOE registry, and
 // those registry rows are locked (a difference between the form and the registry means the form was
 // filled in wrongly, not the database). An NRIC that matches nothing falls back to typing the
-// children in by hand, as before. Both hardcopy flows share one entry form: (1) the FIRST form —
-// looked up, scanned (OCR pre-fills the fields, the staff member checks them) or typed by hand —
-// goes to MOE and runs the SAME assessment as an online one: MOEFAS first, then the SBFAS queue on
-// referral. Like the paper form, Section I lists every child the form names — rows are added and
-// removed to match it, keyed with the form's own columns, and the NRIC is matched against the
-// registry — this school's children are tagged "Your school", a child at another school shows their
-// school, and their own school receives any SBFAS referral. (2) after that application is rejected
-// at SBFAS, the parent hands in a SEPARATE new request — at the submit step the form goes straight
-// to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
+// children in by hand. OCR was dropped with the same refinement — the registry pre-fills the form,
+// so there is nothing to scan. Sections III (benefits), IV (transport) and V (IMDA device) were cut
+// from the scope; the form keeps the paper form's own numbering for what remains.
+// Both hardcopy flows share one entry form: (1) the FIRST form goes to MOE and runs the SAME
+// assessment as an online one: MOEFAS first, then the SBFAS queue on referral. Section I lists every
+// child the form names — this school's children are tagged "Your school", a child at another school
+// shows their school, and their own school receives any SBFAS referral. (2) after that application
+// is rejected at SBFAS, the parent hands in a SEPARATE new request — at the submit step the form
+// goes straight to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
 //
-// The entry form follows the six sections of the real MOE FAS application form (Sep 2025):
-// I Child particulars · II Other household members · III Benefits · IV Transport · V IMDA device · VI Declaration.
+// The entry form follows the real MOE FAS application form (Sep 2025):
+// I Child particulars · II Other household members · VI Declaration.
 // Section VII is the school's own step (not on the paper form): where the form goes — MOE or straight
 // to the SBFAS queue — and the staff member's confirmation that every field was checked.
 
-/** Mock OCR: what the scanner "read" off two sample paper forms. Every cell stays editable because
- *  the OCR can misread — the staff member checks them all on the review page before submitting.
- *  The Chua form lands in the SBFAS referral band; the Pereira form sits inside the MOEFAS bands,
- *  so MOE grants Tier 1 the moment it is submitted. */
-type OcrForm = {
-  file: string;
-  applicant: string;
-  contact: string;
-  address: string;
-  email: string;
-  transportMode: TransportMode;
-  note: string;
-  imdaHardcopy: "yes" | "no";
-  children: ChildDraft[];
-  members: MemberDraft[];
-};
-const OCR_FORMS: Record<"sbfas" | "moefas", OcrForm> = {
-  sbfas: {
-    file: "MOE-FAS-form-chua-signed.pdf",
-    applicant: "Benson Chua",
-    contact: "+65 8112 9743",
-    address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
-    email: "benson.chua@example.com",
-    transportMode: "Public transport",
-    note: "Second child entering Sec 1 next year; household income dropped after May.",
-    imdaHardcopy: "yes", // the demo form asked for a hard copy of the IMDA application form
-    // Section I rows the scanner read off the form's child table: one child at this school, one at
-    // another. Child 2's school came back smudged ("Greenfield Secondary Schoo").
-    children: [
-      { nric: "T1504644E", name: "Ethan Lim Jun Hao", school: "Riverbank Primary School", level: "P5" },
-      { nric: "T1203822J", name: "Chloe Lim Wen Xin", school: "Greenfield Secondary Schoo", level: "Sec 2" },
-    ],
-    // Section II rows the scanner read off the form (this household declared other administrative income).
-    // They pre-fill the table and the staff member can fix every cell — the OCR can misread.
-    members: [
-      { name: "Benson Chua", nric: "S1234567D", relationship: "Father", age: "44", occupation: "Employed", gross: "2600", other: "0" },
-      { name: "Jenny Chua", nric: "S9876543B", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1900", other: "120" },
-    ],
-  },
-  moefas: {
-    file: "MOE-FAS-form-seah-signed.pdf",
-    applicant: "Catherine Seah",
-    contact: "+65 9722 4085",
-    address: "Blk 418 Jurong West St 42, #11-107, Singapore 650418",
-    email: "catherine.seah@example.com",
-    transportMode: "Public transport",
-    note: "Father passed away in June; the mother runs a hawker stall and also declared dividend income.",
-    imdaHardcopy: "no",
-    // One child, at this school — the declared income sits inside the MOEFAS bands, so this form is
-    // granted the moment it is submitted and never reaches the SBFAS queue.
-    children: [
-      { nric: "T1003548H", name: "Bernice Seah Xin Rong", school: "Greenfield Secondary School", level: "Sec 4" },
-    ],
-    // GHI S$1,390 ÷ 2 in the household = S$695 per person — "Up to $750 per person" → MOEFAS Tier 1.
-    members: [
-      { name: "Catherine Seah", nric: "S6908141C", relationship: "Mother", age: "41", occupation: "Self-employed", gross: "1300", other: "90" },
-    ],
-  },
-};
-
-const TRANSPORT_MODES: { mode: TransportMode; note: string; primaryOnly?: boolean }[] = [
-  { mode: "Public transport", note: "S$21 per month transport subsidy" },
-  { mode: "School bus", note: "70% of the monthly fare — primary level only", primaryOnly: true },
-  { mode: "Own transport or walks", note: "No transport subsidy" },
-];
-/** Mock rendering of the scanned form for the click-to-view dialog. */
+/** Mock rendering of a scanned form for a record that still carries one (HQ applications screen). */
 export const formDocImage = (file: string, applicant: string) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Scanned MOE FAS form · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="15">File: ${file}</text><text x="75" y="200" font-family="Arial" font-size="17">Applicant: ${applicant || "—"}</text><text x="75" y="260" font-family="Arial" font-size="16">Sections I–VI as filled in by the parent</text><text x="75" y="310" font-family="Arial" font-size="14">Mock scan rendering — the OCR pre-filled the entry fields from it.</text><text x="75" y="340" font-family="Arial" font-size="14">Verify every field against this scan before submitting.</text></svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
@@ -365,14 +300,12 @@ export default function HardcopyEntry() {
     return { student: s, school: schoolNameOf(code), mineSchool: code === mySchool, grant, app, blocked: !!(grant || app) };
   }), [reg.students, reg.classes, reg.schools, fas.moefas, fas.apps, mySchool]);
 
-  // One paper form at a time: the staff member works through a single form, scanning it or typing it in.
-  const [scanned, setScanned] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  // One paper form at a time: the staff member works through a single form, keyed in by hand.
   // Section I mirrors the paper form's child table: however many children the form lists, that many
-  // rows — the staff adds/removes rows to match it and keys each by hand (or the scan pre-fills them)
-  // with the form's own columns — NRIC, name, current school, level. The NRIC is matched against the
-  // registry; children already holding an application stay on the form too (the store keeps one
-  // application per child, AC-031).
+  // rows — the staff adds/removes rows to match it and keys each by hand with the form's own
+  // columns — NRIC, name, current school, level. The NRIC is matched against the registry; children
+  // already holding an application stay on the form too (the store keeps one application per child,
+  // AC-031).
   const [childrenRows, setChildrenRows] = useState<ChildDraft[]>(() => [blankChild()]);
   // A hand-entered row becomes a child record through the NRIC — that is the match; everything else
   // on the row is transcription. Case and spacing differences are tolerated (normNric, shared with
@@ -388,14 +321,8 @@ export default function HardcopyEntry() {
   // Section II: HOMES-only by default; the household table opens only when administrative income is declared.
   const [adminIncome, setAdminIncome] = useState(false);
   const [homesOnly, setHomesOnly] = useState(false);
-  // The uploaded form PDF itself (demo): the OCR read the fields off it — click the chip to view it,
-  // remove it to start over with another file.
-  const [formFile, setFormFile] = useState<string | null>(null);
-  const [formView, setFormView] = useState(false);
   const [members, setMembers] = useState<MemberDraft[]>([blankMember()]);
-  // Section IV & VI, plus Section V's hard-copy request.
-  const [transportMode, setTransportMode] = useState<TransportMode | "">("");
-  const [imdaCopy, setImdaCopy] = useState<"" | "yes" | "no">("");
+  // Section VI's declaration tick, plus the final read-only review page.
   const [declared, setDeclared] = useState(false);
   // Where this form goes, chosen at the submit step: MOE for the MOEFAS-first assessment (flow 1), or
   // straight to this school's SBFAS queue as a separate request after a rejection (flow 2).
@@ -485,39 +412,12 @@ export default function HardcopyEntry() {
     setChildrenRows((rs) => (rs.some((r) => r.db) ? [blankChild()] : rs));
   };
 
-  const scan = (demo: OcrForm) => {
-    setScanning(true);
-    setError("");
-    // Mock OCR: a short "reading the form" pause, then the fields pre-fill for verification.
-    window.setTimeout(() => {
-      setScanned(true);
-      setScanning(false);
-      setFormFile(demo.file);
-      setApplicant(demo.applicant);
-      setContact(demo.contact);
-      setAddress(demo.address);
-      setEmail(demo.email);
-      setNote(demo.note);
-      setTransportMode(demo.transportMode);
-      setImdaCopy(demo.imdaHardcopy);
-      setDeclared(true); // the declaration box is ticked on the paper form
-      // The form declared other administrative income, so the scanner read the Section II rows too —
-      // they pre-fill the table and every cell stays editable (the staff member checks the OCR reading).
-      setAdminIncome(true);
-      setHomesOnly(false);
-      setMembers(demo.members.map((m) => ({ ...m })));
-      // The scanner read the form's child table — the rows pre-fill and stay editable.
-      setChildrenRows((rows) => (rows.some(rowFilled) ? rows : demo.children.map((c) => ({ ...c }))));
-    }, 1200);
-  };
-
   const reset = () => {
-    setScanned(false); setChildrenRows([blankChild()]);
+    setChildrenRows([blankChild()]);
     setApplicant(""); setContact(""); setAddress(""); setEmail(""); setNote("");
     setAdminIncome(false); setHomesOnly(false);
-    setMembers([blankMember()]); setTransportMode(""); setImdaCopy(""); setDeclared(false);
+    setMembers([blankMember()]); setDeclared(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
-    setFormFile(null); setFormView(false);
     setLookupNric(""); setLookedUp(null); setLookupMiss(false); setLooking(false);
   };
 
@@ -594,34 +494,25 @@ export default function HardcopyEntry() {
       eligible.forEach((r) => actions.submitSbfasReapply({
         studentId: r.student.id, reason: reason.trim(), by,
         school: schoolName, applicant: applicant.trim(), contact: contact.trim(),
-        entryMode: scanned ? "ocr" : "manual",
       }));
     } else {
       actions.submitHardcopy({
         studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: contact.trim(), note,
-        by, entryMode: scanned ? "ocr" : "manual",
-        address: address.trim(), email: email.trim() || undefined, transportMode: transportMode || undefined,
+        by, entryMode: "manual",
+        address: address.trim(), email: email.trim() || undefined,
         hasAdminIncome: adminIncome,
         household: adminIncome ? members.filter((m) => m.name.trim()).map((m) => ({
           name: m.name.trim(), nric: m.nric.trim() || undefined, relationship: m.relationship.trim(), age: Number(m.age) || 0, occupation: m.occupation,
           gross: Number(m.gross) || 0, other: Number(m.other) || 0,
         })) : undefined,
         homesOnly: homesOnly || undefined,
-        imdaHardcopy: imdaCopy || undefined,
         declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
-        formFile: scanned ? formFile ?? undefined : undefined,
       });
     }
     reset();
     setView("apps");
   };
 
-  // School bus is a primary-level subsidy and follows THIS school's children on the form — a
-  // primary-level child at another school does not unlock it here (their own school handles them).
-  const schoolBusAllowed = childrenRows.some((row) => {
-    const m = matchOf(row);
-    return !!m?.mineSchool && m.student.level.startsWith("P");
-  });
   const totalGhi = members.reduce((t, m) => t + (Number(m.gross) || 0) + (Number(m.other) || 0), 0);
 
   return (
@@ -635,31 +526,12 @@ export default function HardcopyEntry() {
       </div>
 
       {view === "new" && (
-      <Card
-        title="Submit a paper MOE FAS form"
-        action={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button size="sm" variant="secondary" onClick={() => scan(OCR_FORMS.sbfas)} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF · SBFAS band (demo OCR)"}</Button>
-            <Button size="sm" variant="secondary" onClick={() => scan(OCR_FORMS.moefas)} disabled={scanning || reviewing}><UploadSimple size={16} weight="bold" aria-hidden="true" />{scanning ? "Reading the PDF…" : "Upload form PDF · MOEFAS band (demo OCR)"}</Button>
-          </div>
-        }
-      >
+      <Card title="Submit a paper MOE FAS form">
         {reviewing ? (
         <div className="space-y-5">
           <div className="space-y-1 rounded-control border border-line bg-surface-container-low p-4">
             <p className="text-sm font-semibold text-on-surface">Check every field against the paper form</p>
             <p className="text-[13px] text-on-surface-variant">The fields are frozen on this page — go back to fix anything, then submit.</p>
-            {formFile && (
-              <p className="text-[13px]">
-                <button
-                  type="button"
-                  onClick={() => setFormView(true)}
-                  className="rounded font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  View the uploaded scan ({formFile})
-                </button>
-              </p>
-            )}
           </div>
           <section className="space-y-2">
             <SectionTitle n="I" title="Particulars of the child" />
@@ -709,14 +581,6 @@ export default function HardcopyEntry() {
             </p>
           </section>
           <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="IV" title="Mode of transport between home and school" />
-            <p className="text-sm font-medium">{transportMode || "—"}</p>
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="V" title="Subsidised broadband and/or laptop/tablet" />
-            <p className="text-sm"><span className="text-on-surface-variant">Hard copy of the DigitalAccess@Home form: </span><span className="font-medium">{imdaCopy === "yes" ? "Yes" : imdaCopy === "no" ? "No" : "—"}</span></p>
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
             <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
@@ -734,27 +598,6 @@ export default function HardcopyEntry() {
         </div>
         ) : (
         <div className="space-y-5">
-          {formFile && (
-            <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
-              <span className="text-on-surface-variant">Uploaded form:</span>
-              <button
-                type="button"
-                onClick={() => setFormView(true)}
-                className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 font-medium text-primary hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                <FilePdf size={14} weight="bold" aria-hidden="true" /> {formFile}
-              </button>
-              <span className="text-on-surface-variant">· fields pre-filled by OCR — verify every one</span>
-              <button
-                type="button"
-                aria-label="Remove the uploaded form"
-                className="rounded-control p-1 hover:bg-surface-container-lowest"
-                onClick={reset}
-              >
-                <X size={14} weight="bold" aria-hidden="true" />
-              </button>
-            </div>
-          )}
           {/* Sprint 3 refinement — step 0: the parent/guardian NRIC keys the whole family out of the
               shared MOE registry. No match = the staff types the children in by hand, as before. */}
           <section className="space-y-2 rounded-control border border-line bg-surface-container-low p-3">
@@ -963,65 +806,6 @@ export default function HardcopyEntry() {
                 )}
           </section>
 
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="III" title="Benefits under MOE FAS" />
-            <p className="text-sm text-on-surface-variant">
-              Full subsidy of school fees and miscellaneous fees. At the primary and secondary levels: free textbooks and
-              school attire (2 sets of uniforms, 2 sets of PE attire, shoes and socks), and a school meals subsidy. The
-              school will tell the parent when and where to collect.
-            </p>
-          </section>
-
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="IV" title="Mode of transport between home and school" />
-            <div className="space-y-1.5">
-              {TRANSPORT_MODES.map(({ mode, note, primaryOnly }) => {
-                const off = primaryOnly && !schoolBusAllowed;
-                return (
-                  <label key={mode} className={`flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm ${off ? "opacity-50" : "cursor-pointer hover:bg-surface-container-low"}`}>
-                    <input
-                      type="radio"
-                      name="transport"
-                      className="mt-0.5 size-4 accent-[#8A2538]"
-                      disabled={off}
-                      checked={transportMode === mode}
-                      onChange={() => setTransportMode(mode)}
-                    />
-                    <span>
-                      {mode}
-                      <span className="block text-[13px] text-on-surface-variant">{off ? "Primary level only" : note}</span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="V" title="Subsidised broadband and/or laptop/tablet" />
-            <p className="text-sm text-on-surface-variant">
-              If the family is interested, they can apply at digitalaccess.gov.sg, call 6377 3800, or ask this school
-              for a hard copy of that application form.
-            </p>
-            <div className="space-y-1.5" role="radiogroup" aria-label="Hard copy of the DigitalAccess@Home application form">
-              {([
-                ["yes", "Yes — hand the parent a hard copy of that application form"],
-                ["no", "No — the family will apply on their own"],
-              ] as const).map(([v, label]) => (
-                <label key={v} className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
-                  <input
-                    type="radio"
-                    name="imda-copy"
-                    className="mt-0.5 size-4 accent-[#8A2538]"
-                    checked={imdaCopy === v}
-                    onChange={() => setImdaCopy(v)}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          </section>
-
           <section className="space-y-3 border-t border-line pt-4">
             <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
             <ul className="list-disc space-y-1 pl-5 text-sm text-on-surface-variant">
@@ -1099,27 +883,6 @@ export default function HardcopyEntry() {
         </Card>
       </>
       )}
-
-      <Modal
-        open={formView && !!formFile}
-        onClose={() => setFormView(false)}
-        title={formFile ?? "Scanned form"}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setFormView(false); reset(); }}>Remove & upload another</Button>
-            <Button onClick={() => setFormView(false)}>Close</Button>
-          </>
-        }
-      >
-        {formFile && (
-          <>
-            <p className="mb-3 text-[13px] text-on-surface-variant">
-              The OCR pre-filled the entry fields from this scan — applicant: <span className="font-semibold text-on-surface">{applicant.trim() || "—"}</span>. Removing the file clears the form for a fresh upload.
-            </p>
-            <img src={formDocImage(formFile, applicant)} alt="Sample scanned MOE FAS form" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
-          </>
-        )}
-      </Modal>
 
       <Modal
         open={confirming}
