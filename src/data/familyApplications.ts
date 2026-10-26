@@ -113,15 +113,6 @@ export type FamilyDraft = {
 export const nextDraftId = (drafts: Pick<FamilyDraft, "id">[]) =>
   `DRF-${String(drafts.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(4, "0")}`;
 
-/** Tolerant draft-code match for keying in a returned form: the staff reads the DRF no. off a paper
- *  form, so "DRF-0001", "drf1" and "DRF 01" all find DRF-0001 — the digits are compared as numbers.
- *  The caller checks `status` itself: an open draft fills the entry form, a returned one is reported. */
-export const draftByCode = <T extends Pick<FamilyDraft, "id">>(drafts: T[], code: string): T | undefined => {
-  const n = Number(code.replace(/\D/g, ""));
-  if (!code.trim() || !Number.isFinite(n) || n <= 0) return undefined;
-  return drafts.find((d) => Number(d.id.replace(/\D/g, "")) === n);
-};
-
 /** Plain-English sentence for a child's outcome row, shared by the school tab and the HQ card. */
 export const outcomeNote = (c: FamilyChild): string =>
   c.outcome === "MOEFAS granted"
