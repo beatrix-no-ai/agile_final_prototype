@@ -72,7 +72,7 @@ export function useFasActions() {
       studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr";
       address?: string; email?: string; transportMode?: TransportMode;
       hasAdminIncome?: boolean; household?: HouseholdMember[];
-      welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string;
+      welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string;
     }) {
       run({
         type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),

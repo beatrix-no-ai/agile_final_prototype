@@ -19,7 +19,7 @@ export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: 
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; recommend?: Record<string, SbfasSuggestion> }
+  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
@@ -101,7 +101,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       welfareHome: a.welfareHome, welfareLetter: a.welfareHome ? a.welfareLetter : undefined,
       homesOnly: a.homesOnly || undefined,
       imdaHardcopy: a.imdaHardcopy, declaredAt: a.declaredAt, note: a.note.trim() || undefined,
-      enteredBy: a.by, entryMode: a.entryMode, at: a.at, children,
+      enteredBy: a.by, entryMode: a.entryMode, formFile: a.formFile, at: a.at, children,
     };
     return { ...state, apps, moefas, familyApps: [familyApp, ...state.familyApps] };
   }

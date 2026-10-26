@@ -249,6 +249,14 @@ describe("a hardcopy application entered at the school (Requirement 5)", () => {
     expect(s.familyApps[0].welfareLetter).toEqual({ file: "sunbeam-letter.pdf", home: "Sunbeam Welfare Home", dated: "30 Sep 2026" });
   });
 
+  it("keeps the scanned form the school uploaded, so MOE can open it", () => {
+    const s = fasReducer(initialFasState(), {
+      type: "submitHardcopy", studentIds: [ethan.id], band: band("SBFAS"), school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "ocr", at, formFile: "MOE-FAS-form-chua-signed.pdf",
+    });
+    expect(s.familyApps[0].formFile).toBe("MOE-FAS-form-chua-signed.pdf");
+  });
+
   it("records the employment-only declaration — no table, bands from HOMES", () => {
     const s = fasReducer(initialFasState(), {
       type: "submitHardcopy", studentIds: [ethan.id], band: band("SBFAS"), school: "Riverbank Primary School",

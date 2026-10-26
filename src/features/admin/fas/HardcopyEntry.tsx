@@ -102,7 +102,7 @@ const TRANSPORT_MODES: { mode: TransportMode; note: string; primaryOnly?: boolea
 /** Mock OCR of the attached welfare home letter: what the scanner "read" off the PDF. */
 const WELFARE_LETTER_OCR = { home: "Sunbeam Welfare Home", dated: "30 Sep 2026" };
 /** Mock rendering of the attached welfare home letter for the click-to-view dialog. */
-const formDocImage = (file: string, applicant: string) => {
+export const formDocImage = (file: string, applicant: string) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Scanned MOE FAS form · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="15">File: ${file}</text><text x="75" y="200" font-family="Arial" font-size="17">Applicant: ${applicant || "—"}</text><text x="75" y="260" font-family="Arial" font-size="16">Sections I–VI as filled in by the parent</text><text x="75" y="310" font-family="Arial" font-size="14">Mock scan rendering — the OCR pre-filled the entry fields from it.</text><text x="75" y="340" font-family="Arial" font-size="14">Verify every field against this scan before submitting.</text></svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 };
@@ -588,6 +588,7 @@ export default function HardcopyEntry() {
         homesOnly: homesOnly || undefined,
         imdaHardcopy: imdaCopy || undefined,
         declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
+        formFile: scanned ? formFile ?? undefined : undefined,
       });
     }
     reset();

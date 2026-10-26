@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import {
-  activateRule, applicationStatus, blankRule, childResult, conditionProblem, defaultTiers, FAMILIES, nextRuleId, ruleProblem,
+  activateRule, applicationStatus, blankRule, childResult, conditionProblem, defaultTiers, FAMILIES, nextRuleId, promoteDue, ruleProblem,
   tierGaps, tierInUse, tierOverlap, tierProblem, type Rule,
 } from "./moefas";
 
@@ -95,4 +95,11 @@ describe("applications", () => {
     const m = by("FAS20260004");
     expect([0, 1].map((i) => childResult(m, i))).toEqual(["MOEFAS granted", "Pending SBFAS review"]);
   });
+});
+
+test("promoteDue: a Pending rule becomes Active on its date and the old Active one goes Inactive", () => {
+  const base = { conditions: [], components: [] };
+  const rules: Rule[] = [{ ...base, id: "A", name: "a", status: "Active" }, { ...base, id: "P", name: "p", status: "Pending", effectiveFrom: "2026-11-01" }];
+  expect(promoteDue(rules, "2026-10-31").map((r) => r.status)).toEqual(["Active", "Pending"]);
+  expect(promoteDue(rules, "2026-11-01").map((r) => r.status)).toEqual(["Inactive", "Active"]);
 });

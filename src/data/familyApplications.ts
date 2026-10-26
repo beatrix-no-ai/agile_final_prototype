@@ -57,6 +57,8 @@ export type FamilyApplication = {
   declaredAt?: string;
   /** Staff member who keyed the form in. */
   enteredBy: string;
+  /** The scanned form PDF the School user uploaded (OCR entry only); MOE can open it from the application. */
+  formFile?: string;
   /** "ocr" = the form was scanned and the fields pre-filled, then verified by `enteredBy`. */
   entryMode: "manual" | "ocr";
   at: string;

@@ -99,10 +99,11 @@ export const componentName = (id: string) => CATALOGUE.find((c) => c.id === id)?
 export type Basis = "percent" | "fixed";
 /** One subsidy row; one amount per condition. `id` is "" until the user picks a component for the fee type. */
 export type RuleComponent = { id: string; type: FeeKind; basis: Basis; amounts: (number | "")[] };
-export type RuleStatus = "Active" | "Inactive" | "Draft";
+/** Pending = activated with a future effective date; it becomes Active on that date. */
+export type RuleStatus = "Active" | "Inactive" | "Draft" | "Pending";
 /** A child matches a condition when GHI OR PCI falls in the chosen tier. -1 = not chosen yet (drafts only). */
 export type Condition = { ghi: number; pci: number };
-/** `effectiveFrom` (YYYY-MM-DD) is for reference only; a rule applies once it is activated. */
+/** `effectiveFrom` (YYYY-MM-DD): activating with a future date schedules the rule (Pending) until that date. */
 export type Rule = { id: string; name: string; effectiveFrom?: string; status: RuleStatus; conditions: Condition[]; components: RuleComponent[] };
 
 const comp = (id: string, basis: Basis, amounts: number[]): RuleComponent => ({ id, type: CATALOGUE.find((c) => c.id === id)!.type, basis, amounts });
@@ -123,7 +124,7 @@ export function useRules() {
   const [rules, set] = useState<Rule[]>(() => {
     try {
       const d = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (Array.isArray(d) && d.length && d.every((r) => Array.isArray(r?.conditions))) return d;
+      if (Array.isArray(d) && d.length && d.every((r) => Array.isArray(r?.conditions))) return promoteDue(d, sgToday());
     } catch { /* private mode / bad JSON: use the seed */ }
     return SEED;
   });
@@ -133,6 +134,15 @@ export function useRules() {
   };
   return [rules, setRules] as const;
 }
+
+/** Today in Singapore as YYYY-MM-DD. */
+export const sgToday = (now = new Date()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Singapore" }).format(now);
+
+/** Pending rules whose effective date has come become Active, the latest-dated one last so it wins. */
+export const promoteDue = (rules: Rule[], today: string): Rule[] =>
+  rules.filter((r) => r.status === "Pending" && (r.effectiveFrom ?? "") <= today)
+    .sort((a, b) => (a.effectiveFrom ?? "").localeCompare(b.effectiveFrom ?? ""))
+    .reduce((acc, r) => activateRule(acc, r.id), rules);
 
 /** Only one rule is Active: activating one makes the previous Active rule Inactive. */
 export const activateRule = (rules: Rule[], id: string): Rule[] =>

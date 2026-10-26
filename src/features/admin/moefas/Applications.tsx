@@ -14,6 +14,7 @@ import {
 import { useFas } from "../../../data/fasStore";
 import { childOutcomeNow, type FamilyApplication } from "../../../data/familyApplications";
 import { FamilyApplicationSections, KIND_TONE } from "../fas/FamilySections";
+import { formDocImage } from "../fas/HardcopyEntry";
 import { formatSGD } from "../../../lib/format";
 
 const TONE: Record<string, BadgeTone> = {
@@ -267,6 +268,16 @@ function HardcopyApplicationDetail({ fa, onBack }: { fa: FamilyApplication; onBa
         </div>
         <Pill s={hardcopyStatus(fa, fas.apps)} />
       </div>
+      <Card title="Uploaded by school" action={<span className="text-[13px] text-on-surface-variant">{fa.school}</span>}>
+        {fa.formFile ? (
+          <>
+            <p className="mb-3 text-sm text-on-surface-variant">Scanned paper form uploaded by {fa.enteredBy} on {dateFmt(fa.at)}: <span className="font-medium text-on-surface">{fa.formFile}</span></p>
+            <img src={formDocImage(fa.formFile, fa.applicant)} alt={`Scanned MOE FAS form ${fa.formFile}`} className="w-full max-w-xl rounded-control border border-line" />
+          </>
+        ) : (
+          <p className="text-sm text-on-surface-variant">No scan uploaded: {fa.enteredBy} keyed this paper form in by hand. The original form is kept at the school.</p>
+        )}
+      </Card>
       <FamilyApplicationSections fa={fa} />
     </div>
   );
@@ -326,6 +337,12 @@ export default function Applications({ rules }: { rules: Rule[] }) {
       ) : (
         <>{f.children.length} {f.children.length > 1 ? "children" : "child"}{f.children.map((n, i) => <span key={n} className="block text-[13px] text-on-surface-variant">{n} · {childResult(f, i)}</span>)}</>
       ),
+    },
+    {
+      key: "source", header: "Source",
+      render: (f) => isHardcopy(f)
+        ? <>School upload (hardcopy)<span className="block text-[13px] text-on-surface-variant">{f.school} · {f.entryMode === "ocr" ? "scanned PDF" : "keyed in"}</span></>
+        : <>Parent portal<span className="block text-[13px] text-on-surface-variant">e-Service (online)</span></>,
     },
     { key: "outcome", header: "Application status", render: (f) => <Pill s={statusOf(f)} /> },
   ];

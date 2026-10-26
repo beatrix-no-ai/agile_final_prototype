@@ -8,12 +8,12 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { Modal } from "../../../components/ui/Modal";
 import {
-  activateRule, allowedIds, blankRule, CATALOGUE, componentName, FEE_KINDS, nextRuleId, ruleProblem,
+  activateRule, allowedIds, sgToday, blankRule, CATALOGUE, componentName, FEE_KINDS, nextRuleId, ruleProblem,
   type Basis, type FeeKind, type Rule, type RuleStatus, type TierConfig, type TierKind,
 } from "../../../data/moefas";
 import { formatSGD } from "../../../lib/format";
 
-const TONE: Record<RuleStatus, BadgeTone> = { Active: "success", Draft: "warning", Inactive: "neutral" };
+const TONE: Record<RuleStatus, BadgeTone> = { Active: "success", Draft: "warning", Inactive: "neutral", Pending: "primary" };
 const th = "whitespace-nowrap border-b border-line bg-surface-container-low px-3 py-3 text-left text-[13px] font-medium text-on-surface-variant";
 const td = "border-b border-line px-3 py-2 align-top";
 const cell = "min-h-10 rounded-control border border-outline bg-surface-container-lowest px-2 text-sm disabled:opacity-70";
@@ -106,7 +106,7 @@ function Editor({ initial, isNew, readOnly, tiers, onBack, onSave, notify }: { i
             <h3 className="text-sm font-bold">2. Configure conditions</h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Field label="Rule name" required><input className={inputClass} value={d.name} onChange={(e) => patch({ name: e.target.value })} /></Field>
-              <Field label="Effective from" required hint="For reference only: the rule applies once it is activated."><input type="date" className={inputClass} value={d.effectiveFrom ?? ""} onChange={(e) => patch({ effectiveFrom: e.target.value })} /></Field>
+              <Field label="Effective from" required hint="A future date schedules the rule: it shows as Pending and becomes Active on this date."><input type="date" className={inputClass} value={d.effectiveFrom ?? ""} onChange={(e) => patch({ effectiveFrom: e.target.value })} /></Field>
             </div>
             <p className="mt-4 rounded-control bg-surface-container-low p-3 text-sm">Select existing MOEFAS tiers. Income ranges are maintained in Income tiers.</p>
             <div className="mt-4 overflow-x-auto">
@@ -199,6 +199,13 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<{ rule: Rule; isNew: boolean; readOnly: boolean } | null>(null);
   const [activating, setActivating] = useState<Rule | null>(null);
+  const [cancelling, setCancelling] = useState<Rule | null>(null);
+  const cancel = () => {
+    if (!cancelling) return;
+    setRules(rules.map((x) => (x.id === cancelling.id ? { ...x, status: "Draft" } : x)));
+    setCancelling(null);
+    notify(`Scheduled rule ${cancelling.id} cancelled. It is back to Draft and will not become Active.`);
+  };
 
   const requestActivation = (r: Rule) => {
     const problem = ruleProblem(r, tiers);
@@ -207,10 +214,12 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
   };
   const activate = () => {
     if (!activating) return;
-    const r: Rule = { ...activating, status: "Active" };
-    setRules(activateRule(rules.some((x) => x.id === r.id) ? rules.map((x) => (x.id === r.id ? r : x)) : [...rules, r], r.id));
+    const later = !!activating.effectiveFrom && activating.effectiveFrom > sgToday();
+    const r: Rule = { ...activating, status: later ? "Pending" : "Active" };
+    const next = rules.some((x) => x.id === r.id) ? rules.map((x) => (x.id === r.id ? r : x)) : [...rules, r];
+    setRules(later ? next : activateRule(next, r.id));
     setActivating(null); setEditing(null); setQ(""); setStatus("");
-    notify("Rule activated. The previous active rule is now Inactive. Previous application outcomes remain unchanged.");
+    notify(later ? `Rule scheduled. It is Pending and becomes Active on ${r.effectiveFrom}. You can cancel it before then.` : "Rule activated. The previous active rule is now Inactive. Previous application outcomes remain unchanged.");
   };
   const duplicate = (r: Rule) => {
     let id: string;
@@ -259,7 +268,7 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <input className={`${inputClass} max-w-sm`} aria-label="Search rules" placeholder="Search rule name or ID" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className={`${inputClass} max-w-48`} aria-label="Filter rule status" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All statuses</option><option>Active</option><option>Inactive</option><option>Draft</option>
+            <option value="">All statuses</option><option>Active</option><option>Inactive</option><option>Draft</option><option>Pending</option>
           </select>
         </div>
         <DataTable
@@ -271,23 +280,31 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
             <>
               <RowAction onClick={() => { notify(""); setEditing({ rule: r, isNew: false, readOnly: true }); }}>View</RowAction>
               <RowAction onClick={() => duplicate(r)}>Duplicate</RowAction>
-              {r.status !== "Active" && <RowAction onClick={() => requestActivation(r)}>Activate</RowAction>}
+              {r.status !== "Active" && r.status !== "Pending" && <RowAction onClick={() => requestActivation(r)}>Activate</RowAction>}
+              {r.status === "Pending" && <RowAction onClick={() => setCancelling(r)}>Cancel</RowAction>}
             </>
           )}
           empty={<EmptyState title="No matching rules" hint="Try another search or status." action={<Button variant="secondary" onClick={() => { setQ(""); setStatus(""); }}>Reset</Button>} />}
         />
-        <p className="mt-3 text-[13px] text-on-surface-variant">Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Draft rules have never been activated.</p>
+        <p className="mt-3 text-[13px] text-on-surface-variant">Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Draft rules have never been activated. Pending rules are scheduled: they become Active on their effective date and can be cancelled until then.</p>
       </Card>
+      <Modal open={!!cancelling} onClose={() => setCancelling(null)} title="Cancel scheduled rule?"
+        footer={<><Button variant="secondary" onClick={() => setCancelling(null)}>Keep schedule</Button><Button onClick={cancel}>Cancel rule</Button></>}>
+        <p>Cancel <b>{cancelling?.name}</b>? It was set to become Active on {cancelling?.effectiveFrom}. It goes back to Draft, and the current active rule stays Active.</p>
+      </Modal>
       <ActivateModal rule={activating} current={current} onClose={() => setActivating(null)} onConfirm={activate} />
     </>
   );
 }
 
 function ActivateModal({ rule, current, onClose, onConfirm }: { rule: Rule | null; current?: Rule; onClose: () => void; onConfirm: () => void }) {
+  const later = !!rule?.effectiveFrom && rule.effectiveFrom > sgToday();
   return (
-    <Modal open={!!rule} onClose={onClose} title="Activate rule?"
-      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={onConfirm}>Activate</Button></>}>
-      <p>Activate <b>{rule?.name}</b>?{current ? <> The currently active rule {current.id} ({current.name}) will become Inactive.</> : " This will become the active MOEFAS rule."} Existing application outcomes stay unchanged.</p>
+    <Modal open={!!rule} onClose={onClose} title={later ? "Schedule rule?" : "Activate rule?"}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={onConfirm}>{later ? "Schedule" : "Activate"}</Button></>}>
+      {later
+        ? <p>Schedule <b>{rule?.name}</b>? It shows as Pending and becomes Active on {rule?.effectiveFrom}.{current ? <> Until then {current.id} ({current.name}) stays Active.</> : ""} You can cancel it before that date.</p>
+        : <p>Activate <b>{rule?.name}</b>?{current ? <> The currently active rule {current.id} ({current.name}) will become Inactive.</> : " This will become the active MOEFAS rule."} Existing application outcomes stay unchanged.</p>}
     </Modal>
   );
 }
