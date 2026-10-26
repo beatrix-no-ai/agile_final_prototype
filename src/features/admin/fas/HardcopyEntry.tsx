@@ -758,7 +758,9 @@ export default function HardcopyEntry() {
                 </div>
               </div>
             )}
-            {justIssued && (
+            {/* The confirmation only stands while the draft exists — removing the row (X) before
+                printing takes the message with it. */}
+            {justIssued && fas.drafts.some((d) => d.id === justIssued && d.status === "draft") && (
               <p className="text-[13px] font-medium text-success" role="status">
                 {justIssued} recorded — print it from its row in the register below and hand it to the parent.
               </p>
@@ -821,10 +823,11 @@ export default function HardcopyEntry() {
                           <Printer size={16} weight="bold" aria-hidden="true" /> Print again
                         </Button>
                       )}
-                      {/* A returned draft is the audit trail of a live application — it cannot be voided. */}
+                      {/* X removes an unprinted/unwanted draft row. A returned draft is the audit
+                          trail of a live application — it cannot be removed. */}
                       {d.status === "draft" && (
-                        <Button size="sm" variant="secondary" onClick={() => actions.voidDraft(d.id)}>
-                          <X size={16} weight="bold" aria-hidden="true" /> Void
+                        <Button size="sm" variant="secondary" aria-label={`Remove draft ${d.id}`} onClick={() => actions.voidDraft(d.id)}>
+                          <X size={16} weight="bold" aria-hidden="true" />
                         </Button>
                       )}
                     </span>
