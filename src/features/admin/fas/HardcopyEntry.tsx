@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { ArrowLeft, CaretRight, MagnifyingGlass, Plus, Printer, X } from "@phosphor-icons/react";
+import { ArrowLeft, CaretRight, FilePlus, MagnifyingGlass, Plus, Printer, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -706,94 +706,114 @@ export default function HardcopyEntry() {
 
       {view === "issue" && !keyingDraft && (
       <>
-        <Card title="Issue a pre-filled MOE FAS form">
-          <div className="space-y-3">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="issue-nric" className="mb-1.5 block text-[13px] font-semibold text-on-surface">Find the family — parent / guardian NRIC</label>
-                <div className="flex gap-2">
-                  <input
-                    id="issue-nric"
-                    className={inputClass}
-                    placeholder="e.g. S1234567D"
-                    value={issueNric}
-                    onChange={(e) => setIssueNric(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && issueNric.trim() && !issueLooking) findForIssue(); }}
-                  />
-                  <Button size="sm" onClick={findForIssue} disabled={issueLooking || !issueNric.trim()}>
-                    {issueLooking ? "Searching…" : "Find"}
-                  </Button>
-                </div>
-              </div>
-              <div>
-                <label htmlFor="draft-search" className="mb-1.5 block text-[13px] font-semibold text-on-surface">Find a draft</label>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <Card.Header>
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-on-surface">
+                <MagnifyingGlass size={18} aria-hidden="true" /> Find an existing draft
+              </h2>
+            </Card.Header>
+            <Card.Body>
+              <div className="space-y-3">
                 <div className="relative">
                   <MagnifyingGlass size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
                   <input
                     id="draft-search"
                     type="search"
                     autoComplete="off"
+                    aria-label="Search drafts"
                     className={`${inputClass} pl-9`}
-                    placeholder="Draft code, parent or child"
+                    placeholder="Search drafts..."
                     value={draftQuery}
                     onChange={(e) => setDraftQuery(e.target.value)}
                   />
                 </div>
-                <p className="mt-1.5 text-[13px] text-on-surface-variant">Filters the draft register below.</p>
-              </div>
-            </div>
-            {issueFound && (
-              <div className="space-y-2 rounded-control border border-line p-3">
-                <p className="text-sm font-semibold text-on-surface">
-                  {issueFound.name} <span className="font-normal text-on-surface-variant">({issueFound.relationship})</span>
-                </p>
                 <p className="text-[13px] text-on-surface-variant">
-                  {issueFound.contact} · {issueFound.address}{issueFound.email ? ` · ${issueFound.email}` : ""}
+                  Enter the draft code, the parent NRIC or a child&apos;s name — the register below narrows as you type.
                 </p>
-                <ul className="space-y-1.5">
-                  {issueRows.map((r) => (
-                    <li key={r.student.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
-                      <span className="font-medium text-on-surface">
-                        {r.student.name} <span className="font-normal text-on-surface-variant">({r.student.level} · {r.school})</span>
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        {r.mineSchool ? <Badge tone="primary">Your school</Badge> : <Badge tone="neutral">Other school</Badge>}
-                        {r.blocked && <Badge tone="neutral">Already has an application</Badge>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                {(() => {
-                  const existing = fas.drafts.find((d) => d.status === "draft" && normNric(d.guardianNric) === normNric(issueFound.nric));
-                  return existing ? (
-                    <p className="text-[13px] text-on-surface-variant">
-                      A form is already out with this family — {existing.id}, issued{" "}
-                      {new Date(existing.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} and still awaiting the signed copy.
-                      Print it again from the register below, or issue a fresh copy if the first was lost.
-                    </p>
-                  ) : null;
-                })()}
-                <div className="flex justify-end">
-                  <Button onClick={issueForm} disabled={!issueRows.length}>
-                    <Plus size={16} weight="bold" aria-hidden="true" /> Create the draft form
+              </div>
+            </Card.Body>
+          </Card>
+
+          <Card>
+            <Card.Header>
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-on-surface">
+                <FilePlus size={18} aria-hidden="true" /> Issue a new form
+              </h2>
+            </Card.Header>
+            <Card.Body>
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <input
+                    id="issue-nric"
+                    className={inputClass}
+                    aria-label="Parent or guardian NRIC"
+                    placeholder="Enter parent NRIC"
+                    value={issueNric}
+                    onChange={(e) => setIssueNric(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && issueNric.trim() && !issueLooking) findForIssue(); }}
+                  />
+                  <Button size="sm" onClick={findForIssue} disabled={issueLooking || !issueNric.trim()}>
+                    {issueLooking ? "Searching…" : "Find the family"}
                   </Button>
                 </div>
+                <p className="text-[13px] text-on-surface-variant">
+                  Creates a pre-filled draft for the family — print it from its row in the register below and hand it to the parent.
+                </p>
+                {issueFound && (
+                  <div className="space-y-2 rounded-control border border-line p-3">
+                    <p className="text-sm font-semibold text-on-surface">
+                      {issueFound.name} <span className="font-normal text-on-surface-variant">({issueFound.relationship})</span>
+                    </p>
+                    <p className="text-[13px] text-on-surface-variant">
+                      {issueFound.contact} · {issueFound.address}{issueFound.email ? ` · ${issueFound.email}` : ""}
+                    </p>
+                    <ul className="space-y-1.5">
+                      {issueRows.map((r) => (
+                        <li key={r.student.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                          <span className="font-medium text-on-surface">
+                            {r.student.name} <span className="font-normal text-on-surface-variant">({r.student.level} · {r.school})</span>
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            {r.mineSchool ? <Badge tone="primary">Your school</Badge> : <Badge tone="neutral">Other school</Badge>}
+                            {r.blocked && <Badge tone="neutral">Already has an application</Badge>}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {(() => {
+                      const existing = fas.drafts.find((d) => d.status === "draft" && normNric(d.guardianNric) === normNric(issueFound.nric));
+                      return existing ? (
+                        <p className="text-[13px] text-on-surface-variant">
+                          A form is already out with this family — {existing.id}, issued{" "}
+                          {new Date(existing.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} and still awaiting the signed copy.
+                          Print it again from the register below, or issue a fresh copy if the first was lost.
+                        </p>
+                      ) : null;
+                    })()}
+                    <div className="flex justify-end">
+                      <Button onClick={issueForm} disabled={!issueRows.length}>
+                        <Plus size={16} weight="bold" aria-hidden="true" /> Create the draft form
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {issueMiss && (
+                  <p className="text-[13px] font-medium text-alert" role="alert">
+                    No family in the registry matches this NRIC — check the NRIC with the parent. Forms are issued only to families
+                    on the shared registry.
+                  </p>
+                )}
+                {printMiss && (
+                  <p className="text-[13px] font-medium text-alert" role="alert">
+                    The print window was blocked by the browser — the draft is still recorded; allow pop-ups and press
+                    &ldquo;Print&rdquo; on its row.
+                  </p>
+                )}
               </div>
-            )}
-            {issueMiss && (
-              <p className="text-[13px] font-medium text-alert" role="alert">
-                No family in the registry matches this NRIC — check the NRIC with the parent. Forms are issued only to families
-                on the shared registry.
-              </p>
-            )}
-            {printMiss && (
-              <p className="text-[13px] font-medium text-alert" role="alert">
-                The print window was blocked by the browser — the draft is still recorded; allow pop-ups and press
-                &ldquo;Print&rdquo; on its row.
-              </p>
-            )}
-          </div>
-        </Card>
+            </Card.Body>
+          </Card>
+        </div>
 
         <Card title="Draft register — forms issued and awaiting return">
           {fas.drafts.length ? (
