@@ -476,14 +476,18 @@ export default function HardcopyEntry() {
   };
 
   // Issue-form tab (Sprint 3: print the form first, key in the returned copy): same registry, same
-  // lookup — but the outcome is a PRINTED form for the parent plus a draft record, not an application.
-  // The parent checks the pre-filled fields, declares the household (Section II) and signs (Section III).
+  // lookup — but creating the form only RECORDS THE DRAFT; the staff prints it from the draft's row
+  // in the register below, then hands the paper to the parent, who checks the pre-filled fields,
+  // declares the household (Section II) and signs (Section III).
   const [issueNric, setIssueNric] = useState("");
   const [issueLooking, setIssueLooking] = useState(false);
   const [issueFound, setIssueFound] = useState<GuardianRecord | null>(null);
   const [issueMiss, setIssueMiss] = useState(false);
-  // The print popup was blocked — the draft is still recorded; "Print again" on the list recovers it.
+  // The print popup was blocked — the draft is still recorded; "Print" on its row recovers it.
   const [printMiss, setPrintMiss] = useState(false);
+  // Creating the draft and printing it are separate steps: the system records the draft first, and
+  // the staff prints it from its row in the register below whenever they are ready.
+  const [justIssued, setJustIssued] = useState<string | null>(null);
   const issueRows = useMemo(
     () => (issueFound ? issueFound.children.flatMap((name) => {
       const r = roster.find((x) => x.student.name === name);
@@ -496,6 +500,7 @@ export default function HardcopyEntry() {
     setIssueLooking(true);
     setIssueFound(null);
     setIssueMiss(false);
+    setJustIssued(null);
     // Mock registry call: a short pause, then the family lands (or does not).
     window.setTimeout(() => {
       setIssueLooking(false);
@@ -508,8 +513,9 @@ export default function HardcopyEntry() {
   };
   const issueForm = () => {
     if (!issueFound || !issueRows.length) return;
-    // The draft record is mandatory (Sherly): printing the form and recording it are the same step,
-    // so a form can never leave the school without the system remembering who holds it.
+    // The draft record is mandatory (Sherly): the system records the draft the moment the form is
+    // created, before anything is printed — a form can never leave the school without the system
+    // remembering who holds it. Printing happens separately, from the draft's row in the register.
     const draft: FamilyDraft = {
       id: nextDraftId(fas.drafts),
       status: "draft",
@@ -523,7 +529,7 @@ export default function HardcopyEntry() {
       issuedBy: by,
     };
     actions.issueDraft(draft);
-    setPrintMiss(!openDraftPrint(draft, schoolName));
+    setJustIssued(draft.id);
     setIssueFound(null);
     setIssueNric("");
   };
@@ -662,9 +668,10 @@ export default function HardcopyEntry() {
         <Card title="Issue a pre-filled MOE FAS form">
           <div className="space-y-3">
             <p className="text-[13px] text-on-surface-variant">
-              Print the form first, key in the returned copy (Sprint 3 refinement): key in the parent/guardian NRIC, print the
-              form the registry pre-fills, and hand it to the parent. The parent checks the pre-filled fields, declares the
-              household income (Section II) and signs (Section III). When the signed form comes back, key it in on the{" "}
+              Print the form first, key in the returned copy (Sprint 3 refinement): key in the parent/guardian NRIC and create
+              the form — the system records it as a draft straight away. Print the form from its row in the register below and
+              hand it to the parent, who checks the pre-filled fields, declares the household income (Section II) and signs
+              (Section III). When the signed form comes back, key it in on the{" "}
               <span className="font-semibold text-on-surface">New form</span> tab using the DRF no. printed in its header — the
               entry is checked against the draft recorded here.
             </p>
@@ -714,10 +721,15 @@ export default function HardcopyEntry() {
                 })()}
                 <div className="flex justify-end">
                   <Button onClick={issueForm} disabled={!issueRows.length}>
-                    <Printer size={16} weight="bold" aria-hidden="true" /> Generate &amp; print the pre-filled form
+                    <Plus size={16} weight="bold" aria-hidden="true" /> Create the draft form
                   </Button>
                 </div>
               </div>
+            )}
+            {justIssued && (
+              <p className="text-[13px] font-medium text-success" role="status">
+                {justIssued} recorded — print it from its row in the register below and hand it to the parent.
+              </p>
             )}
             {issueMiss && (
               <p className="text-[13px] font-medium text-alert" role="alert">
@@ -726,8 +738,8 @@ export default function HardcopyEntry() {
             )}
             {printMiss && (
               <p className="text-[13px] font-medium text-alert" role="alert">
-                The print window was blocked by the browser — the form is still recorded below; allow pop-ups and press
-                &ldquo;Print again&rdquo; on its row.
+                The print window was blocked by the browser — the draft is still recorded; allow pop-ups and press
+                &ldquo;Print&rdquo; on its row.
               </p>
             )}
           </div>
@@ -753,9 +765,17 @@ export default function HardcopyEntry() {
                       {d.status === "draft"
                         ? <Badge tone="warning">Draft — awaiting return</Badge>
                         : <Badge tone="success">Returned — keyed in as {d.returnedAppId}</Badge>}
-                      <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
-                        <Printer size={16} weight="bold" aria-hidden="true" /> Print again
-                      </Button>
+                      {/* The staff prints the form from its row — the draft is recorded before anything
+                          is printed, and this row is where it is printed from, again if a copy is lost. */}
+                      {d.status === "draft" ? (
+                        <Button size="sm" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                          <Printer size={16} weight="bold" aria-hidden="true" /> Print
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                          <Printer size={16} weight="bold" aria-hidden="true" /> Print again
+                        </Button>
+                      )}
                       {/* A returned draft is the audit trail of a live application — it cannot be voided. */}
                       {d.status === "draft" && (
                         <Button size="sm" variant="secondary" onClick={() => actions.voidDraft(d.id)}>
@@ -774,7 +794,7 @@ export default function HardcopyEntry() {
                   </ul>
                   {d.status === "draft" ? (
                     <p className="mt-2 text-[12px] text-on-surface-variant">
-                      Waiting for the parent to check, declare and sign — the returned copy is keyed in on the New form tab and checked against this draft.
+                      Print the form and hand it to the parent — when the signed copy comes back, key it in on the New form tab by its DRF no. and check it against this draft.
                     </p>
                   ) : (
                     <p className="mt-2 text-[12px] text-on-surface-variant">
@@ -787,7 +807,7 @@ export default function HardcopyEntry() {
           ) : (
             <EmptyState
               title="No forms issued yet"
-              hint="Look up a family above and print the pre-filled form — every printed form is recorded here as a draft, so the school always knows which children hold one."
+              hint="Look up a family above and create the form — every form is recorded here as a draft before it is printed, so the school always knows which children hold one."
             />
           )}
         </Card>
