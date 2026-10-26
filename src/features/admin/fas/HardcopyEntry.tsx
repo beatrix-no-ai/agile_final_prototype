@@ -30,20 +30,21 @@ import { statusLabel } from "./review";
 // returned copy is keyed in by CLICKING THAT DRAFT'S ROW — there is no hand-keyed path at all.
 // Sections III (benefits), IV (transport) and V (IMDA device) were cut from the scope; the form
 // keeps the paper form's own numbering for what remains.
-// Both hardcopy flows share the draft's key-in form: (1) the FIRST form goes to MOE and runs the
-// SAME assessment as an online one: MOEFAS first, then the SBFAS queue on referral. Section I lists
-// every child the form names — this school's children are tagged "Your school", a child at another
-// school shows their school, and their own school receives any SBFAS referral. (2) after that
-// application is rejected at SBFAS, the parent hands in a SEPARATE new request — at the submit step
-// the form goes straight to the school's SBFAS queue as attempt 2, 3, ... The Applications tab
-// keeps history. School scope holds structurally: the staff only ever keys in a form the system
-// issued from the registry, so other-school siblings ride on the family form through the registry.
+// The key-in always goes straight to MOE (the same assessment as an online one): MOEFAS first, then
+// the SBFAS queue on referral — the staff never picks a route. Section I lists every child the form
+// names — this school's children are tagged "Your school", a child at another school shows their
+// school, and their own school receives any SBFAS referral. School scope holds structurally: the
+// staff only ever keys in a form the system issued from the registry, so other-school siblings ride
+// on the family form through the registry.
+// The edge case lives in the history instead (Sprint 3): after the school REJECTS the SBFAS request,
+// the parent may come back — the school opens the application in the Applications tab and files a
+// NEW request (attempt 2, 3, ...) from there, straight into the school's SBFAS queue without a MOE
+// re-assessment (see HardcopyDetailPage).
 //
 // The entry form follows the online family application (Sprint 3 parity — the same fields, the same
 // assessment): I Child particulars · II Household income (extra money + residents; the band itself
-// comes from HOMES) · III Declaration. Section IV is the school's own step (not on the paper form):
-// where the form goes — MOE or straight to the SBFAS queue — and the staff member's confirmation
-// that every field was checked.
+// comes from HOMES) · III Declaration. Submitting sends the form straight to MOE — the staff never
+// picks a route; the record page later shows where the form went and how each child fared.
 //
 // The print-first flow keeps a MANDATORY draft record: every generated form is stored as "Draft —
 // awaiting return" with the children it was issued for, so the school always knows exactly which
@@ -283,14 +284,13 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
 
 /** Keying in a draft's returned copy, opened by clicking the draft's row in the register (Sprint 3).
  *  Everything the form was PRINTED with is carried over from the draft and locked — the staff fills
- *  in only what the parent wrote by hand: the Section II household declarations, the Section III
- *  signature, and where the form goes (Section IV). Submitting flips the draft to "Returned", linked
- *  to the FAS2026#### application the copy became, and the staff lands on the Applications list. */
-function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, onSubmitted }: {
+ *  in only what the parent wrote by hand: the Section II household declarations and the Section III
+ *  signature. Submitting sends the form straight to MOE (the same assessment as an online one) and
+ *  flips the draft to "Returned", linked to the FAS2026#### application the copy became; the staff
+ *  lands on the Applications list. */
+function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   draft: FamilyDraft;
   roster: { student: Student; school: string; mineSchool: boolean; blocked: boolean }[];
-  apps: SbfasApplication[];
-  rejectedIds: Set<string>;
   schoolName: string;
   by: string;
   onBack: () => void;
@@ -313,16 +313,6 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
   // The returned-copy cross-check (mandatory): the staff confirms they compared this entry against
   // the signed paper before submitting.
   const [checkedAgainst, setCheckedAgainst] = useState(false);
-  // Where this form goes: MOE for the MOEFAS-first assessment (flow 1), or straight to this school's
-  // SBFAS queue as a separate request after a rejection (flow 2).
-  const [submitMode, setSubmitMode] = useState<"moe" | "sbfas">("moe");
-  const [reason, setReason] = useState("");
-  // The request the new one replaces — context for the first eligible child on the form.
-  const reFirstId = submitMode === "sbfas" ? chosen.flatMap((m) => (rejectedIds.has(m.student.id) ? [m.student.id] : []))[0] ?? "" : "";
-  const reLast = useMemo(
-    () => (reFirstId ? [...apps].filter((x) => x.studentId === reFirstId && x.status === "Rejected").sort((a, b) => attemptOf(b) - attemptOf(a))[0] ?? null : null),
-    [reFirstId, apps],
-  );
   const [reviewing, setReviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
@@ -338,14 +328,6 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
     const unmatched = rows.find((r) => !matchOf(r));
     if (unmatched) return `${unmatched.name} no longer matches a child in the registry — the registry changed since the form was issued; void this draft and issue a fresh form.`;
     if (!checkedAgainst) return `Cross-check required: compare this entry against the signed form and draft ${draft.id}, then tick the confirmation at the top.`;
-    if (submitMode === "sbfas") {
-      const eligible = chosen.filter((r) => rejectedIds.has(r.student.id));
-      const notEligible = chosen.filter((r) => !rejectedIds.has(r.student.id));
-      if (!eligible.length) return "A new SBFAS request needs a child on the form whose latest application was rejected.";
-      if (notEligible.length) return `${notEligible[0].student.name} cannot take a new SBFAS request — only a child whose latest application was rejected can. Submit to MOE instead.`;
-      if (!reason.trim()) return "Say what changed since the rejected request.";
-      return null;
-    }
     // Section II: the two declared fields, validated exactly like the online application.
     if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim())) return "Section II: enter the extra monthly money in dollars, or 0 if none.";
     const people = Number(residents.trim());
@@ -365,8 +347,9 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
     setReviewing(true);
   };
 
-  // Submit closes the loop: the draft flips to "Returned" (the store links it to the new application
-  // by the draft id) and the staff lands on the Applications list with the new record on top.
+  // Submit closes the loop: the form goes straight to MOE for the same assessment as an online one,
+  // the draft flips to "Returned" (the store links it to the new application by the draft id) and
+  // the staff lands on the Applications list with the new record on top.
   const submit = () => {
     const err = validate();
     if (err) { setError(err); setReviewing(false); return; }
@@ -374,25 +357,15 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
     setReviewing(false);
     setConfirming(false);
     const { band } = bandFromForm();
-    // Flow 2: a separate request straight into this school's SBFAS queue — MOEFAS is not re-assessed.
-    if (submitMode === "sbfas") {
-      const eligible = chosen.filter((r) => rejectedIds.has(r.student.id));
-      eligible.forEach((r) => actions.submitSbfasReapply({
-        studentId: r.student.id, reason: reason.trim(), by,
-        school: schoolName, applicant: applicant.trim(), contact: draft.contact,
-        guardianNric: draft.guardianNric, draftId: draft.id,
-      }));
-    } else {
-      actions.submitHardcopy({
-        studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: draft.contact, note,
-        by, entryMode: "manual",
-        address: draft.address, email: draft.email,
-        extraIncome: Number(extraIncome) || 0,
-        residents: Number(residents) || 0,
-        declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
-        guardianNric: draft.guardianNric, draftId: draft.id,
-      });
-    }
+    actions.submitHardcopy({
+      studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: draft.contact, note,
+      by, entryMode: "manual",
+      address: draft.address, email: draft.email,
+      extraIncome: Number(extraIncome) || 0,
+      residents: Number(residents) || 0,
+      declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
+      guardianNric: draft.guardianNric, draftId: draft.id,
+    });
     onSubmitted();
   };
 
@@ -457,11 +430,6 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
             <SectionTitle n="III" title="Declaration and agreement by the applicant" />
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
-          </section>
-          <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="IV" title="Where this form goes" />
-            <p className="text-sm font-medium">{submitMode === "moe" ? "To MOE for assessment — the first application" : "To this school's SBFAS review queue — a separate request"}</p>
-            {submitMode === "sbfas" && reason.trim() && <p className="text-[13px] text-on-surface-variant">What changed: {reason.trim()}</p>}
           </section>
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
           <div className="flex justify-between gap-3">
@@ -570,38 +538,6 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
             </Field>
           </section>
 
-          <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="IV" title="Where this form goes" />
-            <div role="radiogroup" aria-label="Where this form goes" className="space-y-1.5">
-              <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
-                <input type="radio" name={`submit-to-${draft.id}`} className="mt-0.5 size-4 accent-[#8A2538]" checked={submitMode === "moe"} onChange={() => setSubmitMode("moe")} />
-                <span>Submit to MOE for assessment — the first application (MOEFAS is assessed first)</span>
-              </label>
-              <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
-                <input type="radio" name={`submit-to-${draft.id}`} className="mt-0.5 size-4 accent-[#8A2538]" checked={submitMode === "sbfas"} onChange={() => setSubmitMode("sbfas")} />
-                <span>Submit to this school&apos;s SBFAS review queue — a separate request after a rejection</span>
-              </label>
-            </div>
-            {submitMode === "sbfas" && (
-              <>
-                {reLast && (
-                  <div className="rounded-control border border-line bg-surface-container-low p-3 text-[13px] text-on-surface-variant">
-                    <p>
-                      Previous request <span className="font-semibold text-on-surface">{reLast.id}</span> · rejected
-                      {reLast.decidedAt ? ` on ${new Date(reLast.decidedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
-                      {" "}· income band {reLast.incomeBand} · attempt {attemptOf(reLast)}
-                    </p>
-                    {reLast.justification && <p className="mt-1">&ldquo;{reLast.justification}&rdquo; — the school&apos;s reason at the time.</p>}
-                    <p className="mt-1">The new request will be attempt {attemptOf(reLast) + 1} and keeps the same income band.</p>
-                  </div>
-                )}
-                <Field label="What changed since the rejected request" required>
-                  <textarea rows={2} className={`${inputClass} py-2`} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. a parent stopped working in August" />
-                </Field>
-              </>
-            )}
-          </section>
-
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
           <div className="flex justify-end">
             <Button onClick={startReview}>Review the form</Button>
@@ -622,10 +558,8 @@ function DraftKeyIn({ draft, roster, apps, rejectedIds, schoolName, by, onBack, 
         }
       >
         <p className="text-sm text-on-surface">
-          One application for {rows.map((r) => r.name).join(", ")} — it goes{" "}
-          {submitMode === "moe"
-            ? "to MOE for assessment: MOEFAS is decided instantly, and children outside the bands are referred to their school's SBFAS review queue."
-            : "straight to this school's SBFAS review queue as a separate request after a rejection."}
+          One application for {rows.map((r) => r.name).join(", ")} — it goes straight to MOE for assessment: MOEFAS is decided
+          instantly, and children outside the bands are referred to their school&apos;s SBFAS review queue.
         </p>
         <p className="mt-2 text-[13px] text-on-surface-variant">
           The draft {draft.id} flips to Returned, and the outcome is sent to the parent by SMS/email automatically once decided.
@@ -644,8 +578,6 @@ export default function HardcopyEntry() {
   const mySchool = staff?.schoolCode ?? "";
   const schoolName = reg.schools.find((s) => s.code === mySchool)?.name ?? mySchool;
 
-  const mine = useMemo(() => reg.students.filter((s) => schoolOfStudent(s, reg.classes) === mySchool), [reg.students, reg.classes, mySchool]);
-
   const schoolNameOf = (code: string) => reg.schools.find((x) => x.code === code)?.name ?? code;
   const schoolOfLevelName = (level: string) => schoolNameOf(schoolOfLevel(level as Level));
   // Section I lists every child the paper form names, across schools: this school's children are
@@ -659,14 +591,6 @@ export default function HardcopyEntry() {
     const app = latestAppFor(fas.apps, s.id);
     return { student: s, school: schoolNameOf(code), mineSchool: code === mySchool, grant, app, blocked: !!(grant || app) };
   }), [reg.students, reg.classes, reg.schools, fas.moefas, fas.apps, mySchool]);
-
-  // Students whose latest SBFAS application was rejected (and nothing pending since) — the only children
-  // a separate new request can be made for (the draft's key-in form asks for them, Section IV).
-  const rejectedStudents = useMemo(() => mine.filter((s) => {
-    const mine2 = fas.apps.filter((x) => x.studentId === s.id && x.status !== "Pending");
-    return !fas.moefas[s.id] && !fas.apps.some((x) => x.studentId === s.id && x.status === "Pending") && mine2.some((x) => x.status === "Rejected");
-  }), [mine, fas.apps, fas.moefas]);
-  const rejectedIds = useMemo(() => new Set(rejectedStudents.map((s) => s.id)), [rejectedStudents]);
 
   const paperApps = useMemo(
     () => fas.familyApps.filter((f) => f.school === schoolName || f.school === mySchool),
@@ -764,8 +688,6 @@ export default function HardcopyEntry() {
         <DraftKeyIn
           draft={keyingDraft}
           roster={roster}
-          apps={fas.apps}
-          rejectedIds={rejectedIds}
           schoolName={schoolName}
           by={by}
           onBack={() => setKeyingId(null)}
