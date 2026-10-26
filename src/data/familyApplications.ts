@@ -57,7 +57,7 @@ export type FamilyApplication = {
   transportMode?: TransportMode;
   /** "Anything else on the form" (flow 1) or what changed since the rejected request (flow 2). */
   note?: string;
-  /** Section VI: the paper declaration was signed by the applicant on this date (ISO). */
+  /** Section III: the paper declaration was signed by the applicant on this date (ISO). */
   declaredAt?: string;
   /** Staff member who keyed the form in. */
   enteredBy: string;

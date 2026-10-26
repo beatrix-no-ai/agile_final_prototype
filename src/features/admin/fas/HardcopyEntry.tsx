@@ -55,7 +55,7 @@ const blankChild = (): ChildDraft => ({ nric: "", name: "", school: "", level: "
 /** Tone for the live per-child outcome (childOutcomeNow): follows the school's SBFAS decision. */
 const LIVE_TONE: Record<ChildOutcomeNow["kind"], BadgeTone> = { granted: "success", pending: "warning", rejected: "alert", neutral: "neutral" };
 
-/** Section VII's one-line MOE verdict for a flow-1 form: the assessment ran at submission and is
+/** Section IV's one-line MOE verdict for a flow-1 form: the assessment ran at submission and is
  *  final, so it is told here once instead of repeating a badge on every child row. */
 function moeVerdict(fa: FamilyApplication): string {
   const granted = fa.children.filter((c) => c.outcome === "MOEFAS granted");
@@ -111,7 +111,7 @@ function PaperRow({ fa, apps, schoolOf, onOpen }: { fa: FamilyApplication; apps:
                 {c.student} <span className="font-normal text-on-surface-variant">({c.level}{schoolOf(c.level) !== fa.school ? ` · ${schoolOf(c.level)}` : ""})</span>
               </span>
               <span className="flex flex-wrap items-center gap-1.5">
-                {/* Single live badge; MOE's instant verdict is told once, in Section VII of the detail page. */}
+                {/* Single live badge; MOE's instant verdict is told once, in Section IV of the detail page. */}
                 <Badge tone={LIVE_TONE[co.kind]}>{co.label}</Badge>
               </span>
             </li>
@@ -319,7 +319,7 @@ export default function HardcopyEntry() {
   // band itself is never keyed: it comes from HOMES like an online application.
   const [extraIncome, setExtraIncome] = useState("");
   const [residents, setResidents] = useState("");
-  // Section VI's declaration tick, plus the final read-only review page.
+  // Section III's declaration tick, plus the final read-only review page.
   const [declared, setDeclared] = useState(false);
   // Where this form goes, chosen at the submit step: MOE for the MOEFAS-first assessment (flow 1), or
   // straight to this school's SBFAS queue as a separate request after a rejection (flow 2).
@@ -414,7 +414,7 @@ export default function HardcopyEntry() {
 
   // Issue-form tab (Sprint 3: print the form first, key in the returned copy): same registry, same
   // lookup — but the outcome is a PRINTED form for the parent plus a draft record, not an application.
-  // The parent checks the pre-filled fields, declares the household (Section II) and signs (Section VI).
+  // The parent checks the pre-filled fields, declares the household (Section II) and signs (Section III).
   const [issueNric, setIssueNric] = useState("");
   const [issueLooking, setIssueLooking] = useState(false);
   const [issueFound, setIssueFound] = useState<GuardianRecord | null>(null);
@@ -576,7 +576,7 @@ export default function HardcopyEntry() {
             <p className="text-[13px] text-on-surface-variant">
               Print the form first, key in the returned copy (Sprint 3 refinement): key in the parent/guardian NRIC, print the
               form the registry pre-fills, and hand it to the parent. The parent checks the pre-filled fields, declares the
-              household income (Section II) and signs (Section VI). When the signed form comes back, key it in on the{" "}
+              household income (Section II) and signs (Section III). When the signed form comes back, key it in on the{" "}
               <span className="font-semibold text-on-surface">New form</span> tab — it is checked against the draft recorded here.
             </p>
             <div className="flex flex-wrap items-center gap-2">
