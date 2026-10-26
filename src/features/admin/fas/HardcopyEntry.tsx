@@ -625,9 +625,6 @@ export default function HardcopyEntry() {
   const [issueMiss, setIssueMiss] = useState(false);
   // The print popup was blocked — the draft is still recorded; "Print" on its row recovers it.
   const [printMiss, setPrintMiss] = useState(false);
-  // Creating the draft and printing it are separate steps: the system records the draft first, and
-  // the staff prints it from its row in the register below whenever they are ready.
-  const [justIssued, setJustIssued] = useState<string | null>(null);
   const issueRows = useMemo(
     () => (issueFound ? issueFound.children.flatMap((name) => {
       const r = roster.find((x) => x.student.name === name);
@@ -640,7 +637,6 @@ export default function HardcopyEntry() {
     setIssueLooking(true);
     setIssueFound(null);
     setIssueMiss(false);
-    setJustIssued(null);
     // Mock registry call: a short pause, then the family lands (or does not).
     window.setTimeout(() => {
       setIssueLooking(false);
@@ -669,7 +665,6 @@ export default function HardcopyEntry() {
       issuedBy: by,
     };
     actions.issueDraft(draft);
-    setJustIssued(draft.id);
     setIssueFound(null);
     setIssueNric("");
   };
@@ -757,13 +752,6 @@ export default function HardcopyEntry() {
                   </Button>
                 </div>
               </div>
-            )}
-            {/* The confirmation only stands while the draft exists — removing the row (X) before
-                printing takes the message with it. */}
-            {justIssued && fas.drafts.some((d) => d.id === justIssued && d.status === "draft") && (
-              <p className="text-[13px] font-medium text-success" role="status">
-                {justIssued} recorded — print it from its row in the register below and hand it to the parent.
-              </p>
             )}
             {issueMiss && (
               <p className="text-[13px] font-medium text-alert" role="alert">
