@@ -615,7 +615,8 @@ export default function HardcopyEntry() {
   const [keyingId, setKeyingId] = useState<string | null>(null);
   const keyingDraft = keyingId ? fas.drafts.find((d) => d.id === keyingId) ?? null : null;
 
-  // Register search: match a draft by its code, the parent's name, the guardian NRIC or any child's name.
+  // "Find a draft" (next to the NRIC box on the issue card): matches a draft by its code, the
+  // parent's name, the guardian NRIC or any child's name — filters the register below.
   const [draftQuery, setDraftQuery] = useState("");
   const shownDrafts = useMemo(() => {
     const q = draftQuery.trim().toLowerCase();
@@ -707,18 +708,39 @@ export default function HardcopyEntry() {
       <>
         <Card title="Issue a pre-filled MOE FAS form">
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                className={`${inputClass} max-w-72`}
-                aria-label="Parent or guardian NRIC (issue form)"
-                placeholder="e.g. S1234567D"
-                value={issueNric}
-                onChange={(e) => setIssueNric(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && issueNric.trim() && !issueLooking) findForIssue(); }}
-              />
-              <Button size="sm" onClick={findForIssue} disabled={issueLooking || !issueNric.trim()}>
-                {issueLooking ? "Searching…" : "Find the family"}
-              </Button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="issue-nric" className="mb-1.5 block text-[13px] font-semibold text-on-surface">Find the family — parent / guardian NRIC</label>
+                <div className="flex gap-2">
+                  <input
+                    id="issue-nric"
+                    className={inputClass}
+                    placeholder="e.g. S1234567D"
+                    value={issueNric}
+                    onChange={(e) => setIssueNric(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && issueNric.trim() && !issueLooking) findForIssue(); }}
+                  />
+                  <Button size="sm" onClick={findForIssue} disabled={issueLooking || !issueNric.trim()}>
+                    {issueLooking ? "Searching…" : "Find"}
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <label htmlFor="draft-search" className="mb-1.5 block text-[13px] font-semibold text-on-surface">Find a draft</label>
+                <div className="relative">
+                  <MagnifyingGlass size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                  <input
+                    id="draft-search"
+                    type="search"
+                    autoComplete="off"
+                    className={`${inputClass} pl-9`}
+                    placeholder="Draft code, parent or child"
+                    value={draftQuery}
+                    onChange={(e) => setDraftQuery(e.target.value)}
+                  />
+                </div>
+                <p className="mt-1.5 text-[13px] text-on-surface-variant">Filters the draft register below.</p>
+              </div>
             </div>
             {issueFound && (
               <div className="space-y-2 rounded-control border border-line p-3">
@@ -776,18 +798,6 @@ export default function HardcopyEntry() {
         <Card title="Draft register — forms issued and awaiting return">
           {fas.drafts.length ? (
             <div className="space-y-3">
-              <div className="relative max-w-72">
-                <MagnifyingGlass size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
-                <input
-                  type="search"
-                  autoComplete="off"
-                  className={`${inputClass} pl-9`}
-                  aria-label="Search drafts"
-                  placeholder="Search code, parent or child"
-                  value={draftQuery}
-                  onChange={(e) => setDraftQuery(e.target.value)}
-                />
-              </div>
               {shownDrafts.length ? (
                 <ul className="space-y-3">
                   {shownDrafts.map((d) => (
