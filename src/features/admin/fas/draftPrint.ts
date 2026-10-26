@@ -70,8 +70,8 @@ ${d.email ? `<p class="kv"><b>Email:</b> ${esc(d.email)}</p>` : ""}
 </ul>
 <div class="sign"><div>Signature of applicant</div><div>Name: ${esc(d.applicant)}</div><div>Date</div></div>
 
-<footer>School use only — form issued under ${esc(d.id)} by ${esc(d.issuedBy)}. When the signed form is returned, key it in on the
-Hardcopy tab (New form) and check every field against this draft.</footer>
+<footer>School use only — form issued under ${esc(d.id)} by ${esc(d.issuedBy)}. When the signed form is returned, hand it to the school
+office: the staff keys it in against this draft and checks every field.</footer>
 </body></html>`;
 }
 
