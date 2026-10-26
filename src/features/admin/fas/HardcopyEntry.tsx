@@ -205,18 +205,8 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         ) : null}
         <p className="text-sm"><span className="text-on-surface-variant">Income band: </span><span className="font-medium">{fa.bandLabel}</span></p>
       </section>
-      {fa.transportMode && (
-        <section className="space-y-2 border-t border-line pt-4">
-          <SectionTitle n="IV" title="Mode of transport between home and school" />
-          <p className="text-sm font-medium">{fa.transportMode}</p>
-        </section>
-      )}
-      {fa.imdaHardcopy && (
-        <section className="space-y-2 border-t border-line pt-4">
-          <SectionTitle n="V" title="Subsidised broadband and/or laptop/tablet" />
-          <p className="text-sm"><span className="text-on-surface-variant">Hard copy of the DigitalAccess@Home form: </span><span className="font-medium">{fa.imdaHardcopy === "yes" ? "Yes" : "No"}</span></p>
-        </section>
-      )}
+      {/* Sections IV (transport) and V (IMDA device) were cut from the scope — a record can no longer
+          carry them, so the paper detail jumps from Section II to the Section VI declaration. */}
       <section className="space-y-2 border-t border-line pt-4">
         <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
         {fa.declaredAt && (
