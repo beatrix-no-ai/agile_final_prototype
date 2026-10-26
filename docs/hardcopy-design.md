@@ -279,8 +279,10 @@ sbfas_applications             -- queue SBFAS hiện tại + 3 field mới
 
 **Giai đoạn 2 — UI phía trường** (`src/features/admin/fas/`)
 - Tab mới "Hardcopy applications" trong `FasSection` (chỉ role school):
-  - **Nút Scan form** (mock OCR): "upload" scan → sau ~2s các trường tự prefill (mock OCR có thể
-    sai 1 trường) → staff duyệt từng trường → Submit → đi vào phễu MOE như online.
+  - **Nút Upload form PDF** (mock OCR, 2 mẫu): SBFAS band (gia đình Chua — referral xuống queue) và
+    MOEFAS band (gia đình Pereira — MOE grant Tier 1 ngay khi submit) → "upload" scan → sau ~2s các
+    trường tự prefill (mock OCR có thể sai 1 trường) → staff duyệt từng trường → Submit → đi vào
+    phễu MOE như online.
   - **Form SBFAS nộp lại**: chỉ mở cho học sinh có đơn SBFAS Rejected; bắt buộc lý do nộp lại.
   - Danh sách đơn giấy của trường: kết quả từng trẻ + tick "parent notified" + liên kết attempt trước/sau.
 - Form nhập mô phỏng theo section của form thật (mục 2.4): S.I chọn trẻ + liên hệ; S.II bảng hộ khẩu

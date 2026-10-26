@@ -131,11 +131,13 @@ NRIC dưới đây là mã thật do hệ thống sinh (đúng checksum) — gõ
 
 Tuition $100 (School fee) · Standard miscellaneous $20 · Examination $30 · Supplementary miscellaneous $10. Tier SBFAS: Tier 1 = 100% · Tier 2 = 75% · Tier 3 = 50% · Tier 4 = 25%.
 
-## 5. Form giấy demo (khi bấm "Scan form (demo OCR)")
+## 5. Form giấy demo — 2 mẫu khi bấm "Upload form PDF" (demo OCR)
+
+### Mẫu 1 · SBFAS band — gia đình Chua (referral xuống queue trường)
 
 | Trường | Giá trị OCR điền sẵn |
 |---|---|
-| Applicant | Benson Chua |
+| Parent/guardian name (điền sẵn ở Section VI — phần ký; form thật không thu thập tên ở Section I) | Benson Chua |
 | Contact | +65 8112 9743 |
 | Address | Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315 |
 | Email | benson.chua@example.com |
@@ -145,9 +147,22 @@ Tuition $100 (School fee) · Standard miscellaneous $20 · Examination $30 · Su
 | Transport | Public transport |
 | Note | Second child entering Sec 1 next year; household income dropped after May. |
 
+### Mẫu 2 · MOEFAS band — gia đình Seah (MOE grant ngay khi submit, không vào queue)
+
+| Trường | Giá trị OCR điền sẵn |
+|---|---|
+| Parent/guardian name (Section VI — phần ký) | Catherine Seah |
+| Contact | +65 9722 4085 |
+| Address | Blk 418 Jurong West St 42, #11-107, Singapore 650418 |
+| Email | catherine.seah@example.com |
+| Trẻ | **T1003548H** — Bernice Seah Xin Rong · Greenfield Secondary School · Sec 4 (*Your school* khi login Greenfield; trẻ không có đơn seeded) |
+| Section II | Catherine Seah (Mother, 41, Self-employed, gross 1.300, other 90) → GHI 1.390 ÷ 2 = **S$695/person** → band **Up to $750/person** → **MOEFAS Tier 1 grant ngay khi submit** |
+| Transport | Public transport |
+| Note | Father passed away in June; the mother runs a hawker stall and also declared dividend income. |
+
 ## 6. Kịch năng đã có + kịch bản test nhanh
 
-1. **Flow 1 — form giấy lần đầu**: Alicia → FAS → Hardcopy applications → *Scan form* → sửa gì cần → *Review the form* (trang đóng băng) → *Submit* (mặc định đi MOE). Kết quả: Chloe vào queue Greenfield, Ethan vào queue Riverbank; tab **Applications** thấy FAS20260005 — bấm vào dòng để xem chi tiết form như đã nộp.
+1. **Flow 1 — form giấy lần đầu**: Alicia → FAS → Hardcopy applications → *Upload form PDF · SBFAS band* → sửa gì cần → *Review the form* (trang đóng băng) → *Submit* (mặc định đi MOE). Kết quả: Chloe vào queue Greenfield, Ethan vào queue Riverbank; tab **Applications** thấy FAS20260005 — bấm vào dòng để xem chi tiết form như đã nộp. Dùng nút *Upload form PDF · MOEFAS band* để demo ngược lại: đơn của Catherine Seah (Bernice Seah Xin Rong, Sec 4) được **MOEFAS Tier 1 grant ngay khi submit** — không tạo đơn trong queue, badge "MOEFAS granted · Tier 1" hiện ở tab Applications và góc nhìn MOE.
 2. **Flow 2 — đơn SBFAS mới sau khi bị từ chối**: ở SBFAS review, Reject một đơn (ghi justification) → Hardcopy → New form → *Scan* → Section VII chọn **"Submit to this school's SBFAS review queue"** → nhập *What changed* → bỏ dòng trẻ không đủ điều kiện (ví dụ Ethan còn Pending sẽ bị chặn) → Review → Submit → đơn attempt 2 vào queue + Applications ghi FAS2026xxxx kiểu "New SBFAS request".
 3. **Quyết định trong queue**: SBFAS review → Open review → Approve / Override rank / Reject (cần justification). Xem phí được giảm ngay ở Student → Fees.
 4. **Báo kết quả cho phụ huynh**: tự động — khi trường quyết (hoặc MOE grant ngay khi nộp), kết quả được gửi SMS/email cho phụ huynh; không cần thao tác thủ công (feature Tell the parent đã bỏ).

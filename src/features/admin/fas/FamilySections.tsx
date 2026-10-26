@@ -106,7 +106,6 @@ export function FamilyApplicationSections({ fa, initialStudentId, onlySchoolCode
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
         <Card title="Household & submitted information">
           <dl>
-            <KV k="Applicant" v={fa.applicant} />
             <KV k="Contact number" v={fa.contact || "—"} />
             <KV k="Mailing address" v={fa.address || "—"} />
             {fa.email && <KV k="Email" v={fa.email} />}
