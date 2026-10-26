@@ -8,6 +8,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Modal } from "../../../components/ui/Modal";
 import { Field, inputClass } from "../../../components/ui/Field";
 import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type TransportMode } from "../../../data/familyApplications";
+import { guardianByNric, normNric, type GuardianRecord } from "../../../data/familyRegistry";
 import { useFasActions } from "../../../data/fasActions";
 import { latestAppFor, useFas } from "../../../data/fasStore";
 import { BANDS, type Band } from "../../../data/familyFas";
@@ -20,14 +21,19 @@ import { useSession } from "../../../session";
 import { statusLabel } from "./review";
 
 // Requirement 5: parents who cannot use the e-Service Portal hand a paper MOE FAS form to the school.
-// Both hardcopy flows share one entry form: (1) the FIRST form — scanned (OCR pre-fills the fields, the
-// staff member checks them) or typed by hand — goes to MOE and runs the SAME assessment as an online
-// one: MOEFAS first, then the SBFAS queue on referral. Like the paper form, Section I lists every child
-// the form names — rows are added and removed to match it, keyed with the form's own columns, and the
-// NRIC is matched against the registry — this school's children are tagged "Your school", a child at
-// another school shows their school, and their own school receives any SBFAS referral. (2) after that
-// application is rejected at SBFAS, the parent hands in a SEPARATE new request — at the submit step the
-// form goes straight to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
+// Sprint 3 refinement (Sherly, 26 Oct 2026): the entry starts with the parent/guardian NRIC — the
+// applicant, contact, address and EVERY child of the family come from the shared MOE registry, and
+// those registry rows are locked (a difference between the form and the registry means the form was
+// filled in wrongly, not the database). An NRIC that matches nothing falls back to typing the
+// children in by hand, as before. Both hardcopy flows share one entry form: (1) the FIRST form —
+// looked up, scanned (OCR pre-fills the fields, the staff member checks them) or typed by hand —
+// goes to MOE and runs the SAME assessment as an online one: MOEFAS first, then the SBFAS queue on
+// referral. Like the paper form, Section I lists every child the form names — rows are added and
+// removed to match it, keyed with the form's own columns, and the NRIC is matched against the
+// registry — this school's children are tagged "Your school", a child at another school shows their
+// school, and their own school receives any SBFAS referral. (2) after that application is rejected
+// at SBFAS, the parent hands in a SEPARATE new request — at the submit step the form goes straight
+// to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
 //
 // The entry form follows the six sections of the real MOE FAS application form (Sep 2025):
 // I Child particulars · II Other household members · III Benefits · IV Transport · V IMDA device · VI Declaration.
@@ -114,8 +120,9 @@ const OCCUPATIONS = ["Employed", "Self-employed", "Student", "Unemployed"] as co
 /** One Section II row as the staff types it (strings straight from the inputs). */
 type MemberDraft = { name: string; nric: string; relationship: string; age: string; occupation: string; gross: string; other: string };
 const blankMember = (): MemberDraft => ({ name: "", nric: "", relationship: "", age: "", occupation: "Employed", gross: "", other: "" });
-/** One Section I row as the staff types it — the paper form's child table columns, keyed as on the form. */
-type ChildDraft = { nric: string; name: string; school: string; level: string };
+/** One Section I row as the staff types it — the paper form's child table columns, keyed as on the form.
+ *  `db` marks a row the family lookup pulled from the registry: every field on it is locked. */
+type ChildDraft = { nric: string; name: string; school: string; level: string; db?: boolean };
 const blankChild = (): ChildDraft => ({ nric: "", name: "", school: "", level: "" });
 
 /** Tone for the live per-child outcome (childOutcomeNow): follows the school's SBFAS decision. */
@@ -374,8 +381,8 @@ export default function HardcopyEntry() {
   // application per child, AC-031).
   const [childrenRows, setChildrenRows] = useState<ChildDraft[]>(() => [blankChild()]);
   // A hand-entered row becomes a child record through the NRIC — that is the match; everything else
-  // on the row is transcription. Case and spacing differences are tolerated.
-  const normNric = (v: string) => v.trim().replace(/\s+/g, "").toUpperCase();
+  // on the row is transcription. Case and spacing differences are tolerated (normNric, shared with
+  // the family lookup).
   const byNric = useMemo(() => new Map(roster.map((r) => [normNric(r.student.nric), r])), [roster]);
   const matchOf = (row: ChildDraft) => (row.nric.trim() ? byNric.get(normNric(row.nric)) : undefined);
   const rowFilled = (row: ChildDraft) => !!(row.nric.trim() || row.name.trim() || row.school.trim() || row.level.trim());
@@ -450,6 +457,46 @@ export default function HardcopyEntry() {
     ["apps", "Applications"],
   ];
 
+  // Sprint 3 refinement — the family lookup: the staff keys in the parent/guardian NRIC from the
+  // paper form's declaration and the family comes back from the shared MOE registry. The registry
+  // rows REPLACE whatever is on the form and lock (the database is the source of truth); the
+  // applicant and contact details only fill blanks, so a newer number written on the form survives.
+  const [lookupNric, setLookupNric] = useState("");
+  const [looking, setLooking] = useState(false);
+  const [lookedUp, setLookedUp] = useState<GuardianRecord | null>(null);
+  const [lookupMiss, setLookupMiss] = useState(false);
+  const lookupFamily = () => {
+    const rec = guardianByNric(lookupNric);
+    setLooking(true);
+    setLookupMiss(false);
+    setLookedUp(null);
+    // Mock registry call: a short pause, then the family lands (or does not).
+    window.setTimeout(() => {
+      setLooking(false);
+      if (!rec) {
+        setLookupMiss(true);
+        return;
+      }
+      setLookedUp(rec);
+      const rows = rec.children.flatMap((name) => {
+        const r = roster.find((x) => x.student.name === name);
+        return r ? [{ nric: r.student.nric, name: r.student.name, school: r.school, level: r.student.level, db: true }] : [];
+      });
+      if (rows.length) setChildrenRows(rows);
+      setApplicant((v) => (v.trim() ? v : rec.name));
+      setContact((v) => (v.trim() ? v : rec.contact));
+      setAddress((v) => (v.trim() ? v : rec.address));
+      setEmail((v) => (v.trim() ? v : rec.email ?? ""));
+    }, 500);
+  };
+  const clearLookup = () => {
+    setLookupNric("");
+    setLookedUp(null);
+    setLookupMiss(false);
+    // A cleared lookup releases the locked rows back to a blank, hand-keyed form.
+    setChildrenRows((rs) => (rs.some((r) => r.db) ? [blankChild()] : rs));
+  };
+
   const scan = (demo: OcrForm) => {
     setScanning(true);
     setError("");
@@ -483,6 +530,7 @@ export default function HardcopyEntry() {
     setMembers([blankMember()]); setTransportMode(""); setImdaCopy(""); setDeclared(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
     setFormFile(null); setFormView(false);
+    setLookupNric(""); setLookedUp(null); setLookupMiss(false); setLooking(false);
   };
 
   const setChildRow = (i: number, patch: Partial<ChildDraft>) =>
@@ -653,6 +701,7 @@ export default function HardcopyEntry() {
                   <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium text-on-surface">{i + 1}. {row.name || "—"}</span>
                     <span className="text-[13px] text-on-surface-variant">{row.nric || "—"} · {row.school || "—"} · {row.level || "—"}</span>
+                    {row.db && <Badge tone="primary">From registry</Badge>}
                     {match && (match.mineSchool
                       ? <Badge tone="primary">Your school</Badge>
                       : <Badge tone="neutral">Other school</Badge>)}
@@ -743,6 +792,43 @@ export default function HardcopyEntry() {
               </button>
             </div>
           )}
+          {/* Sprint 3 refinement — step 0: the parent/guardian NRIC keys the whole family out of the
+              shared MOE registry. No match = the staff types the children in by hand, as before. */}
+          <section className="space-y-2 rounded-control border border-line bg-surface-container-low p-3">
+            <p className="text-sm font-semibold text-on-surface">Family lookup — parent / guardian NRIC</p>
+            <p className="text-[13px] text-on-surface-variant">
+              Take the NRIC from the paper form&apos;s declaration. The applicant, contact, address and every child come from the shared MOE registry — the child rows below arrive filled and locked (not editable). Nothing matches? Type the children in by hand in Section I.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className={`${inputClass} max-w-72`}
+                aria-label="Parent or guardian NRIC"
+                placeholder="e.g. S1234567D"
+                value={lookupNric}
+                onChange={(e) => setLookupNric(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && lookupNric.trim() && !looking) lookupFamily(); }}
+              />
+              <Button size="sm" onClick={lookupFamily} disabled={looking || !lookupNric.trim()}>
+                {looking ? "Searching…" : "Look up family"}
+              </Button>
+              {lookedUp && (
+                <Button size="sm" variant="secondary" onClick={clearLookup}>
+                  Clear lookup
+                </Button>
+              )}
+            </div>
+            {lookedUp && (
+              <p className="text-[13px] font-medium text-success" role="status">
+                {lookedUp.name} ({lookedUp.relationship}) — {lookedUp.children.length}{" "}
+                {lookedUp.children.length > 1 ? "children" : "child"} pulled from the registry. The rows in Section I are locked; if the paper form disagrees, the form was filled in wrongly.
+              </p>
+            )}
+            {lookupMiss && (
+              <p className="text-[13px] font-medium text-alert" role="alert">
+                No family in the registry matches this NRIC — key the children in by hand in Section I below.
+              </p>
+            )}
+          </section>
           <section className="space-y-3">
             <SectionTitle n="I" title="Particulars of the child" />
             <Field label="Children on the form" required>
@@ -757,32 +843,38 @@ export default function HardcopyEntry() {
                 </div>
                 {childrenRows.map((row, i) => {
                   const match = matchOf(row);
+                  // A registry row (family lookup) is locked: editing it would be editing the student
+                  // record, which this form must not do. Hand-keyed and OCR rows stay fully editable.
+                  const locked = !!row.db;
                   return (
                     <div key={i} className="space-y-1.5 rounded-control border border-line px-3 py-2.5">
                       <div className="grid gap-2 sm:grid-cols-[auto_1fr_1.3fr_1.3fr_0.6fr_auto]">
                         <span className="flex min-h-11 items-center text-[13px] text-on-surface-variant" aria-hidden="true">{i + 1}</span>
-                        <input className={inputClass} aria-label={`Child ${i + 1} BC/NRIC no.`} placeholder="BC/NRIC no." value={row.nric} onChange={(e) => setChildRow(i, { nric: e.target.value })} />
-                        <input className={inputClass} aria-label={`Child ${i + 1} name`} placeholder="Name" value={row.name} onChange={(e) => setChildRow(i, { name: e.target.value })} />
+                        <input className={`${inputClass} ${locked ? "bg-surface-container-low" : ""}`} aria-label={`Child ${i + 1} BC/NRIC no.`} aria-readonly={locked} placeholder="BC/NRIC no." value={row.nric} disabled={locked} onChange={(e) => setChildRow(i, { nric: e.target.value })} />
+                        <input className={`${inputClass} ${locked ? "bg-surface-container-low" : ""}`} aria-label={`Child ${i + 1} name`} aria-readonly={locked} placeholder="Name" value={row.name} disabled={locked} onChange={(e) => setChildRow(i, { name: e.target.value })} />
                         <input
-                          className={inputClass}
+                          className={`${inputClass} ${locked ? "bg-surface-container-low" : ""}`}
                           aria-label={`Child ${i + 1} name of current school`}
+                          aria-readonly={locked}
                           placeholder="Name of current school"
                           value={row.school}
+                          disabled={locked}
                           onChange={(e) => setChildRow(i, { school: e.target.value })}
                         />
-                        <input className={inputClass} aria-label={`Child ${i + 1} current level`} placeholder="Level" value={row.level} onChange={(e) => setChildRow(i, { level: e.target.value })} />
+                        <input className={`${inputClass} ${locked ? "bg-surface-container-low" : ""}`} aria-label={`Child ${i + 1} current level`} aria-readonly={locked} placeholder="Level" value={row.level} disabled={locked} onChange={(e) => setChildRow(i, { level: e.target.value })} />
                         <Button
                           size="sm"
                           variant="secondary"
                           aria-label={`Remove child ${i + 1}`}
                           className="self-center"
                           onClick={() => setChildrenRows((rs) => rs.filter((_, j) => j !== i))}
-                          disabled={childrenRows.length === 1}
+                          disabled={locked || childrenRows.length === 1}
                         >
                           <X size={16} weight="bold" aria-hidden="true" />
                         </Button>
                       </div>
                       <div className="flex min-h-6 flex-wrap items-center gap-2 text-[13px] text-on-surface-variant">
+                        {locked && <Badge tone="primary">From registry — locked</Badge>}
                         {match ? (
                           <>
                             {match.mineSchool
