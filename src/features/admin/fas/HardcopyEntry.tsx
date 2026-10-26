@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { CaretRight, Plus, X } from "@phosphor-icons/react";
+import { CaretRight, Plus, Printer, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Modal } from "../../../components/ui/Modal";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { childOutcomeNow, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild } from "../../../data/familyApplications";
+import { childOutcomeNow, nextDraftId, outcomeNote, type ChildOutcomeNow, type FamilyApplication, type FamilyChild, type FamilyDraft } from "../../../data/familyApplications";
+import { openDraftPrint } from "./draftPrint";
 import { guardianByNric, normNric, type GuardianRecord } from "../../../data/familyRegistry";
 import { useFasActions } from "../../../data/fasActions";
 import { latestAppFor, useFas } from "../../../data/fasStore";
@@ -353,11 +354,14 @@ export default function HardcopyEntry() {
   const navigate = useNavigate();
   // One entry form: the submit step decides where it goes (MOE-first, or straight to this school's
   // SBFAS queue after a rejection), then the two lists.
-  type View = "new" | "apps";
+  // The refined flow starts one step before data entry: Issue form (print the pre-filled form for the
+  // parent to check and sign) → New form (key in the returned copy) → Applications (history).
+  type View = "issue" | "new" | "apps";
   // Returning from a paper-application page reopens the list the staff member came from.
   const initialView = (useLocation().state as { hardcopyView?: View } | null)?.hardcopyView;
-  const [view, setView] = useState<View>(initialView ?? "new");
+  const [view, setView] = useState<View>(initialView ?? "issue");
   const views: [View, string][] = [
+    ["issue", "Issue form"],
     ["new", "New form"],
     ["apps", "Applications"],
   ];
@@ -401,6 +405,63 @@ export default function HardcopyEntry() {
     // A cleared lookup releases the locked rows back to a blank, hand-keyed form.
     setChildrenRows((rs) => (rs.some((r) => r.db) ? [blankChild()] : rs));
   };
+
+  // Issue-form tab (Sprint 3: print the form first, key in the returned copy): same registry, same
+  // lookup — but the outcome is a PRINTED form for the parent plus a draft record, not an application.
+  // The parent checks the pre-filled fields, declares the household (Section II) and signs (Section VI).
+  const [issueNric, setIssueNric] = useState("");
+  const [issueLooking, setIssueLooking] = useState(false);
+  const [issueFound, setIssueFound] = useState<GuardianRecord | null>(null);
+  const [issueMiss, setIssueMiss] = useState(false);
+  // The print popup was blocked — the draft is still recorded; "Print again" on the list recovers it.
+  const [printMiss, setPrintMiss] = useState(false);
+  const issueRows = useMemo(
+    () => (issueFound ? issueFound.children.flatMap((name) => {
+      const r = roster.find((x) => x.student.name === name);
+      return r ? [r] : [];
+    }) : []),
+    [issueFound, roster],
+  );
+  const findForIssue = () => {
+    const rec = guardianByNric(issueNric);
+    setIssueLooking(true);
+    setIssueFound(null);
+    setIssueMiss(false);
+    // Mock registry call: a short pause, then the family lands (or does not).
+    window.setTimeout(() => {
+      setIssueLooking(false);
+      if (!rec) {
+        setIssueMiss(true);
+        return;
+      }
+      setIssueFound(rec);
+    }, 500);
+  };
+  const issueForm = () => {
+    if (!issueFound || !issueRows.length) return;
+    const draft: FamilyDraft = {
+      id: nextDraftId(fas.drafts),
+      guardianNric: issueFound.nric,
+      applicant: issueFound.name,
+      contact: issueFound.contact,
+      address: issueFound.address,
+      email: issueFound.email,
+      children: issueRows.map((r) => ({ studentId: r.student.id, name: r.student.name, nric: r.student.nric, school: r.school, level: r.student.level })),
+      issuedAt: new Date().toISOString().slice(0, 10),
+      issuedBy: by,
+    };
+    actions.issueDraft(draft);
+    setPrintMiss(!openDraftPrint(draft, schoolName));
+    setIssueFound(null);
+    setIssueNric("");
+  };
+
+  // The returned-copy check (Sherly): when the family on the New form tab has an issued draft, the
+  // keyed-in entry is checked against it — both came from the same registry record.
+  const draftOf = useMemo(
+    () => (lookedUp ? fas.drafts.find((d) => normNric(d.guardianNric) === normNric(lookedUp.nric)) ?? null : null),
+    [lookedUp, fas.drafts],
+  );
 
   const reset = () => {
     setChildrenRows([blankChild()]);
@@ -515,6 +576,127 @@ export default function HardcopyEntry() {
         ))}
       </div>
 
+      {view === "issue" && (
+      <>
+        <Card title="Issue a pre-filled MOE FAS form">
+          <div className="space-y-3">
+            <p className="text-[13px] text-on-surface-variant">
+              Print the form first, key in the returned copy (Sprint 3 refinement): key in the parent/guardian NRIC, print the
+              form the registry pre-fills, and hand it to the parent. The parent checks the pre-filled fields, declares the
+              household income (Section II) and signs (Section VI). When the signed form comes back, key it in on the{" "}
+              <span className="font-semibold text-on-surface">New form</span> tab — it is checked against the draft recorded here.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className={`${inputClass} max-w-72`}
+                aria-label="Parent or guardian NRIC (issue form)"
+                placeholder="e.g. S1234567D"
+                value={issueNric}
+                onChange={(e) => setIssueNric(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && issueNric.trim() && !issueLooking) findForIssue(); }}
+              />
+              <Button size="sm" onClick={findForIssue} disabled={issueLooking || !issueNric.trim()}>
+                {issueLooking ? "Searching…" : "Find the family"}
+              </Button>
+            </div>
+            {issueFound && (
+              <div className="space-y-2 rounded-control border border-line p-3">
+                <p className="text-sm font-semibold text-on-surface">
+                  {issueFound.name} <span className="font-normal text-on-surface-variant">({issueFound.relationship})</span>
+                </p>
+                <p className="text-[13px] text-on-surface-variant">
+                  {issueFound.contact} · {issueFound.address}{issueFound.email ? ` · ${issueFound.email}` : ""}
+                </p>
+                <ul className="space-y-1.5">
+                  {issueRows.map((r) => (
+                    <li key={r.student.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                      <span className="font-medium text-on-surface">
+                        {r.student.name} <span className="font-normal text-on-surface-variant">({r.student.level} · {r.school})</span>
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        {r.mineSchool ? <Badge tone="primary">Your school</Badge> : <Badge tone="neutral">Other school</Badge>}
+                        {r.blocked && <Badge tone="neutral">Already has an application</Badge>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(() => {
+                  const existing = fas.drafts.find((d) => normNric(d.guardianNric) === normNric(issueFound.nric));
+                  return existing ? (
+                    <p className="text-[13px] text-on-surface-variant">
+                      A form was already issued to this family — {existing.id} on{" "}
+                      {new Date(existing.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
+                      Print it again from the list below, or issue a fresh copy if the first was lost.
+                    </p>
+                  ) : null;
+                })()}
+                <div className="flex justify-end">
+                  <Button onClick={issueForm} disabled={!issueRows.length}>
+                    <Printer size={16} weight="bold" aria-hidden="true" /> Generate &amp; print the pre-filled form
+                  </Button>
+                </div>
+              </div>
+            )}
+            {issueMiss && (
+              <p className="text-[13px] font-medium text-alert" role="alert">
+                No family in the registry matches this NRIC — the parent fills a blank form by hand; key it in on the New form tab.
+              </p>
+            )}
+            {printMiss && (
+              <p className="text-[13px] font-medium text-alert" role="alert">
+                The print window was blocked by the browser — the form is still recorded below; allow pop-ups and press
+                &ldquo;Print again&rdquo; on its row.
+              </p>
+            )}
+          </div>
+        </Card>
+
+        <Card title="Forms issued (drafts)">
+          {fas.drafts.length ? (
+            <ul className="space-y-3">
+              {fas.drafts.map((d) => (
+                <li key={d.id} className="rounded-control border border-line px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">{d.id} · {d.applicant}</p>
+                      <p className="text-[13px] text-on-surface-variant">
+                        Issued {new Date(d.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {d.issuedBy}
+                        {" "}· {d.children.length} {d.children.length > 1 ? "children" : "child"}
+                      </p>
+                    </div>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                        <Printer size={16} weight="bold" aria-hidden="true" /> Print again
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => actions.voidDraft(d.id)}>
+                        <X size={16} weight="bold" aria-hidden="true" /> Void
+                      </Button>
+                    </span>
+                  </div>
+                  <ul className="mt-2 space-y-1.5">
+                    {d.children.map((c) => (
+                      <li key={c.studentId} className="text-[13px]">
+                        <span className="font-medium text-on-surface">{c.name}</span>
+                        <span className="text-on-surface-variant"> ({c.level} · {c.school})</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[12px] text-on-surface-variant">
+                    Waiting for the parent to check, declare and sign — the returned copy is keyed in on the New form tab and checked against this draft.
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              title="No forms issued yet"
+              hint="Look up a family above and print the pre-filled form — every printed form is remembered here as a draft until it comes back signed."
+            />
+          )}
+        </Card>
+      </>
+      )}
+
       {view === "new" && (
       <Card title="Submit a paper MOE FAS form">
         {reviewing ? (
@@ -617,6 +799,21 @@ export default function HardcopyEntry() {
               <p className="text-[13px] font-medium text-success" role="status">
                 {lookedUp.name} ({lookedUp.relationship}) — {lookedUp.children.length}{" "}
                 {lookedUp.children.length > 1 ? "children" : "child"} pulled from the registry. The rows in Section I are locked; if the paper form disagrees, the form was filled in wrongly.
+              </p>
+            )}
+            {lookedUp && draftOf && (
+              <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
+                <p className="font-semibold text-on-surface">Check against the issued form</p>
+                <p className="text-on-surface-variant">
+                  {draftOf.id} was printed for this family on{" "}
+                  {new Date(draftOf.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draftOf.issuedBy}.
+                  This entry is the returned copy — the child rows above came from the same registry record as the printed form; compare the parent&apos;s Section II declarations against the signed form before submitting.
+                </p>
+              </div>
+            )}
+            {lookedUp && !draftOf && (
+              <p className="text-[13px] text-on-surface-variant">
+                No pre-filled form was issued for this family through the system — the parent may have written the form by hand.
               </p>
             )}
             {lookupMiss && (

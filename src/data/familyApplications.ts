@@ -73,6 +73,33 @@ const seqOf = (id: string) => Math.max(0, (Number(id.replace(/\D/g, "")) || 0) -
 export const nextFamilyId = (apps: Pick<FamilyApplication, "id">[]) =>
   `FAS2026${String(apps.reduce((m, a) => Math.max(m, seqOf(a.id)), BASE) + 1).padStart(4, "0")}`;
 
+// ---- Issued-form drafts (Sprint 3 refinement: print the form first, key in the returned copy) ----
+
+/** One child as printed on the pre-filled form — the registry's own values, verbatim. */
+export type DraftChild = { studentId: string; name: string; nric: string; school: string; level: string };
+
+/** A pre-filled form the school generated and printed for the parent BEFORE any data entry. The
+ *  parent checks the pre-filled fields, declares the household income and signs; when the signed
+ *  paper comes back, the staff keys it in on the New form tab and checks it against this draft —
+ *  the draft is the system's memory of exactly what was issued (Sherly, Sprint 3 refinement). */
+export type FamilyDraft = {
+  /** DRF-#### sequence. */
+  id: string;
+  /** The parent/guardian NRIC the form was issued under — the key the returned form is matched by. */
+  guardianNric: string;
+  applicant: string;
+  contact: string;
+  address: string;
+  email?: string;
+  children: DraftChild[];
+  /** ISO date the form was printed and handed to the parent. */
+  issuedAt: string;
+  issuedBy: string;
+};
+
+export const nextDraftId = (drafts: Pick<FamilyDraft, "id">[]) =>
+  `DRF-${String(drafts.reduce((m, d) => Math.max(m, Number(d.id.replace(/\D/g, "")) || 0), 0) + 1).padStart(4, "0")}`;
+
 /** Plain-English sentence for a child's outcome row, shared by the school tab and the HQ card. */
 export const outcomeNote = (c: FamilyChild): string =>
   c.outcome === "MOEFAS granted"

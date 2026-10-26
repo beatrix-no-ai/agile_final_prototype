@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT } from "./budgets";
+import type { FamilyDraft } from "./familyApplications";
 import type { Band } from "./familyFas";
 import { FAMILY_STUDENT_NAMES } from "./parent";
 import { STUDENTS } from "./students";
@@ -343,5 +344,36 @@ describe("a new SBFAS request after a rejection", () => {
   it("the child's outcome reads the latest attempt, so a new request puts them back to awaiting", () => {
     expect(selectChildFas(rejected(), ethan.id)).toMatchObject({ status: "Not granted" });
     expect(selectChildFas(reapply(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
+  });
+});
+
+describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", () => {
+  const draft = (id: string): FamilyDraft => ({
+    id, guardianNric: "S1234567D", applicant: "Benson Chua", contact: "+65 8112 9743",
+    address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
+    children: [{ studentId: "S20260009", name: "Ethan Lim Jun Hao", nric: "T1504644E", school: "Riverbank Primary School", level: "P5" }],
+    issuedAt: "2026-10-26", issuedBy: "Marcus Ong",
+  });
+
+  it("issuing a form records it as a draft the returned copy is checked against", () => {
+    const s = fasReducer(initialFasState(), { type: "issueDraft", draft: draft("DRF-0001") });
+    expect(s.drafts).toHaveLength(1);
+    expect(s.drafts[0]).toMatchObject({ id: "DRF-0001", applicant: "Benson Chua" });
+  });
+
+  it("the same draft id is not recorded twice, but a second family gets its own row", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    expect(s.drafts).toHaveLength(1);
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0002") });
+    expect(s.drafts).toHaveLength(2);
+  });
+
+  it("voiding removes the draft and touches nothing else", () => {
+    let s = fasReducer(initialFasState(), { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "voidDraft", id: "DRF-0001" });
+    expect(s.drafts).toHaveLength(0);
+    expect(s.apps).toBe(initialFasState().apps);
   });
 });

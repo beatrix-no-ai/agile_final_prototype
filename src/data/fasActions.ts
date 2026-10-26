@@ -3,7 +3,7 @@ import { withFas } from "../lib/studentFas";
 import { fasReducer, useFas, type FasAction, type SbfasSuggestion } from "./fasStore";
 import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
-import type { FamilyApplication, HouseholdMember, TransportMode } from "./familyApplications";
+import type { FamilyApplication, FamilyDraft, HouseholdMember, TransportMode } from "./familyApplications";
 import { useRegistry } from "./registryStore";
 import { useSbfas } from "./sbfasStore";
 import { levelForBands, ruleForSchool, suggestedTierOf, subsidySummary, type SbfasRule } from "./sbfasRule";
@@ -36,7 +36,8 @@ export function useFasActions() {
   const sbfas = useSbfas();
   const { state: reg } = useRegistry();
 
-  const run = (action: FasAction, studentIds: string[]) => {
+  // Only actions that change a student's FAS (and carry `at`) go through here; draft issuing does not.
+  const run = (action: Extract<FasAction, { at: string }>, studentIds: string[]) => {
     const after = fasReducer(fas.state, action);
     fas.dispatch(action);
     for (const id of studentIds) {
@@ -80,6 +81,13 @@ export function useFasActions() {
     },
     submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }) {
       run({ type: "submitSbfasReapply", ...input, at: new Date().toISOString() }, [input.studentId]);
+    },
+    // Issuing a form touches no student's FAS, so it goes straight to the store — no fee sync.
+    issueDraft(draft: FamilyDraft) {
+      fas.dispatch({ type: "issueDraft", draft });
+    },
+    voidDraft(id: string) {
+      fas.dispatch({ type: "voidDraft", id });
     },
   };
 }

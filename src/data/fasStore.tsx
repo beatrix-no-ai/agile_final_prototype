@@ -3,7 +3,7 @@ import { applyDecision, isGranted, type Action, type Draft } from "../features/a
 import { sbfasUsage } from "../lib/budget";
 import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
-import { nextFamilyId, type FamilyApplication, type FamilyChild, type HouseholdMember, type TransportMode } from "./familyApplications";
+import { nextFamilyId, type FamilyApplication, type FamilyChild, type FamilyDraft, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
@@ -15,21 +15,31 @@ export type BudgetChange = { id: string; scope: BudgetScope; target: string; fro
 export type MoefasGrant = { tier: SbfasTier; at: string };
 /** What the school's grouping suggests for one student, computed at arrival and stored static thereafter. */
 export type SbfasSuggestion = { level: RiskLevel | null; tier: SbfasTier | null; fallback?: SbfasTier; subsidy?: string };
-export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant>; familyApps: FamilyApplication[]; };
+export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: LevelBudget[]; history: BudgetChange[]; moefas: Record<string, MoefasGrant>; familyApps: FamilyApplication[]; drafts: FamilyDraft[] };
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }
+  | { type: "issueDraft"; draft: FamilyDraft }
+  | { type: "voidDraft"; id: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
-export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [] });
+export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [], drafts: [] });
 
 // ASSUMPTION: no model scores a family-submitted application yet, so it gets a neutral mock score and tier for the school to review.
 const FAMILY_EXPLANATION = "Submitted by the family through the FAS form. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
 
 /** Pure. A decision is always recorded, even when the budget is already used up (overspend only warns). */
 export function fasReducer(state: FasState, a: FasAction): FasState {
+  if (a.type === "issueDraft") {
+    // Every printed form is remembered (Sherly: "the system should put as draft") — one draft per id,
+    // so printing the same form twice does not create a second record.
+    return state.drafts.some((d) => d.id === a.draft.id) ? state : { ...state, drafts: [a.draft, ...state.drafts] };
+  }
+  if (a.type === "voidDraft") {
+    return { ...state, drafts: state.drafts.filter((d) => d.id !== a.id) };
+  }
   if (a.type === "decide") {
     const apps = applyDecision(state.apps, a.id, a.action, a.draft).map((x) => (x.id === a.id ? { ...x, decidedAt: a.at } : x));
     return { ...state, apps };
