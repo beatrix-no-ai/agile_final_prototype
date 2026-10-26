@@ -236,6 +236,8 @@ function Detail({ f, rules, onBack }: { f: Family; rules: Rule[]; onBack: () => 
 /** One list for MOE: seeded e-Service arrivals plus the paper forms schools scanned in this session. */
 type Row = Family | FamilyApplication;
 const isHardcopy = (f: Row): f is FamilyApplication => "channel" in f;
+/** Schools of the children on the application (a paper form names the one school it was handed in to). */
+const schoolsOf = (f: Row) => (isHardcopy(f) ? [f.school] : [...new Set(f.schools)]);
 
 /** Application-level rollup for a hardcopy row, using the live school decisions — the strings match
  *  the status filter so both channels filter together. */
@@ -288,6 +290,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
   const [q, setQ] = useState("");
   const [channel, setChannel] = useState("");
   const [outcome, setOutcome] = useState("");
+  const [school, setSchool] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const openPortal = FAMILIES.find((f) => f.id === openId);
   const openHardcopy = openPortal ? undefined : fas.familyApps.find((f) => f.id === openId);
@@ -297,7 +300,8 @@ export default function Applications({ rules }: { rules: Rule[] }) {
 
   const all: Row[] = [...FAMILIES, ...fas.familyApps];
   const statusOf = (f: Row) => (isHardcopy(f) ? hardcopyStatus(f, fas.apps) : applicationStatus(f));
-  const rows = all.filter((f) => (!channel || (isHardcopy(f) ? "Hardcopy" : "e-Service") === channel)
+  const schools = [...new Set(all.flatMap(schoolsOf))].sort();
+  const rows = all.filter((f) => (!school || schoolsOf(f).includes(school)) && (!channel || (isHardcopy(f) ? "Hardcopy" : "e-Service") === channel)
     && (!outcome || statusOf(f) === outcome) && (isHardcopy(f)
     ? [f.id, f.applicant, ...f.children.map((c) => c.student)]
     : [f.id, f.parent, ...f.children]).join(" ").toLowerCase().includes(q.trim().toLowerCase()));
@@ -338,6 +342,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
         <>{f.children.length} {f.children.length > 1 ? "children" : "child"}{f.children.map((n, i) => <span key={n} className="block text-[13px] text-on-surface-variant">{n} · {childResult(f, i)}</span>)}</>
       ),
     },
+    { key: "school", header: "School", render: (f) => schoolsOf(f).map((s) => <span key={s} className="block">{s}</span>) },
     {
       key: "source", header: "Source",
       render: (f) => isHardcopy(f)
@@ -358,6 +363,10 @@ export default function Applications({ rules }: { rules: Rule[] }) {
       </p>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input className={`${inputClass} max-w-sm`} aria-label="Search applications" placeholder="Search application, parent or child" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className={`${inputClass} max-w-60`} aria-label="Filter school" value={school} onChange={(e) => setSchool(e.target.value)}>
+          <option value="">All schools</option>
+          {schools.map((s) => <option key={s}>{s}</option>)}
+        </select>
         <select className={`${inputClass} max-w-48`} aria-label="Filter channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
           <option value="">All channels</option>
           <option value="e-Service">e-Service (online)</option>
@@ -367,7 +376,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
           <option value="">All statuses</option>
           {[...OUTCOMES, "MOEFAS not granted", "Already covered"].map((o) => <option key={o}>{o}</option>)}
         </select>
-        <Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); }}>Reset</Button>
+        <Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); setSchool(""); }}>Reset</Button>
       </div>
       <DataTable
         columns={columns}
@@ -375,7 +384,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
         rowKey={(f) => f.id}
         rowActions={(f) => <RowAction onClick={() => setOpenId(f.id)}>View details</RowAction>}
         large
-        empty={<EmptyState title="No matching applications" hint="Try another search or reset the filters." action={<Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); }}>Reset</Button>} />}
+        empty={<EmptyState title="No matching applications" hint="Try another search or reset the filters." action={<Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); setSchool(""); }}>Reset</Button>} />}
       />
       <p className="mt-3 text-[13px] text-on-surface-variant">Showing {rows.length} of {all.length} family applications</p>
     </Card>
