@@ -34,10 +34,10 @@ export const MOEFAS_TIER_AMOUNT: Partial<Record<SbfasTier, number>> = { "Tier 1"
 
 // ASSUMPTION: MOEFAS tier names and the split of the 9,300 students across them are mock values; confirm with MOE.
 export const MOEFAS_BY_TIER = [
-  { label: "Tier 1", value: 3600 },
-  { label: "Tier 2", value: 2700 },
-  { label: "Tier 3", value: 1900 },
-  { label: "Tier 4", value: 1100 },
+  { label: "Tier 1", Primary: 2000, Secondary: 1600 },
+  { label: "Tier 2", Primary: 1500, Secondary: 1200 },
+  { label: "Tier 3", Primary: 1100, Secondary: 800 },
+  { label: "Tier 4", Primary: 600, Secondary: 500 },
 ];
 
 // ASSUMPTION: what happens when spend exceeds budget is an open question. The UI only displays it

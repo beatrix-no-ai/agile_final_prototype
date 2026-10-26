@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
 import { applyDecision, isGranted, type Action, type Draft } from "../features/admin/fas/review";
 import { sbfasUsage } from "../lib/budget";
-import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
+import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type Level, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
@@ -193,7 +193,10 @@ export function selectMoefas(s: FasState) {
   const used = sum(levels.map((l) => l.used));
   return {
     levels, budget, used, remaining: budget - used, helped: sum(levels.map((l) => l.beneficiaries)),
-    byTier: MOEFAS_BY_TIER.map((t) => ({ label: t.label, value: t.value + grants.filter((x) => x.g.tier === t.label).length })),
+    byTier: MOEFAS_BY_TIER.map((t) => {
+      const n = (lvl: string) => t[lvl as Level] + grants.filter((x) => x.level === lvl && x.g.tier === t.label).length;
+      return { label: t.label, Primary: n("Primary"), Secondary: n("Secondary"), value: n("Primary") + n("Secondary") };
+    }),
   };
 }
 
