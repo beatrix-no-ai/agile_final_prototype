@@ -105,15 +105,9 @@ const TRANSPORT_MODES: { mode: TransportMode; note: string; primaryOnly?: boolea
   { mode: "School bus", note: "70% of the monthly fare — primary level only", primaryOnly: true },
   { mode: "Own transport or walks", note: "No transport subsidy" },
 ];
-/** Mock OCR of the attached welfare home letter: what the scanner "read" off the PDF. */
-const WELFARE_LETTER_OCR = { home: "Sunbeam Welfare Home", dated: "30 Sep 2026" };
-/** Mock rendering of the attached welfare home letter for the click-to-view dialog. */
+/** Mock rendering of the scanned form for the click-to-view dialog. */
 export const formDocImage = (file: string, applicant: string) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Scanned MOE FAS form · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="15">File: ${file}</text><text x="75" y="200" font-family="Arial" font-size="17">Applicant: ${applicant || "—"}</text><text x="75" y="260" font-family="Arial" font-size="16">Sections I–VI as filled in by the parent</text><text x="75" y="310" font-family="Arial" font-size="14">Mock scan rendering — the OCR pre-filled the entry fields from it.</text><text x="75" y="340" font-family="Arial" font-size="14">Verify every field against this scan before submitting.</text></svg>`;
-  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-};
-const letterDocImage = (l: { file: string; ocr?: { home: string; dated: string } }) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="500"><rect width="700" height="500" fill="#faf8f6"/><rect x="40" y="35" width="620" height="430" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Welfare home letter · SAMPLE</text><text x="75" y="150" font-family="Arial" font-size="15">File: ${l.file}</text><text x="75" y="200" font-family="Arial" font-size="16">OCR: ${l.ocr?.home ?? "not read yet"}</text><text x="75" y="230" font-family="Arial" font-size="14">Dated: ${l.ocr?.dated ?? "—"}</text><text x="75" y="290" font-family="Arial" font-size="14">Mock scan rendering — not an actual document.</text></svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 };
 const OCCUPATIONS = ["Employed", "Self-employed", "Student", "Unemployed"] as const;
@@ -393,13 +387,7 @@ export default function HardcopyEntry() {
   const [note, setNote] = useState("");
   // Section II: HOMES-only by default; the household table opens only when administrative income is declared.
   const [adminIncome, setAdminIncome] = useState(false);
-  const [welfareHome, setWelfareHome] = useState(false);
   const [homesOnly, setHomesOnly] = useState(false);
-  // The welfare home letter (PDF) the exception rests on, with the OCR reading of it.
-  const [letter, setLetter] = useState<{ file: string; ocr?: { home: string; dated: string } } | null>(null);
-  const [letterReading, setLetterReading] = useState(false);
-  // Click-to-view dialog for the attached letter.
-  const [letterView, setLetterView] = useState(false);
   // The uploaded form PDF itself (demo): the OCR read the fields off it — click the chip to view it,
   // remove it to start over with another file.
   const [formFile, setFormFile] = useState<string | null>(null);
@@ -526,7 +514,7 @@ export default function HardcopyEntry() {
   const reset = () => {
     setScanned(false); setChildrenRows([blankChild()]);
     setApplicant(""); setContact(""); setAddress(""); setEmail(""); setNote("");
-    setAdminIncome(false); setWelfareHome(false); setHomesOnly(false); setLetter(null); setLetterReading(false);
+    setAdminIncome(false); setHomesOnly(false);
     setMembers([blankMember()]); setTransportMode(""); setImdaCopy(""); setDeclared(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
     setFormFile(null); setFormView(false);
@@ -536,18 +524,6 @@ export default function HardcopyEntry() {
   const setChildRow = (i: number, patch: Partial<ChildDraft>) =>
     setChildrenRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
-  // Attach the welfare home letter (PDF); the mock OCR then "reads" the home and the date off it.
-  const onLetterFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setLetter({ file: f.name });
-    setLetterReading(true);
-    window.setTimeout(() => {
-      setLetter((l) => (l ? { ...l, ocr: WELFARE_LETTER_OCR } : l));
-      setLetterReading(false);
-    }, 1000);
-  };
-
   const setMember = (i: number, patch: Partial<MemberDraft>) =>
     setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, ...patch } : m)));
 
@@ -555,7 +531,7 @@ export default function HardcopyEntry() {
   // (IRAS + CPF); when other administrative income is declared, it is computed from the Section II
   // table (GHI ÷ household members = per-capita income). Both are mocked here.
   const bandFromForm = (): { band: Band; source: string } => {
-    if (adminIncome && !welfareHome) {
+    if (adminIncome) {
       const named = members.filter((m) => m.name.trim());
       if (named.length) {
         const ghi = named.reduce((t, m) => t + (Number(m.gross) || 0) + (Number(m.other) || 0), 0);
@@ -584,7 +560,6 @@ export default function HardcopyEntry() {
       if (!reason.trim()) return "Say what changed since the rejected request.";
       return null;
     }
-    if (welfareHome && !letter) return "Attach the welfare home letter (PDF) — Section II is only skipped with the letter.";
     if (!chosen.length || !applicant.trim() || !contact.trim() || !address.trim() || !declared) {
       return "Complete Sections I and VI: list at least one child, the contact and home address, and sign off the declaration with the parent/guardian name.";
     }
@@ -626,13 +601,11 @@ export default function HardcopyEntry() {
         studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: contact.trim(), note,
         by, entryMode: scanned ? "ocr" : "manual",
         address: address.trim(), email: email.trim() || undefined, transportMode: transportMode || undefined,
-        hasAdminIncome: adminIncome && !welfareHome,
-        household: adminIncome && !welfareHome ? members.filter((m) => m.name.trim()).map((m) => ({
+        hasAdminIncome: adminIncome,
+        household: adminIncome ? members.filter((m) => m.name.trim()).map((m) => ({
           name: m.name.trim(), nric: m.nric.trim() || undefined, relationship: m.relationship.trim(), age: Number(m.age) || 0, occupation: m.occupation,
           gross: Number(m.gross) || 0, other: Number(m.other) || 0,
         })) : undefined,
-        welfareHome: welfareHome || undefined,
-        welfareLetter: welfareHome && letter ? { file: letter.file, home: letter.ocr?.home, dated: letter.ocr?.dated } : undefined,
         homesOnly: homesOnly || undefined,
         imdaHardcopy: imdaCopy || undefined,
         declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
@@ -643,10 +616,6 @@ export default function HardcopyEntry() {
     setView("apps");
   };
 
-  const pickedStudents = childrenRows.flatMap((row) => {
-    const m = matchOf(row);
-    return m ? [m.student] : [];
-  });
   // School bus is a primary-level subsidy and follows THIS school's children on the form — a
   // primary-level child at another school does not unlock it here (their own school handles them).
   const schoolBusAllowed = childrenRows.some((row) => {
@@ -716,13 +685,7 @@ export default function HardcopyEntry() {
           </section>
           <section className="space-y-2 border-t border-line pt-4">
             <SectionTitle n="II" title="Information on other household members" />
-            {welfareHome ? (
-              <p className="text-sm">
-                <span className="text-on-surface-variant">Welfare home resident — letter: </span>
-                <span className="font-medium">{letter?.file ?? "not attached"}</span>
-                {letter?.ocr && <span className="text-[13px] text-on-surface-variant"> · OCR read {letter.ocr.home}, dated {letter.ocr.dated}</span>}
-              </p>
-            ) : adminIncome ? (
+            {adminIncome ? (
               <ul className="space-y-1">
                 {members.filter((m) => m.name.trim()).map((m, i) => (
                   <li key={i} className="text-sm">
@@ -922,98 +885,36 @@ export default function HardcopyEntry() {
               <input
                 type="checkbox"
                 className="mt-0.5 size-4 accent-[#8A2538]"
-                checked={welfareHome}
+                checked={homesOnly}
                 onChange={(e) => {
-                  setWelfareHome(e.target.checked);
-                  if (e.target.checked) { setHomesOnly(false); setAdminIncome(false); }
+                  setHomesOnly(e.target.checked);
+                  if (e.target.checked) setAdminIncome(false);
                 }}
               />
               <span>
-                The child is a resident of an approved welfare home (letter from the welfare home attached)
-                {welfareHome && <span className="block text-[13px] text-on-surface-variant">Section II is not required for this child.</span>}
+                The household has only employment and/or trade income — no other administrative income
+                {homesOnly && (
+                  <span className="block text-[13px] text-on-surface-variant">
+                    Section II is not required — MOE retrieves the gross household income and per-capita income from HOMES (IRAS + CPF records).
+                  </span>
+                )}
               </span>
             </label>
-            {welfareHome && (
-              <div className="space-y-2 rounded-control border border-line p-3">
-                <Field label="Letter from the welfare home" required>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-control border border-line bg-surface-container-lowest px-3 text-[13px] font-semibold text-primary motion-safe:transition-colors hover:bg-surface-fixed">
-                      <FilePdf size={16} weight="bold" aria-hidden="true" />
-                      Attach the letter (PDF)
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        className="sr-only"
-                        aria-label="Attach the welfare home letter PDF"
-                        onChange={onLetterFile}
-                      />
-                    </label>
-                    {letter && (
-                      <span className="inline-flex items-center gap-2 text-[13px] text-on-surface-variant">
-                        <button
-                          type="button"
-                          onClick={() => setLetterView(true)}
-                          className="inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 font-medium text-primary hover:bg-primary-fixed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        >
-                          <FilePdf size={14} weight="bold" aria-hidden="true" /> {letter.file}
-                        </button>
-                        {letterReading && "· reading the letter…"}
-                        <button
-                          type="button"
-                          aria-label="Remove the letter"
-                          className="rounded-control p-1 hover:bg-surface-container-low"
-                          onClick={() => { setLetter(null); setLetterReading(false); setLetterView(false); }}
-                        >
-                          <X size={14} weight="bold" aria-hidden="true" />
-                        </button>
-                      </span>
-                    )}
-                  </div>
-                </Field>
-                {letter?.ocr && (
-                  <p className="text-[13px] text-on-surface-variant" role="status">
-                    OCR read: <span className="font-semibold text-on-surface">{letter.ocr.home}</span> · dated {letter.ocr.dated} ·
-                    for {pickedStudents[0]?.name ?? "the child on the form"}
-                  </p>
-                )}
-              </div>
-            )}
-            {!welfareHome && (
-              <>
-                <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 accent-[#8A2538]"
-                    checked={homesOnly}
-                    onChange={(e) => {
-                      setHomesOnly(e.target.checked);
-                      if (e.target.checked) setAdminIncome(false);
-                    }}
-                  />
-                  <span>
-                    The household has only employment and/or trade income — no other administrative income
-                    {homesOnly && (
-                      <span className="block text-[13px] text-on-surface-variant">
-                        Section II is not required — MOE retrieves the gross household income and per-capita income from HOMES (IRAS + CPF records).
-                      </span>
-                    )}
-                  </span>
-                </label>
-                <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 size-4 accent-[#8A2538]"
-                    checked={adminIncome}
-                    onChange={(e) => {
-                      setAdminIncome(e.target.checked);
-                      if (e.target.checked) setHomesOnly(false);
-                    }}
-                  />
-                  <span>
-                    The household also has other administrative income (rental, dividends, taxable investment income)
-                  </span>
-                </label>
-                {adminIncome && (
+            <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 accent-[#8A2538]"
+                checked={adminIncome}
+                onChange={(e) => {
+                  setAdminIncome(e.target.checked);
+                  if (e.target.checked) setHomesOnly(false);
+                }}
+              />
+              <span>
+                The household also has other administrative income (rental, dividends, taxable investment income)
+              </span>
+            </label>
+            {adminIncome && (
                   <div className="space-y-2 rounded-control border border-line p-3">
                     <div className="hidden gap-2 sm:grid sm:grid-cols-[auto_1.1fr_0.9fr_1.2fr_0.5fr_1.3fr_1fr_1fr_auto]">
                       <span className="w-4 text-[12px] font-semibold leading-tight text-on-surface-variant">S/ No.</span>
@@ -1060,8 +961,6 @@ export default function HardcopyEntry() {
                     </div>
                   </div>
                 )}
-              </>
-            )}
           </section>
 
           <section className="space-y-2 border-t border-line pt-4">
@@ -1218,31 +1117,6 @@ export default function HardcopyEntry() {
               The OCR pre-filled the entry fields from this scan — applicant: <span className="font-semibold text-on-surface">{applicant.trim() || "—"}</span>. Removing the file clears the form for a fresh upload.
             </p>
             <img src={formDocImage(formFile, applicant)} alt="Sample scanned MOE FAS form" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
-          </>
-        )}
-      </Modal>
-
-      <Modal
-        open={letterView && !!letter}
-        onClose={() => setLetterView(false)}
-        title={letter?.file ?? "Welfare home letter"}
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => { setLetter(null); setLetterReading(false); setLetterView(false); }}>
-              Remove & attach another
-            </Button>
-            <Button onClick={() => setLetterView(false)}>Close</Button>
-          </>
-        }
-      >
-        {letter && (
-          <>
-            <p className="mb-3 text-[13px] text-on-surface-variant" role="status">
-              {letter.ocr
-                ? <>OCR read <span className="font-semibold text-on-surface">{letter.ocr.home}</span> · dated {letter.ocr.dated} · for {pickedStudents[0]?.name ?? "the child on the form"}</>
-                : "Not read yet."}
-            </p>
-            <img src={letterDocImage(letter)} alt="Sample welfare home letter scan" className="max-h-[60vh] w-full rounded-control border border-line object-contain" />
           </>
         )}
       </Modal>
