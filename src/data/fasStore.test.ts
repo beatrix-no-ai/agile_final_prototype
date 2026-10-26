@@ -289,6 +289,24 @@ describe("a new SBFAS request after a rejection", () => {
     const id = s0.apps.find((a) => a.studentId === ethan.id)!.id;
     return fasReducer(s0, { type: "decide", id, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
   };
+  const rejectedId = (s: ReturnType<typeof initialFasState>) => s.apps.find((a) => a.studentId === ethan.id)!.id;
+
+  it("reopen & amend turns the rejection into a grant with the hardship recorded", () => {
+    const s = rejected();
+    const out = fasReducer(s, { type: "amendDecision", id: rejectedId(s), tier: "Tier 2", reason: "Parent came in — retrenched in October", by: "Alicia Tan", at });
+    const a = out.apps.find((x) => x.id === rejectedId(s))!;
+    expect(a).toMatchObject({
+      status: "Approved", sbfasTier: "Tier 2", justification: "Income above range",
+      amendReason: "Parent came in — retrenched in October", amendedBy: "Alicia Tan",
+    });
+  });
+
+  it("a rejection the family already re-applied from cannot be reopened — decide the newer request", () => {
+    let s = rejected();
+    s = fasReducer(s, { type: "submitSbfasReapply", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at });
+    expect(fasReducer(s, { type: "amendDecision", id: rejectedId(s), tier: "Tier 2", reason: "why", by: "Alicia Tan", at })).toBe(s);
+  });
+
   const reapply = (s: ReturnType<typeof initialFasState>, reason = "Parent stopped working", by?: string) =>
     fasReducer(s, { type: "submitSbfasReapply", studentId: ethan.id, reason, by, at });
 

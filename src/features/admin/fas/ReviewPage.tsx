@@ -21,7 +21,7 @@ import { riskLevel } from "../../../lib/fas";
 import { schoolOfStudent } from "../../../lib/registry";
 import { withBalance } from "../../../lib/studentFas";
 import { useSession } from "../../../session";
-import { statusLabel, validateDecision, type Action, type DecisionError, type Draft } from "./review";
+import { statusLabel, validateAmendment, validateDecision, type Action, type DecisionError, type Draft } from "./review";
 import { FamilyApplicationSections } from "./FamilySections";
 
 export const riskTone = { Low: "success", Medium: "warning", High: "alert" } as const;
@@ -51,7 +51,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 /** The review body, shared by nothing else anymore but kept as its own component so the page can key
  *  it per application (resets the decision draft when the reviewer opens another one). */
-function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: SbfasRule | null; superseded: SbfasApplication | null; onDecide: (id: string, action: Action, draft: Draft) => void }) {
+function ReviewBody({ app, rule, superseded, onDecide, onAmend }: { app: Enriched; rule: SbfasRule | null; superseded: SbfasApplication | null; onDecide: (id: string, action: Action, draft: Draft) => void; onAmend: (id: string, tier: SbfasTier, reason: string) => void }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -59,6 +59,10 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
   const [tier, setTier] = useState<SbfasTier>(tierList.some((t) => t.tier === app.recommendedTier) ? app.recommendedTier : tierList[0].tier);
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<DecisionError | null>(null);
+  // Reopen & amend (Sprint 3: the parent still comes to the school after a rejection): the rejected
+  // decision is reopened in place and amended to a grant, with the hardship recorded on the record.
+  const [amending, setAmending] = useState(false);
+  const [amendReason, setAmendReason] = useState("");
   // BR15: a school reviewer only sees their own students in the family sections; MOE sees all.
   const { role, staff } = useSession();
   const tierRef = useRef<HTMLSelectElement>(null);
@@ -79,6 +83,20 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
       return;
     }
     onDecide(app.id, action, draft);
+  };
+
+  // A rejection can only be reopened while it is still the family's live request — once a newer
+  // attempt supersedes it, amending here would grant the same child twice.
+  const supersededByNewer = fas.apps.some((x) => x.supersedesId === app.id);
+  const amendNow = () => {
+    const err = validateAmendment(amendReason);
+    if (err) {
+      setError(err);
+      justRef.current?.focus();
+      return;
+    }
+    setAmending(false);
+    onAmend(app.id, tier, amendReason.trim());
   };
 
   return (
@@ -155,9 +173,67 @@ function ReviewBody({ app, rule, superseded, onDecide }: { app: Enriched; rule: 
         <div className="rounded-control border border-line p-4 text-sm">
           <p className="font-semibold text-on-surface">Decision recorded: {statusLabel(app.status)}{app.sbfasTier ? ` · ${rankOf(app.sbfasTier)}` : ""}</p>
           {app.justification && <p className="mt-1">Justification: {app.justification}</p>}
+          {app.amendedAt && (
+            <p className="mt-2 rounded-control bg-surface-container-low px-3 py-2 text-[13px] text-on-surface-variant">
+              Reopened and amended to a grant on{" "}
+              {new Date(app.amendedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {app.amendedBy} — {app.amendReason}.
+              The justification above is the original rejection; both stay on the record.
+            </p>
+          )}
           <p className="mt-1 text-[13px] text-on-surface-variant">
             Outcome sent to the parent by SMS/email automatically on the decision date.
           </p>
+          {app.status === "Rejected" && !amending && !supersededByNewer && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-[13px] text-on-surface-variant">
+                The parent can still come to the school — a rejection can be reopened and amended to a
+                grant when the hardship warrants it. The original decision stays on the record.
+              </p>
+              <div className="mt-2 flex justify-end">
+                <Button variant="secondary" onClick={() => setAmending(true)}>Reopen &amp; amend</Button>
+              </div>
+            </div>
+          )}
+          {app.status === "Rejected" && supersededByNewer && (
+            <p className="mt-2 border-t border-line pt-2 text-[13px] text-on-surface-variant">
+              This rejection cannot be reopened — the family already made a newer request that supersedes
+              it; decide that request instead.
+            </p>
+          )}
+          {amending && (
+            <div className="mt-3 space-y-3 border-t border-line pt-3">
+              <p className="text-[13px] font-semibold text-on-surface">Reopen and amend to a grant</p>
+              <Field label="SBFAS tier to grant">
+                <select ref={tierRef} className={inputClass} value={tier} onChange={(e) => setTier(e.target.value as SbfasTier)}>
+                  {tierList.map((t) => (
+                    <option key={t.tier} value={t.tier}>
+                      {rankOf(t.tier)}{t.basis ? ` — ${subsidySummary(t, rule?.coveredComponents)} subsidy` : ""}{t.tier === app.recommendedTier ? " (suggested)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Why the rejection is reopened (required)"
+                hint="e.g. the parent came to the school office — retrenched in October, three school-going children."
+                error={error?.field === "justification" ? error.message : undefined}
+              >
+                <textarea
+                  ref={justRef}
+                  rows={3}
+                  className={`${inputClass} py-2`}
+                  value={amendReason}
+                  onChange={(e) => {
+                    setAmendReason(e.target.value);
+                    if (error?.field === "justification") setError(null);
+                  }}
+                />
+              </Field>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button variant="secondary" onClick={() => { setAmending(false); setAmendReason(""); setError(null); }}>Cancel</Button>
+                <Button onClick={amendNow}>Amend — grant {rankOf(tier)}</Button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -210,7 +286,7 @@ export default function ReviewPage() {
   const { state: sbfas } = useSbfas();
   const fees = useFees();
   const movements = useMovements();
-  const { decide } = useFasActions();
+  const { decide, amend } = useFasActions();
   const { staff } = useSession();
   const [announce, setAnnounce] = useState("");
 
@@ -237,6 +313,14 @@ export default function ReviewPage() {
     decide(id, action, draft); // updates the FAS record and re-prices the student's unpaid fees
     const a = fas.apps.find((x) => x.id === id);
     if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
+  };
+
+  // Reopen & amend: the rejected decision becomes a grant in place — fees re-price, and both the
+  // original rejection and the amendment reason stay on the record.
+  const onAmend = (id: string, tier: SbfasTier, reason: string) => {
+    amend(id, tier, reason, staff?.name ?? "School user");
+    const a = fas.apps.find((x) => x.id === id);
+    if (a) setAnnounce(`Application ${id} for ${a.student} reopened and amended — SBFAS granted (${rankOf(tier)}).`);
   };
 
   const backLink = (
@@ -280,7 +364,7 @@ export default function ReviewPage() {
         </Badge>
       </div>
       <Card title="Review the application">
-        <ReviewBody key={enriched.id} app={enriched} rule={rule} superseded={superseded} onDecide={onDecide} />
+        <ReviewBody key={enriched.id} app={enriched} rule={rule} superseded={superseded} onDecide={onDecide} onAmend={onAmend} />
       </Card>
     </div>
   );

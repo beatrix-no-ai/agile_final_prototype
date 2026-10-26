@@ -5,7 +5,7 @@ import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TI
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type FamilyDraft, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { normNric } from "./familyRegistry";
-import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
+import { applyAmendment, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
 
@@ -24,6 +24,7 @@ export type FasAction =
   | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr"; guardianNric?: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
+  | { type: "amendDecision"; id: string; tier: SbfasTier; reason: string; by: string; at: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [], drafts: [] });
@@ -55,6 +56,14 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
   }
   if (a.type === "voidDraft") {
     return { ...state, drafts: state.drafts.filter((d) => d.id !== a.id) };
+  }
+  if (a.type === "amendDecision") {
+    // Reopen & amend (Sprint 3: the parent comes to the school after a rejection): only a rejection
+    // NOBODY has re-applied from can be amended — a later attempt in the queue supersedes it, and
+    // amending both would grant the same child twice.
+    const app = state.apps.find((x) => x.id === a.id);
+    if (!app || app.status !== "Rejected" || state.apps.some((x) => x.supersedesId === a.id)) return state;
+    return { ...state, apps: applyAmendment(state.apps, a.id, a.tier, a.reason, a.by, a.at) };
   }
   if (a.type === "decide") {
     const apps = applyDecision(state.apps, a.id, a.action, a.draft).map((x) => (x.id === a.id ? { ...x, decidedAt: a.at } : x));

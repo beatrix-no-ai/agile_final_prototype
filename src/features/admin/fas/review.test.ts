@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
-import { applyDecision, isDeclined, isGranted, sortQueue, statusLabel, validateDecision } from "./review";
-import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication } from "../../../data/sbfasApplications";
+import { applyAmendment, applyDecision, isDeclined, isGranted, sortQueue, statusLabel, validateAmendment, validateDecision } from "./review";
+import { nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { STUDENTS } from "../../../data/students";
 
 const app = (id: string, riskScore: number, status: SbfasApplication["status"] = "Pending"): SbfasApplication => ({
@@ -69,4 +69,25 @@ test("statusLabel: Approved reads Granted, Rejected reads Declined, the rest sta
   expect(statusLabel("Rejected")).toBe("Declined");
   expect(statusLabel("Pending")).toBe("Pending");
   expect(statusLabel("Not applied")).toBe("Not applied");
+});
+
+test("validateAmendment: a reopened rejection needs a reason", () => {
+  expect(validateAmendment("   ")?.field).toBe("justification");
+  expect(validateAmendment("Parent came in — retrenched in October")).toBeNull();
+});
+
+test("applyAmendment flips a rejection to a grant, keeping the original reason on the record", () => {
+  const rejected = { ...app("a", 20, "Rejected"), justification: "Income above range", sbfasTier: undefined as SbfasTier | undefined };
+  const out = applyAmendment([rejected, app("b", 30)], "a", "Tier 1", " Parent came in — retrenched ", "Alicia Tan", "2026-10-26T09:00:00.000Z");
+  expect(out[0]).toMatchObject({
+    status: "Approved", sbfasTier: "Tier 1", justification: "Income above range",
+    amendReason: "Parent came in — retrenched", amendedBy: "Alicia Tan", amendedAt: "2026-10-26T09:00:00.000Z",
+  });
+  expect(out[1].status).toBe("Pending");
+  expect(isGranted(out[0])).toBe(true);
+});
+
+test("applyAmendment leaves anything that is not a rejection untouched", () => {
+  const list = [app("a", 20, "Pending"), app("b", 30, "Approved")];
+  expect(applyAmendment(list, "a", "Tier 1", "why", "Alicia Tan", "2026-10-26T09:00:00.000Z")).toEqual(list);
 });
