@@ -41,6 +41,12 @@ import { statusLabel } from "./review";
 // comes from HOMES) · III Declaration. Section IV is the school's own step (not on the paper form):
 // where the form goes — MOE or straight to the SBFAS queue — and the staff member's confirmation
 // that every field was checked.
+//
+// The print-first flow keeps a MANDATORY draft record: every generated form is stored as "Draft —
+// awaiting return" with the children it was issued for, so the school always knows exactly which
+// students hold a form. Keying in the returned copy requires cross-checking it against that draft
+// (a required confirmation), and on submit the draft flips to "Returned", linked to the FAS2026####
+// application the copy became — both flows, MOE and the SBFAS queue.
 
 /** Mock rendering of a scanned form for a record that still carries one (HQ applications screen). */
 export const formDocImage = (file: string, applicant: string) => {
@@ -321,6 +327,9 @@ export default function HardcopyEntry() {
   const [residents, setResidents] = useState("");
   // Section III's declaration tick, plus the final read-only review page.
   const [declared, setDeclared] = useState(false);
+  // The returned-copy cross-check: required whenever the family has an open draft (see draftOf) —
+  // the staff member confirms they compared this entry against the printed form before submitting.
+  const [checkedAgainst, setCheckedAgainst] = useState(false);
   // Where this form goes, chosen at the submit step: MOE for the MOEFAS-first assessment (flow 1), or
   // straight to this school's SBFAS queue as a separate request after a rejection (flow 2).
   const [submitMode, setSubmitMode] = useState<"moe" | "sbfas">("moe");
@@ -408,6 +417,7 @@ export default function HardcopyEntry() {
     setLookupNric("");
     setLookedUp(null);
     setLookupMiss(false);
+    setCheckedAgainst(false);
     // A cleared lookup releases the locked rows back to a blank, hand-keyed form.
     setChildrenRows((rs) => (rs.some((r) => r.db) ? [blankChild()] : rs));
   };
@@ -445,8 +455,11 @@ export default function HardcopyEntry() {
   };
   const issueForm = () => {
     if (!issueFound || !issueRows.length) return;
+    // The draft record is mandatory (Sherly): printing the form and recording it are the same step,
+    // so a form can never leave the school without the system remembering who holds it.
     const draft: FamilyDraft = {
       id: nextDraftId(fas.drafts),
+      status: "draft",
       guardianNric: issueFound.nric,
       applicant: issueFound.name,
       contact: issueFound.contact,
@@ -462,17 +475,23 @@ export default function HardcopyEntry() {
     setIssueNric("");
   };
 
-  // The returned-copy check (Sherly): when the family on the New form tab has an issued draft, the
-  // keyed-in entry is checked against it — both came from the same registry record.
+  // The returned-copy check (Sherly): when the family on the New form tab has an OPEN draft (a form
+  // printed and still with the parent), the keyed-in entry must be cross-checked against it — both
+  // came from the same registry record. A draft already marked "returned" belongs to an earlier
+  // form; it is reported but re-issues nothing here.
   const draftOf = useMemo(
-    () => (lookedUp ? fas.drafts.find((d) => normNric(d.guardianNric) === normNric(lookedUp.nric)) ?? null : null),
+    () => (lookedUp ? fas.drafts.find((d) => d.status === "draft" && normNric(d.guardianNric) === normNric(lookedUp.nric)) ?? null : null),
+    [lookedUp, fas.drafts],
+  );
+  const returnedOf = useMemo(
+    () => (lookedUp ? fas.drafts.find((d) => d.status === "returned" && normNric(d.guardianNric) === normNric(lookedUp.nric)) ?? null : null),
     [lookedUp, fas.drafts],
   );
 
   const reset = () => {
     setChildrenRows([blankChild()]);
     setApplicant(""); setContact(""); setAddress(""); setEmail(""); setNote("");
-    setExtraIncome(""); setResidents(""); setDeclared(false);
+    setExtraIncome(""); setResidents(""); setDeclared(false); setCheckedAgainst(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
     setLookupNric(""); setLookedUp(null); setLookupMiss(false); setLooking(false);
   };
@@ -496,6 +515,10 @@ export default function HardcopyEntry() {
     if (ids.length !== new Set(ids).size) return "The same child is listed twice — each child appears once on the form.";
     const unmatched = rows.find((r) => !r.match);
     if (unmatched) return `Row ${unmatched.i + 1} doesn't match a child in the registry — check the NRIC (BC/NRIC no.) and name against the form, or clear the row.`;
+    // The returned copy must be cross-checked against the draft the form was issued as (mandatory —
+    // both flows, MOE and the SBFAS queue): the staff member ticks the confirmation under the lookup.
+    if (lookedUp && draftOf && !checkedAgainst)
+      return `Cross-check required: compare this entry against draft ${draftOf.id} — the form issued to this family — and tick the confirmation under the family lookup.`;
     if (submitMode === "sbfas") {
       const eligible = chosen.filter((r) => rejectedIds.has(r.student.id));
       const notEligible = chosen.filter((r) => !rejectedIds.has(r.student.id));
@@ -544,6 +567,7 @@ export default function HardcopyEntry() {
       eligible.forEach((r) => actions.submitSbfasReapply({
         studentId: r.student.id, reason: reason.trim(), by,
         school: schoolName, applicant: applicant.trim(), contact: contact.trim(),
+        guardianNric: lookedUp?.nric,
       }));
     } else {
       actions.submitHardcopy({
@@ -553,6 +577,7 @@ export default function HardcopyEntry() {
         extraIncome: Number(extraIncome) || 0,
         residents: Number(residents) || 0,
         declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
+        guardianNric: lookedUp?.nric,
       });
     }
     reset();
@@ -614,12 +639,12 @@ export default function HardcopyEntry() {
                   ))}
                 </ul>
                 {(() => {
-                  const existing = fas.drafts.find((d) => normNric(d.guardianNric) === normNric(issueFound.nric));
+                  const existing = fas.drafts.find((d) => d.status === "draft" && normNric(d.guardianNric) === normNric(issueFound.nric));
                   return existing ? (
                     <p className="text-[13px] text-on-surface-variant">
-                      A form was already issued to this family — {existing.id} on{" "}
-                      {new Date(existing.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
-                      Print it again from the list below, or issue a fresh copy if the first was lost.
+                      A form is already out with this family — {existing.id}, issued{" "}
+                      {new Date(existing.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} and still awaiting the signed copy.
+                      Print it again from the register below, or issue a fresh copy if the first was lost.
                     </p>
                   ) : null;
                 })()}
@@ -644,7 +669,7 @@ export default function HardcopyEntry() {
           </div>
         </Card>
 
-        <Card title="Forms issued (drafts)">
+        <Card title="Draft register — forms issued and awaiting return">
           {fas.drafts.length ? (
             <ul className="space-y-3">
               {fas.drafts.map((d) => (
@@ -655,15 +680,24 @@ export default function HardcopyEntry() {
                       <p className="text-[13px] text-on-surface-variant">
                         Issued {new Date(d.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {d.issuedBy}
                         {" "}· {d.children.length} {d.children.length > 1 ? "children" : "child"}
+                        {d.status === "returned" && d.returnedAt
+                          ? ` · returned ${new Date(d.returnedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                          : ""}
                       </p>
                     </div>
                     <span className="flex flex-wrap items-center gap-2">
+                      {d.status === "draft"
+                        ? <Badge tone="warning">Draft — awaiting return</Badge>
+                        : <Badge tone="success">Returned — keyed in as {d.returnedAppId}</Badge>}
                       <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
                         <Printer size={16} weight="bold" aria-hidden="true" /> Print again
                       </Button>
-                      <Button size="sm" variant="secondary" onClick={() => actions.voidDraft(d.id)}>
-                        <X size={16} weight="bold" aria-hidden="true" /> Void
-                      </Button>
+                      {/* A returned draft is the audit trail of a live application — it cannot be voided. */}
+                      {d.status === "draft" && (
+                        <Button size="sm" variant="secondary" onClick={() => actions.voidDraft(d.id)}>
+                          <X size={16} weight="bold" aria-hidden="true" /> Void
+                        </Button>
+                      )}
                     </span>
                   </div>
                   <ul className="mt-2 space-y-1.5">
@@ -674,16 +708,22 @@ export default function HardcopyEntry() {
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-2 text-[12px] text-on-surface-variant">
-                    Waiting for the parent to check, declare and sign — the returned copy is keyed in on the New form tab and checked against this draft.
-                  </p>
+                  {d.status === "draft" ? (
+                    <p className="mt-2 text-[12px] text-on-surface-variant">
+                      Waiting for the parent to check, declare and sign — the returned copy is keyed in on the New form tab and checked against this draft.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-[12px] text-on-surface-variant">
+                      The signed copy came back and was keyed in as {d.returnedAppId} — see the Applications tab for the outcome.
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
           ) : (
             <EmptyState
               title="No forms issued yet"
-              hint="Look up a family above and print the pre-filled form — every printed form is remembered here as a draft until it comes back signed."
+              hint="Look up a family above and print the pre-filled form — every printed form is recorded here as a draft, so the school always knows which children hold one."
             />
           )}
         </Card>
@@ -719,6 +759,12 @@ export default function HardcopyEntry() {
             <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{contact.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{address.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{email.trim() || "—"}</span></p>
+            {draftOf && (
+              <p className="text-[13px] text-on-surface-variant">
+                Returned copy of <span className="font-medium text-on-surface">{draftOf.id}</span>, issued{" "}
+                {new Date(draftOf.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — cross-checked against the draft.
+              </p>
+            )}
           </section>
           <section className="space-y-2 border-t border-line pt-4">
             <SectionTitle n="II" title="Household income" />
@@ -787,19 +833,30 @@ export default function HardcopyEntry() {
             )}
             {lookedUp && draftOf && (
               <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
-                <p className="font-semibold text-on-surface">Check against the issued form</p>
+                <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
                 <p className="text-on-surface-variant">
                   {draftOf.id} was printed for this family on{" "}
                   {new Date(draftOf.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draftOf.issuedBy}.
                   This entry is the returned copy — the child rows above came from the same registry record as the printed form; compare the parent&apos;s Section II declarations against the signed form before submitting.
                 </p>
+                <label className="mt-2 flex items-start gap-2.5">
+                  <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => setCheckedAgainst(e.target.checked)} />
+                  <span>
+                    I have compared this entry with the signed form and draft {draftOf.id} — the children match and Section II is as the parent declared.{" "}
+                    <span className="text-alert" aria-hidden>*</span>
+                  </span>
+                </label>
               </div>
             )}
-            {lookedUp && !draftOf && (
+            {lookedUp && !draftOf && (returnedOf ? (
+              <p className="text-[13px] text-on-surface-variant">
+                The form issued to this family ({returnedOf.id}) already came back — keyed in as {returnedOf.returnedAppId}. A new form would be a fresh issue on the Issue form tab.
+              </p>
+            ) : (
               <p className="text-[13px] text-on-surface-variant">
                 No pre-filled form was issued for this family through the system — the parent may have written the form by hand.
               </p>
-            )}
+            ))}
             {lookupMiss && (
               <p className="text-[13px] font-medium text-alert" role="alert">
                 No family in the registry matches this NRIC — key the children in by hand in Section I below.

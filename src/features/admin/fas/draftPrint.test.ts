@@ -4,6 +4,7 @@ import { draftHtml } from "./draftPrint";
 
 const draft: FamilyDraft = {
   id: "DRF-0001",
+  status: "draft",
   guardianNric: "S1234567D",
   applicant: "Benson Chua",
   contact: "+65 8112 9743",

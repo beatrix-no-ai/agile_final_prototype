@@ -348,17 +348,20 @@ describe("a new SBFAS request after a rejection", () => {
 });
 
 describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", () => {
+  const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
+  const at = "2026-10-26T09:00:00.000Z";
   const draft = (id: string): FamilyDraft => ({
-    id, guardianNric: "S1234567D", applicant: "Benson Chua", contact: "+65 8112 9743",
+    id, status: "draft", guardianNric: "S1234567D", applicant: "Benson Chua", contact: "+65 8112 9743",
     address: "Blk 315 Ang Mo Kio Ave 3, #07-221, Singapore 560315",
     children: [{ studentId: "S20260009", name: "Ethan Lim Jun Hao", nric: "T1504644E", school: "Riverbank Primary School", level: "P5" }],
     issuedAt: "2026-10-26", issuedBy: "Marcus Ong",
   });
+  const band: Band = { id: "b3", label: "$1,001 - $1,500 per person", tier: "SBFAS" };
 
   it("issuing a form records it as a draft the returned copy is checked against", () => {
     const s = fasReducer(initialFasState(), { type: "issueDraft", draft: draft("DRF-0001") });
     expect(s.drafts).toHaveLength(1);
-    expect(s.drafts[0]).toMatchObject({ id: "DRF-0001", applicant: "Benson Chua" });
+    expect(s.drafts[0]).toMatchObject({ id: "DRF-0001", status: "draft", applicant: "Benson Chua" });
   });
 
   it("the same draft id is not recorded twice, but a second family gets its own row", () => {
@@ -375,5 +378,55 @@ describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", 
     s = fasReducer(s, { type: "voidDraft", id: "DRF-0001" });
     expect(s.drafts).toHaveLength(0);
     expect(s.apps).toBe(initialFasState().apps);
+  });
+
+  it("keying in the returned copy flips its draft to returned and links the application it became", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    // The NRIC is keyed differently cased on the way in — the match is tolerant, like the lookup.
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at, guardianNric: "s1234567d",
+    });
+    expect(s.drafts[0]).toMatchObject({ status: "returned", returnedAppId: s.familyApps[0].id, returnedAt: "2026-10-26" });
+  });
+
+  it("a returned flow-2 form (straight to the SBFAS queue) closes its draft the same way", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    const s0 = fasReducer(s, { type: "submitFamily", studentIds: [ethan.id], band, at });
+    const id = s0.apps.find((a) => a.studentId === ethan.id)!.id;
+    s = fasReducer(s0, { type: "decide", id, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
+    s = fasReducer(s, {
+      type: "submitSbfasReapply", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at,
+      school: "Riverbank Primary School", applicant: "Benson Chua", contact: "+65 8112 9743", guardianNric: "S1234567D",
+    });
+    expect(s.drafts[0].status).toBe("returned");
+    expect(s.drafts[0].returnedAppId).toBe(s.familyApps[0].id);
+  });
+
+  it("a submission whose family has no draft on file leaves the register untouched", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    const before = s.drafts;
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Someone Else", contact: "+65 9000 0000", note: "", by: "Alicia Tan", entryMode: "manual", at,
+    });
+    expect(s.drafts).toBe(before);
+  });
+
+  it("a family's second issue closes only the latest open draft — the lost first copy stays on the register", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, { type: "issueDraft", draft: { ...draft("DRF-0002"), issuedAt: "2026-10-27" } });
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
+      at: "2026-10-28T09:00:00.000Z", guardianNric: "S1234567D",
+    });
+    expect(s.drafts.find((d) => d.id === "DRF-0002")!.status).toBe("returned");
+    expect(s.drafts.find((d) => d.id === "DRF-0001")!.status).toBe("draft");
   });
 });

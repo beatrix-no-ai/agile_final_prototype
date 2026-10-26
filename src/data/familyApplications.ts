@@ -85,10 +85,15 @@ export type DraftChild = { studentId: string; name: string; nric: string; school
 /** A pre-filled form the school generated and printed for the parent BEFORE any data entry. The
  *  parent checks the pre-filled fields, declares the household income and signs; when the signed
  *  paper comes back, the staff keys it in on the New form tab and checks it against this draft —
- *  the draft is the system's memory of exactly what was issued (Sherly, Sprint 3 refinement). */
+ *  the draft is the system's memory of exactly what was issued (Sherly, Sprint 3 refinement).
+ *  The record is MANDATORY: every issued form is stored so the school always knows which children
+ *  hold a form, and it stays "draft" until the signed copy is keyed in against it. */
 export type FamilyDraft = {
   /** DRF-#### sequence. */
   id: string;
+  /** "draft" = printed and with the parent, awaiting the signed copy; "returned" = the signed copy
+   *  came back and was keyed in as `returnedAppId` — the register keeps it for the audit trail. */
+  status: "draft" | "returned";
   /** The parent/guardian NRIC the form was issued under — the key the returned form is matched by. */
   guardianNric: string;
   applicant: string;
@@ -99,6 +104,10 @@ export type FamilyDraft = {
   /** ISO date the form was printed and handed to the parent. */
   issuedAt: string;
   issuedBy: string;
+  /** The FAS2026#### application the returned copy became — set when the status flips to "returned". */
+  returnedAppId?: string;
+  /** ISO date the signed copy was keyed in against the draft. */
+  returnedAt?: string;
 };
 
 export const nextDraftId = (drafts: Pick<FamilyDraft, "id">[]) =>

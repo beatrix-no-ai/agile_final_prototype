@@ -4,6 +4,7 @@ import { sbfasUsage } from "../lib/budget";
 import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type FamilyDraft, type HouseholdMember, type TransportMode } from "./familyApplications";
+import { normNric } from "./familyRegistry";
 import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
@@ -19,13 +20,28 @@ export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: 
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr" }
+  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; recommend?: Record<string, SbfasSuggestion> }
+  | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr"; guardianNric?: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [], drafts: [] });
+
+/** Keying in a returned form closes the loop on its draft record: the family's open draft flips to
+ *  "returned" and links to the application the copy became. The match is by guardian NRIC (tolerant
+ *  of case/spacing) and only the LATEST open draft closes — a re-issued form (first copy lost) leaves
+ *  the older prints open for the parent's other copy, and voided drafts are already gone. */
+const markReturned = (drafts: FamilyDraft[], guardianNric: string | undefined, appId: string, at: string): FamilyDraft[] => {
+  if (!guardianNric) return drafts;
+  const key = normNric(guardianNric);
+  let done = false; // drafts are stored newest-first, so the first match is the latest print
+  return drafts.map((d) => {
+    if (done || d.status !== "draft" || normNric(d.guardianNric) !== key) return d;
+    done = true;
+    return { ...d, status: "returned", returnedAppId: appId, returnedAt: at.slice(0, 10) };
+  });
+};
 
 // ASSUMPTION: no model scores a family-submitted application yet, so it gets a neutral mock score and tier for the school to review.
 const FAMILY_EXPLANATION = "Submitted by the family through the FAS form. The income band was read from the MyInfo (SingPass) API. No fee history is available yet, so the model gives a neutral score; review the household and the student's fees before deciding.";
@@ -113,7 +129,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       imdaHardcopy: a.imdaHardcopy, declaredAt: a.declaredAt, note: a.note.trim() || undefined,
       enteredBy: a.by, entryMode: a.entryMode, formFile: a.formFile, at: a.at, children,
     };
-    return { ...state, apps, moefas, familyApps: [familyApp, ...state.familyApps] };
+    return { ...state, apps, moefas, familyApps: [familyApp, ...state.familyApps], drafts: markReturned(state.drafts, a.guardianNric, faId, a.at) };
   }
   if (a.type === "submitSbfasReapply") {
     // ASSUMPTION (client pending): a new SBFAS request does NOT re-run the MOEFAS assessment — it goes
@@ -146,6 +162,8 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
         status: "Pending",
       }],
       familyApps: [...familyApp, ...state.familyApps],
+      // Flow 2's returned form closes its draft too — it is the same printed form coming back.
+      drafts: markReturned(state.drafts, a.guardianNric, faId, a.at),
     };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
