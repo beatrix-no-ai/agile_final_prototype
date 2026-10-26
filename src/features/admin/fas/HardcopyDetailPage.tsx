@@ -138,25 +138,32 @@ export default function HardcopyDetailPage() {
         <div className="space-y-3">
           <div>
             <p className="text-sm font-semibold text-on-surface">Children on the new request</p>
-            <ul className="mt-1.5 space-y-1.5">
-              {reaskable.map((c) => (
-                <li key={c.studentId}>
-                  <label className="flex items-center gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-[#8A2538]"
-                      checked={picked.has(c.studentId)}
-                      onChange={(e) => setPicked((p) => {
-                        const next = new Set(p);
-                        if (e.target.checked) next.add(c.studentId); else next.delete(c.studentId);
-                        return next;
-                      })}
-                    />
-                    <span>{c.student} <span className="text-[13px] text-on-surface-variant">({c.level})</span></span>
-                  </label>
-                </li>
-              ))}
-            </ul>
+            {/* One reaskable child needs no picking — the request simply covers them. */}
+            {reaskable.length === 1 ? (
+              <p className="mt-1.5 rounded-control border border-line px-3 py-2 text-sm">
+                {reaskable[0].student} <span className="text-[13px] text-on-surface-variant">({reaskable[0].level})</span>
+              </p>
+            ) : (
+              <ul className="mt-1.5 space-y-1.5">
+                {reaskable.map((c) => (
+                  <li key={c.studentId}>
+                    <label className="flex items-center gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
+                      <input
+                        type="checkbox"
+                        className="size-4 accent-[#8A2538]"
+                        checked={picked.has(c.studentId)}
+                        onChange={(e) => setPicked((p) => {
+                          const next = new Set(p);
+                          if (e.target.checked) next.add(c.studentId); else next.delete(c.studentId);
+                          return next;
+                        })}
+                      />
+                      <span>{c.student} <span className="text-[13px] text-on-surface-variant">({c.level})</span></span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <Field label="What changed since the rejected request" required>
             <textarea
