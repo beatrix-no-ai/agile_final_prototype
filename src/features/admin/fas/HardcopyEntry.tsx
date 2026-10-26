@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { ArrowLeft, CaretRight, Plus, Printer, X } from "@phosphor-icons/react";
+import { ArrowLeft, CaretRight, MagnifyingGlass, Plus, Printer, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -615,6 +615,19 @@ export default function HardcopyEntry() {
   const [keyingId, setKeyingId] = useState<string | null>(null);
   const keyingDraft = keyingId ? fas.drafts.find((d) => d.id === keyingId) ?? null : null;
 
+  // Register search: match a draft by its code, the parent's name, the guardian NRIC or any child's name.
+  const [draftQuery, setDraftQuery] = useState("");
+  const shownDrafts = useMemo(() => {
+    const q = draftQuery.trim().toLowerCase();
+    if (!q) return fas.drafts;
+    return fas.drafts.filter((d) =>
+      d.id.toLowerCase().includes(q) ||
+      d.applicant.toLowerCase().includes(q) ||
+      d.guardianNric.toLowerCase().includes(q) ||
+      d.children.some((c) => c.name.toLowerCase().includes(q)),
+    );
+  }, [fas.drafts, draftQuery]);
+
   // Issue-form tab (Sprint 3: print the form first, key in the returned copy): same registry, same
   // lookup — but creating the form only RECORDS THE DRAFT; the staff prints it from the draft's row
   // in the register below, then hands the paper to the parent, who checks the pre-filled fields,
@@ -694,14 +707,6 @@ export default function HardcopyEntry() {
       <>
         <Card title="Issue a pre-filled MOE FAS form">
           <div className="space-y-3">
-            <p className="text-[13px] text-on-surface-variant">
-              Print the form first, key in the returned copy (Sprint 3 refinement): key in the parent/guardian NRIC and create
-              the form — the system records it as a draft straight away. Print the form from its row in the register below and
-              hand it to the parent, who checks the pre-filled fields, declares the household income (Section II) and signs
-              (Section III). When the signed form comes back,{" "}
-              <span className="font-semibold text-on-surface">click the draft&apos;s row</span> in the register — the key-in
-              takes the pre-printed fields from the draft and checks the entry against it.
-            </p>
             <div className="flex flex-wrap items-center gap-2">
               <input
                 className={`${inputClass} max-w-72`}
@@ -770,76 +775,94 @@ export default function HardcopyEntry() {
 
         <Card title="Draft register — forms issued and awaiting return">
           {fas.drafts.length ? (
-            <ul className="space-y-3">
-              {fas.drafts.map((d) => (
-                <li
-                  key={d.id}
-                  className={`rounded-control border border-line px-4 py-3${d.status === "draft" ? " relative cursor-pointer transition-colors hover:border-outline hover:bg-surface-container-low" : ""}`}
-                >
-                  {/* Clicking an open draft opens its returned-copy key-in — the row IS the entry point
-                      (the old New form tab is gone). Buttons stay above the overlay (relative). */}
-                  {d.status === "draft" && (
-                    <button
-                      className="absolute inset-0 rounded-control"
-                      aria-label={`Key in the returned copy of ${d.id} — ${d.applicant}`}
-                      onClick={() => setKeyingId(d.id)}
-                    />
-                  )}
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{d.id} · {d.applicant}</p>
-                      <p className="text-[13px] text-on-surface-variant">
-                        Issued {new Date(d.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {d.issuedBy}
-                        {" "}· {d.children.length} {d.children.length > 1 ? "children" : "child"}
-                        {d.status === "returned" && d.returnedAt
-                          ? ` · returned ${new Date(d.returnedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
-                          : ""}
-                      </p>
-                    </div>
-                    <span className="relative flex flex-wrap items-center gap-2">
-                      {d.status === "draft"
-                        ? <Badge tone="warning">Draft — awaiting return</Badge>
-                        : <Badge tone="success">Returned — keyed in as {d.returnedAppId}</Badge>}
-                      {/* The staff prints the form from its row — the draft is recorded before anything
-                          is printed, and this row is where it is printed from, again if a copy is lost. */}
-                      {d.status === "draft" ? (
-                        <Button size="sm" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
-                          <Printer size={16} weight="bold" aria-hidden="true" /> Print
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
-                          <Printer size={16} weight="bold" aria-hidden="true" /> Print again
-                        </Button>
-                      )}
-                      {/* X removes an unprinted/unwanted draft row. A returned draft is the audit
-                          trail of a live application — it cannot be removed. */}
+            <div className="space-y-3">
+              <div className="relative max-w-72">
+                <MagnifyingGlass size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+                <input
+                  type="search"
+                  autoComplete="off"
+                  className={`${inputClass} pl-9`}
+                  aria-label="Search drafts"
+                  placeholder="Search code, parent or child"
+                  value={draftQuery}
+                  onChange={(e) => setDraftQuery(e.target.value)}
+                />
+              </div>
+              {shownDrafts.length ? (
+                <ul className="space-y-3">
+                  {shownDrafts.map((d) => (
+                    <li
+                      key={d.id}
+                      className={`rounded-control border border-line px-4 py-3${d.status === "draft" ? " relative cursor-pointer transition-colors hover:border-outline hover:bg-surface-container-low" : ""}`}
+                    >
+                      {/* Clicking an open draft opens its returned-copy key-in — the row IS the entry point
+                          (the old New form tab is gone). Buttons stay above the overlay (relative). */}
                       {d.status === "draft" && (
-                        <Button size="sm" variant="secondary" aria-label={`Remove draft ${d.id}`} onClick={() => actions.voidDraft(d.id)}>
-                          <X size={16} weight="bold" aria-hidden="true" />
-                        </Button>
+                        <button
+                          className="absolute inset-0 rounded-control"
+                          aria-label={`Key in the returned copy of ${d.id} — ${d.applicant}`}
+                          onClick={() => setKeyingId(d.id)}
+                        />
                       )}
-                    </span>
-                  </div>
-                  <ul className="mt-2 space-y-1.5">
-                    {d.children.map((c) => (
-                      <li key={c.studentId} className="text-[13px]">
-                        <span className="font-medium text-on-surface">{c.name}</span>
-                        <span className="text-on-surface-variant"> ({c.level} · {c.school})</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {d.status === "draft" ? (
-                    <p className="mt-2 text-[12px] text-on-surface-variant">
-                      Print the form and hand it to the parent — when the signed copy comes back, click this row to key it in against the draft.
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-[12px] text-on-surface-variant">
-                      The signed copy came back and was keyed in as {d.returnedAppId} — see the Applications tab for the outcome.
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold">{d.id} · {d.applicant}</p>
+                          <p className="text-[13px] text-on-surface-variant">
+                            Issued {new Date(d.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {d.issuedBy}
+                            {" "}· {d.children.length} {d.children.length > 1 ? "children" : "child"}
+                            {d.status === "returned" && d.returnedAt
+                              ? ` · returned ${new Date(d.returnedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="relative flex flex-wrap items-center gap-2">
+                          {d.status === "draft"
+                            ? <Badge tone="warning">Draft — awaiting return</Badge>
+                            : <Badge tone="success">Returned — keyed in as {d.returnedAppId}</Badge>}
+                          {/* The staff prints the form from its row — the draft is recorded before anything
+                              is printed, and this row is where it is printed from, again if a copy is lost. */}
+                          {d.status === "draft" ? (
+                            <Button size="sm" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                              <Printer size={16} weight="bold" aria-hidden="true" /> Print
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="secondary" onClick={() => { if (!openDraftPrint(d, schoolName)) setPrintMiss(true); }}>
+                              <Printer size={16} weight="bold" aria-hidden="true" /> Print again
+                            </Button>
+                          )}
+                          {/* X removes an unprinted/unwanted draft row. A returned draft is the audit
+                              trail of a live application — it cannot be removed. */}
+                          {d.status === "draft" && (
+                            <Button size="sm" variant="secondary" aria-label={`Remove draft ${d.id}`} onClick={() => actions.voidDraft(d.id)}>
+                              <X size={16} weight="bold" aria-hidden="true" />
+                            </Button>
+                          )}
+                        </span>
+                      </div>
+                      <ul className="mt-2 space-y-1.5">
+                        {d.children.map((c) => (
+                          <li key={c.studentId} className="text-[13px]">
+                            <span className="font-medium text-on-surface">{c.name}</span>
+                            <span className="text-on-surface-variant"> ({c.level} · {c.school})</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {d.status === "draft" ? (
+                        <p className="mt-2 text-[12px] text-on-surface-variant">
+                          Print the form and hand it to the parent — when the signed copy comes back, click this row to key it in against the draft.
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-[12px] text-on-surface-variant">
+                          The signed copy came back and was keyed in as {d.returnedAppId} — see the Applications tab for the outcome.
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[13px] text-on-surface-variant">No draft matches this search — try the draft code, the parent&apos;s name or a child&apos;s name.</p>
+              )}
+            </div>
           ) : (
             <EmptyState
               title="No forms issued yet"
