@@ -36,20 +36,17 @@ import { statusLabel } from "./review";
 // is rejected at SBFAS, the parent hands in a SEPARATE new request — at the submit step the form
 // goes straight to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
 //
-// The entry form follows the real MOE FAS application form (Sep 2025):
-// I Child particulars · II Other household members · VI Declaration.
-// Section VII is the school's own step (not on the paper form): where the form goes — MOE or straight
-// to the SBFAS queue — and the staff member's confirmation that every field was checked.
+// The entry form follows the online family application (Sprint 3 parity — the same fields, the same
+// assessment): I Child particulars · II Household income (extra money + residents; the band itself
+// comes from HOMES) · III Declaration. Section IV is the school's own step (not on the paper form):
+// where the form goes — MOE or straight to the SBFAS queue — and the staff member's confirmation
+// that every field was checked.
 
 /** Mock rendering of a scanned form for a record that still carries one (HQ applications screen). */
 export const formDocImage = (file: string, applicant: string) => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="760"><rect width="700" height="760" fill="#faf8f6"/><rect x="40" y="35" width="620" height="690" rx="6" fill="white" stroke="#e4dddd"/><text x="75" y="100" font-family="Arial" font-size="24" fill="#8a2538">Scanned MOE FAS form · SAMPLE</text><text x="75" y="155" font-family="Arial" font-size="15">File: ${file}</text><text x="75" y="200" font-family="Arial" font-size="17">Applicant: ${applicant || "—"}</text><text x="75" y="260" font-family="Arial" font-size="16">Sections I–VI as filled in by the parent</text><text x="75" y="310" font-family="Arial" font-size="14">Mock scan rendering — the OCR pre-filled the entry fields from it.</text><text x="75" y="340" font-family="Arial" font-size="14">Verify every field against this scan before submitting.</text></svg>`;
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 };
-const OCCUPATIONS = ["Employed", "Self-employed", "Student", "Unemployed"] as const;
-/** One Section II row as the staff types it (strings straight from the inputs). */
-type MemberDraft = { name: string; nric: string; relationship: string; age: string; occupation: string; gross: string; other: string };
-const blankMember = (): MemberDraft => ({ name: "", nric: "", relationship: "", age: "", occupation: "Employed", gross: "", other: "" });
 /** One Section I row as the staff types it — the paper form's child table columns, keyed as on the form.
  *  `db` marks a row the family lookup pulled from the registry: every field on it is locked. */
 type ChildDraft = { nric: string; name: string; school: string; level: string; db?: boolean };
@@ -180,7 +177,15 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         {fa.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{fa.email}</span></p>}
       </section>
       <section className="space-y-2 border-t border-line pt-4">
-        <SectionTitle n="II" title="Information on other household members" />
+        <SectionTitle n="II" title="Household income" />
+        {(fa.extraIncome !== undefined || fa.residents !== undefined) && (
+          <p className="text-sm">
+            <span className="text-on-surface-variant">Extra monthly money (not in HOMES): </span>
+            <span className="font-medium">S${fa.extraIncome?.toLocaleString("en-SG") ?? 0}</span>
+            <span className="text-on-surface-variant"> · People currently living in the home: </span>
+            <span className="font-medium">{fa.residents ?? "—"}</span>
+          </p>
+        )}
         {fa.welfareHome ? (
           <p className="text-sm">
             <span className="text-on-surface-variant">Welfare home resident — letter: </span>
@@ -207,9 +212,9 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         <p className="text-sm"><span className="text-on-surface-variant">Income band: </span><span className="font-medium">{fa.bandLabel}</span></p>
       </section>
       {/* Sections IV (transport) and V (IMDA device) were cut from the scope — a record can no longer
-          carry them, so the paper detail jumps from Section II to the Section VI declaration. */}
+          carry them, so the paper detail jumps from Section II to the Section III declaration. */}
       <section className="space-y-2 border-t border-line pt-4">
-        <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
+        <SectionTitle n="III" title="Declaration and agreement by the applicant" />
         {fa.declaredAt && (
           <p className="text-sm">
             <span className="text-on-surface-variant">Signed and dated by </span>
@@ -221,7 +226,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         {fa.note && <p className="text-[13px] text-on-surface-variant">{flow2 ? "What changed: " : "Note on the form: "}{fa.note}</p>}
       </section>
       <section className="space-y-2 border-t border-line pt-4">
-        <SectionTitle n="VII" title="Where this form goes" />
+        <SectionTitle n="IV" title="Where this form goes" />
         <p className="text-sm font-medium">
           {flow2 ? "To this school's SBFAS review queue — a separate request after a rejection" : "To MOE for assessment — the first application"}
         </p>
@@ -309,10 +314,11 @@ export default function HardcopyEntry() {
   const [address, setAddress] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
-  // Section II: HOMES-only by default; the household table opens only when administrative income is declared.
-  const [adminIncome, setAdminIncome] = useState(false);
-  const [homesOnly, setHomesOnly] = useState(false);
-  const [members, setMembers] = useState<MemberDraft[]>([blankMember()]);
+  // Section II mirrors the online family application exactly (Sprint 3 parity): the two fields the
+  // parent declares on the paper form — money not in HOMES, and everyone living at home. The income
+  // band itself is never keyed: it comes from HOMES like an online application.
+  const [extraIncome, setExtraIncome] = useState("");
+  const [residents, setResidents] = useState("");
   // Section VI's declaration tick, plus the final read-only review page.
   const [declared, setDeclared] = useState(false);
   // Where this form goes, chosen at the submit step: MOE for the MOEFAS-first assessment (flow 1), or
@@ -466,8 +472,7 @@ export default function HardcopyEntry() {
   const reset = () => {
     setChildrenRows([blankChild()]);
     setApplicant(""); setContact(""); setAddress(""); setEmail(""); setNote("");
-    setAdminIncome(false); setHomesOnly(false);
-    setMembers([blankMember()]); setDeclared(false);
+    setExtraIncome(""); setResidents(""); setDeclared(false);
     setError(""); setSubmitMode("moe"); setReason(""); setReviewing(false);
     setLookupNric(""); setLookedUp(null); setLookupMiss(false); setLooking(false);
   };
@@ -475,25 +480,13 @@ export default function HardcopyEntry() {
   const setChildRow = (i: number, patch: Partial<ChildDraft>) =>
     setChildrenRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
-  const setMember = (i: number, patch: Partial<MemberDraft>) =>
-    setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, ...patch } : m)));
-
-  // The form itself carries no band: for employment/trade income MOE retrieves it from HOMES
-  // (IRAS + CPF); when other administrative income is declared, it is computed from the Section II
-  // table (GHI ÷ household members = per-capita income). Both are mocked here.
-  const bandFromForm = (): { band: Band; source: string } => {
-    if (adminIncome) {
-      const named = members.filter((m) => m.name.trim());
-      if (named.length) {
-        const ghi = named.reduce((t, m) => t + (Number(m.gross) || 0) + (Number(m.other) || 0), 0);
-        const size = named.length + childrenRows.filter((row) => matchOf(row)).length; // declared members + the children matched on the form
-        const pci = ghi / Math.max(1, size);
-        const band = pci <= 750 ? BANDS[0] : pci <= 1000 ? BANDS[1] : pci <= 1500 ? BANDS[2] : BANDS[3];
-        return { band, source: `declared in Section II — GHI S$${ghi.toLocaleString("en-SG")} ÷ ${size} in the household = S$${Math.round(pci).toLocaleString("en-SG")} per person` };
-      }
-    }
-    return { band: BANDS[2], source: "retrieved from HOMES (IRAS + CPF) — employment/trade income only" };
-  };
+  // Sprint 3 parity with the online application: the two declared fields are recorded with the form,
+  // but the band itself is never keyed — employment/trade income comes from HOMES (IRAS + CPF), a band
+  // only. Mock: HOMES returns the SBFAS band, exactly like an online family submission.
+  const bandFromForm = (): { band: Band; source: string } => ({
+    band: BANDS[2],
+    source: "retrieved from HOMES (IRAS + CPF) — the extra money and household size declared on the form are recorded with the application",
+  });
 
   // Every gate the form must pass — shared by the entry to the review page and the final Submit there.
   const validate = (): string | null => {
@@ -511,8 +504,14 @@ export default function HardcopyEntry() {
       if (!reason.trim()) return "Say what changed since the rejected request.";
       return null;
     }
+    // Section II: the two declared fields, validated exactly like the online application.
+    if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim()))
+      return "Section II: enter the extra monthly money in dollars, or 0 if none.";
+    const people = Number(residents.trim());
+    if (!Number.isInteger(people) || people < 1 || people > 20)
+      return "Section II: enter the number of people currently living in the home (a whole number from 1 to 20).";
     if (!chosen.length || !applicant.trim() || !contact.trim() || !address.trim() || !declared) {
-      return "Complete Sections I and VI: list at least one child, the contact and home address, and sign off the declaration with the parent/guardian name.";
+      return "Complete Sections I–III: list at least one child, the contact and home address, and sign off the declaration with the parent/guardian name.";
     }
     const fresh = chosen.filter((r) => !r.blocked);
     if (!fresh.length) return "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031).";
@@ -551,20 +550,14 @@ export default function HardcopyEntry() {
         studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: contact.trim(), note,
         by, entryMode: "manual",
         address: address.trim(), email: email.trim() || undefined,
-        hasAdminIncome: adminIncome,
-        household: adminIncome ? members.filter((m) => m.name.trim()).map((m) => ({
-          name: m.name.trim(), nric: m.nric.trim() || undefined, relationship: m.relationship.trim(), age: Number(m.age) || 0, occupation: m.occupation,
-          gross: Number(m.gross) || 0, other: Number(m.other) || 0,
-        })) : undefined,
-        homesOnly: homesOnly || undefined,
+        extraIncome: Number(extraIncome) || 0,
+        residents: Number(residents) || 0,
         declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
       });
     }
     reset();
     setView("apps");
   };
-
-  const totalGhi = members.reduce((t, m) => t + (Number(m.gross) || 0) + (Number(m.other) || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -728,37 +721,28 @@ export default function HardcopyEntry() {
             <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{email.trim() || "—"}</span></p>
           </section>
           <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="II" title="Information on other household members" />
-            {adminIncome ? (
-              <ul className="space-y-1">
-                {members.filter((m) => m.name.trim()).map((m, i) => (
-                  <li key={i} className="text-sm">
-                    <span className="font-medium">{m.name}</span>
-                    <span className="text-[13px] text-on-surface-variant"> · {m.nric || "—"} · {m.relationship} · {m.age} · {m.occupation} · gross S${m.gross || 0} · other S${m.other || 0}</span>
-                  </li>
-                ))}
-                <li className="text-sm"><span className="text-on-surface-variant">Total GHI: </span><span className="font-medium">S${totalGhi.toLocaleString("en-SG")} / month</span></li>
-              </ul>
-            ) : homesOnly ? (
-              <p className="text-sm text-on-surface-variant">
-                Only employment and/or trade income — Section II is not required; the bands come from HOMES (IRAS + CPF).
-              </p>
-            ) : (
-              <p className="text-sm text-on-surface-variant">Employment/trade income only — nothing keyed in.</p>
-            )}
+            <SectionTitle n="II" title="Household income" />
             <p className="text-sm">
-              <span className="text-on-surface-variant">Income band (derived): </span>
+              <span className="text-on-surface-variant">Extra monthly money (not in HOMES): </span>
+              <span className="font-medium">S${extraIncome.trim() || "—"}</span>
+            </p>
+            <p className="text-sm">
+              <span className="text-on-surface-variant">People currently living in the home: </span>
+              <span className="font-medium">{residents.trim() || "—"}</span>
+            </p>
+            <p className="text-sm">
+              <span className="text-on-surface-variant">Income band: </span>
               <span className="font-medium">{bandFromForm().band.label}</span>
               <span className="text-[13px] text-on-surface-variant"> — {bandFromForm().source}</span>
             </p>
           </section>
           <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
+            <SectionTitle n="III" title="Declaration and agreement by the applicant" />
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
           </section>
           <section className="space-y-2 border-t border-line pt-4">
-            <SectionTitle n="VII" title="Where this form goes" />
+            <SectionTitle n="IV" title="Where this form goes" />
             <p className="text-sm font-medium">{submitMode === "moe" ? "To MOE for assessment — the first application" : "To this school's SBFAS review queue — a separate request"}</p>
             {submitMode === "sbfas" && reason.trim() && <p className="text-[13px] text-on-surface-variant">What changed: {reason.trim()}</p>}
           </section>
@@ -910,91 +894,39 @@ export default function HardcopyEntry() {
           </section>
 
           <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="II" title="Information on other household members" />
-            <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 accent-[#8A2538]"
-                checked={homesOnly}
-                onChange={(e) => {
-                  setHomesOnly(e.target.checked);
-                  if (e.target.checked) setAdminIncome(false);
-                }}
-              />
-              <span>
-                The household has only employment and/or trade income — no other administrative income
-                {homesOnly && (
-                  <span className="block text-[13px] text-on-surface-variant">
-                    Section II is not required — MOE retrieves the gross household income and per-capita income from HOMES (IRAS + CPF records).
-                  </span>
-                )}
-              </span>
-            </label>
-            <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 accent-[#8A2538]"
-                checked={adminIncome}
-                onChange={(e) => {
-                  setAdminIncome(e.target.checked);
-                  if (e.target.checked) setHomesOnly(false);
-                }}
-              />
-              <span>
-                The household also has other administrative income (rental, dividends, taxable investment income)
-              </span>
-            </label>
-            {adminIncome && (
-                  <div className="space-y-2 rounded-control border border-line p-3">
-                    <div className="hidden gap-2 sm:grid sm:grid-cols-[auto_1.1fr_0.9fr_1.2fr_0.5fr_1.3fr_1fr_1fr_auto]">
-                      <span className="w-4 text-[12px] font-semibold leading-tight text-on-surface-variant">S/ No.</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Name</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">BC/NRIC No.</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Relationship &amp; Marital Status</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Age</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Occupation Status (e.g. Student/ Self-employed/ Employed/ Unemployed)</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Gross Monthly Income (from employment and/or trade)</span>
-                      <span className="text-[12px] font-semibold leading-tight text-on-surface-variant">Other Administrative Income (e.g. rental income, dividends and taxable investment income)</span>
-                      <span />
-                    </div>
-                    {members.map((m, i) => (
-                      <div key={i} className="grid gap-2 sm:grid-cols-[auto_1.1fr_0.9fr_1.2fr_0.5fr_1.3fr_1fr_1fr_auto]">
-                        <span className="flex min-h-11 items-center text-[13px] text-on-surface-variant" aria-hidden="true">{i + 1}</span>
-                        <input className={inputClass} aria-label={`Member ${i + 1} name`} placeholder="Name" value={m.name} onChange={(e) => setMember(i, { name: e.target.value })} />
-                        <input className={inputClass} aria-label={`Member ${i + 1} NRIC no.`} placeholder="NRIC no." value={m.nric} onChange={(e) => setMember(i, { nric: e.target.value })} />
-                        <input className={inputClass} aria-label={`Member ${i + 1} relationship`} placeholder="Relationship" value={m.relationship} onChange={(e) => setMember(i, { relationship: e.target.value })} />
-                        <input className={inputClass} aria-label={`Member ${i + 1} age`} placeholder="Age" inputMode="numeric" value={m.age} onChange={(e) => setMember(i, { age: e.target.value })} />
-                        <select className={inputClass} aria-label={`Member ${i + 1} occupation status`} value={m.occupation} onChange={(e) => setMember(i, { occupation: e.target.value })}>
-                          {OCCUPATIONS.map((o) => <option key={o}>{o}</option>)}
-                        </select>
-                        <input className={inputClass} aria-label={`Member ${i + 1} gross monthly income`} placeholder="Gross / mth" inputMode="decimal" value={m.gross} onChange={(e) => setMember(i, { gross: e.target.value })} />
-                        <input
-                          className={inputClass}
-                          aria-label={`Member ${i + 1} other administrative income`}
-                          placeholder="Other income"
-                          inputMode="decimal"
-                          value={m.other}
-                          onChange={(e) => setMember(i, { other: e.target.value })}
-                        />
-                        <Button size="sm" variant="secondary" aria-label={`Remove member ${i + 1}`} onClick={() => setMembers((ms) => ms.filter((_, j) => j !== i))} disabled={members.length === 1}>
-                          <X size={16} weight="bold" aria-hidden="true" />
-                        </Button>
-                      </div>
-                    ))}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => setMembers((ms) => [...ms, blankMember()])}>
-                        <Plus size={16} weight="bold" aria-hidden="true" /> Add member
-                      </Button>
-                      <p className="text-[13px] text-on-surface-variant">
-                        Total gross household income (12-month average): <span className="font-semibold text-on-surface">S${totalGhi.toLocaleString("en-SG")}</span> / month
-                      </p>
-                    </div>
-                  </div>
-                )}
+            <SectionTitle n="II" title="Household income" note="As declared on the paper form — the same two fields as the online application." />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field required label="Extra monthly money (S$)" hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none.">
+                <input
+                  className={inputClass}
+                  aria-label="Extra monthly money"
+                  placeholder="e.g. 0"
+                  inputMode="decimal"
+                  value={extraIncome}
+                  onChange={(e) => setExtraIncome(e.target.value)}
+                />
+              </Field>
+              <Field required label="People currently living in your home" hint="Everyone who lives with you now, including you.">
+                <input
+                  className={inputClass}
+                  aria-label="People currently living in the home"
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={1}
+                  inputMode="numeric"
+                  value={residents}
+                  onChange={(e) => setResidents(e.target.value)}
+                />
+              </Field>
+            </div>
+            <p className="text-[13px] text-on-surface-variant">
+              The income band itself is retrieved from HOMES (IRAS + CPF) — a band only, never an exact income, exactly like an online application.
+            </p>
           </section>
 
           <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="VI" title="Declaration and agreement by the applicant" />
+            <SectionTitle n="III" title="Declaration and agreement by the applicant" />
             <ul className="list-disc space-y-1 pl-5 text-sm text-on-surface-variant">
               <li>No child on this form receives financial assistance from more than one MOE-funded school or institution.</li>
               <li>The applicant authorises monthly withdrawals from the child&apos;s Edusave account for school fees and approved expenses while on MOE FAS.</li>
@@ -1017,7 +949,7 @@ export default function HardcopyEntry() {
           </section>
 
           <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="VII" title="Where this form goes" />
+            <SectionTitle n="IV" title="Where this form goes" />
             <div role="radiogroup" aria-label="Where this form goes" className="space-y-1.5">
               <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm cursor-pointer hover:bg-surface-container-low">
                 <input type="radio" name="submit-to" className="mt-0.5 size-4 accent-[#8A2538]" checked={submitMode === "moe"} onChange={() => setSubmitMode("moe")} />

@@ -36,6 +36,10 @@ export type FamilyApplication = {
   email?: string;
   /** Income band read off the paper form — a band only, never an exact income. */
   bandLabel: string;
+  /** Sprint 3 parity with the online form: the two household fields the parent declares — money not
+   *  in HOMES and everyone living at home. The band itself still comes from HOMES. */
+  extraIncome?: number;
+  residents?: number;
   /** Section II: true when the household declared other administrative income (table keyed in); false = HOMES-only. */
   hasAdminIncome?: boolean;
   /** Section II table, present only when hasAdminIncome. */

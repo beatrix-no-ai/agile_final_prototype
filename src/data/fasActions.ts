@@ -71,7 +71,7 @@ export function useFasActions() {
     },
     submitHardcopy(input: {
       studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr";
-      address?: string; email?: string; transportMode?: TransportMode;
+      address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode;
       hasAdminIncome?: boolean; household?: HouseholdMember[];
       welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string;
     }) {

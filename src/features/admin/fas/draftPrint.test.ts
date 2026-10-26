@@ -39,8 +39,11 @@ describe("the printed pre-filled form", () => {
     expect(html).toContain("do not amend the pre-filled fields yourself");
   });
 
-  it("leaves the household table and the signature for the parent to fill by hand", () => {
-    expect(html).toContain("Information on other household members");
+  it("leaves the household fields and the signature for the parent to fill by hand", () => {
+    expect(html).toContain("Section II — Household income");
+    expect(html).toContain("Extra monthly money");
+    expect(html).toContain("People currently living in your home");
+    expect(html).toContain("Section III — Declaration");
     expect(html).toContain("Signature of applicant");
     expect(html).toContain("Benson Chua</div><div>Date");
   });

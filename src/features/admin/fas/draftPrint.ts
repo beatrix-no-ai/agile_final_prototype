@@ -38,7 +38,6 @@ export function draftHtml(d: FamilyDraft, schoolName: string): string {
   const rows = d.children
     .map((c) => `<tr><td>${esc(c.nric)}</td><td>${esc(c.name)}</td><td>${esc(c.school)}</td><td>${esc(c.level)}</td></tr>`)
     .join("");
-  const blankRows = Array.from({ length: 4 }, () => `<tr class="blank"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`).join("");
   const issued = new Date(d.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   return `<!doctype html><html><head><meta charset="utf-8"><title>MOE FAS form · ${esc(d.id)}</title><style>${STYLE}</style></head><body>
 <header><span class="crest">MOE</span><div><h1>Ministry of Education — Financial Assistance Scheme (FAS)</h1>
@@ -55,12 +54,14 @@ Then fill in Section II (household income), read the declaration and sign.</div>
 <p class="kv"><b>Home address:</b> ${esc(d.address)}</p>
 ${d.email ? `<p class="kv"><b>Email:</b> ${esc(d.email)}</p>` : ""}
 
-<h2>Section II — Information on other household members</h2>
-<p class="check"><span class="box"></span>The household has only employment and/or trade income — no other administrative income (this section is not required; MOE retrieves the bands from HOMES / IRAS + CPF).</p>
-<p class="check"><span class="box"></span>The household also has other administrative income (rental, dividends, taxable investment income) — complete the table below.</p>
-<table><tr><th>Name</th><th>BC/NRIC No.</th><th>Relationship &amp; Marital Status</th><th>Age</th><th>Occupation Status</th><th>Gross Monthly Income (employment / trade)</th><th>Other Administrative Income</th><th></th></tr>${blankRows}</table>
+<h2>Section II — Household income</h2>
+<p class="kv"><b>Extra monthly money (S$):</b> ____________</p>
+<p style="font-size:11px; color:#5e5658; margin: 2px 0 10px;">Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none.</p>
+<p class="kv"><b>People currently living in your home:</b> ____________</p>
+<p style="font-size:11px; color:#5e5658; margin: 2px 0 0;">Everyone who lives with you now, including you.</p>
+<p style="font-size:12px; color:#5e5658; margin-top:10px;">The income band itself is retrieved from HOMES (IRAS + CPF) — you never need to state your exact income here.</p>
 
-<h2>Section VI — Declaration and agreement by the applicant</h2>
+<h2>Section III — Declaration and agreement by the applicant</h2>
 <ul>
 <li>No child on this form receives financial assistance from more than one MOE-funded school or institution.</li>
 <li>The applicant authorises monthly withdrawals from the child's Edusave account for school fees and approved expenses while on MOE FAS.</li>
