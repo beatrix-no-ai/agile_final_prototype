@@ -11,15 +11,16 @@ export type TierSet = { ranges: Range[]; schemes: Scheme[] };
 export type TierConfig = Record<TierKind, TierSet>;
 
 export const TIER_LIMIT = 999_999_999;
+export const MAX_TIERS = 14;
 export const SCHEMES: Scheme[] = ["MOEFAS", "SBFAS"];
 
 const set = (ranges: Range[], moefas = 4): TierSet => ({ ranges, schemes: ranges.map((_, i) => (i < moefas ? "MOEFAS" : "SBFAS")) });
 export const defaultTiers = (): TierConfig => ({
-  ghi: set([[0, 2000], [2000.01, 3000], [3000.01, 4000], [4000.01, 5000], [5000.01, 6000], [6000.01, 7500], [7500.01, 10000], [10000.01, TIER_LIMIT]]),
-  pci: set([[0, 500], [500.01, 750], [750.01, 1000], [1000.01, 1250], [1250.01, 1500], [1500.01, 1875], [1875.01, 2500], [2500.01, TIER_LIMIT]]),
+  ghi: set([[0, 2000], [2001, 3000], [3001, 4000], [4001, 4500], [4501, 5000], [5001, 5500], [5501, 6000], [6001, 6500], [6501, 7000], [7001, 7500], [7501, 9000], [9001, 10500], [10501, 12000], [12001, TIER_LIMIT]]),
+  pci: set([[0, 500], [501, 750], [751, 1000], [1001, 1125], [1126, 1250], [1251, 1375], [1376, 1500], [1501, 1625], [1626, 1750], [1751, 1876], [1877, 2250], [2251, 2625], [2626, 3000], [3001, TIER_LIMIT]]),
 });
 
-const TIER_KEY = "moe-central-income-tiers-v1";
+const TIER_KEY = "moe-central-income-tiers-v2";
 const validShape = (d: unknown): d is TierConfig =>
   !!d && (["ghi", "pci"] as const).every((k) => {
     const s = (d as TierConfig)[k];
@@ -43,8 +44,6 @@ export function useTiers() {
   return [tiers, setTiers] as const;
 }
 
-const cents = (x: number) => Math.round(x * 100);
-
 /** Index of another tier whose range overlaps [lo, hi], or -1. NaN bounds never overlap. */
 export function tierOverlap(ranges: Range[], i: number, lo: number, hi: number): number {
   if (![lo, hi].every(Number.isFinite)) return -1;
@@ -55,11 +54,12 @@ export function tierOverlap(ranges: Range[], i: number, lo: number, hi: number):
 export function tierProblem(cfg: TierConfig): string {
   for (const k of ["ghi", "pci"] as const) {
     const { ranges, schemes } = cfg[k], K = k.toUpperCase();
+    if (ranges.length > MAX_TIERS) return `${K}: at most ${MAX_TIERS} tiers.`;
     if (!ranges.length || schemes.length !== ranges.length || schemes.some((s) => !SCHEMES.includes(s))) return `${K}: assign MOEFAS or SBFAS to every tier.`;
     for (let i = 0; i < ranges.length; i++) {
       const [lo, hi] = ranges[i];
-      if (![lo, hi].every((x) => Number.isFinite(x) && x >= 0 && x <= TIER_LIMIT && Math.abs(x * 100 - cents(x)) < 0.0001) || lo > hi)
-        return `${K} Tier ${i + 1}: enter valid amounts from 0 to 999,999,999, with up to 2 decimal places. Minimum cannot exceed maximum.`;
+      if (![lo, hi].every((x) => Number.isFinite(x) && x >= 0 && x <= TIER_LIMIT && Number.isInteger(x)) || lo > hi)
+        return `${K} Tier ${i + 1}: enter valid amounts from 0 to 999,999,999, in whole dollars. Minimum cannot exceed maximum.`;
       const o = tierOverlap(ranges, i, lo, hi);
       if (o >= 0 && o < i) return `${K} Tier ${i + 1}: overlaps Tier ${o + 1}. Each range can only be configured once.`;
       if (i && lo <= ranges[i - 1][1]) return `${K} Tier ${i + 1}: ranges must be ascending and must not overlap.`;
@@ -72,7 +72,7 @@ export function tierProblem(cfg: TierConfig): string {
 export const tierGaps = (cfg: TierConfig): TierKind[] =>
   (["ghi", "pci"] as const).filter((k) => {
     const a = cfg[k].ranges;
-    return a[0][0] > 0 || a.at(-1)![1] < TIER_LIMIT || a.some((r, i) => i && cents(r[0]) > cents(a[i - 1][1]) + 1);
+    return a[0][0] > 0 || a.at(-1)![1] < TIER_LIMIT || a.some((r, i) => i && r[0] > a[i - 1][1] + 1);
   });
 
 export const tierAssigned = (s: TierSet, scheme: Scheme) =>

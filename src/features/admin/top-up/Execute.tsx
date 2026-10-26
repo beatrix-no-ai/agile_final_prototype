@@ -9,6 +9,8 @@ export type Followup = { id: string; row: Transaction; pool: Account[]; picked: 
 
 type Props = {
   rules: FundRule[]; accounts: Account[]; presetAccountId?: string; singleOnly?: boolean; followup?: Followup;
+  /** A Pending (scheduled) top-up being edited: the form opens prefilled and saving replaces it. */
+  editing?: Transaction; onReplace?: (old: Transaction) => void;
   onBack: () => void; onDone: (row: Transaction, creditedIds: string[]) => void;
   notify: (m: string) => void; ask: (d: DialogSpec) => void; closeAsk: () => void;
 };
@@ -24,22 +26,26 @@ const MAX_AMOUNT = 99_999_999;
 /** The reason typed on the original top-up (Specific Accounts keep it after the last " · " of the detail). */
 const reasonOf = (t: Transaction) => (t.type === "Single" && t.detail.includes(" · ") ? t.detail.slice(t.detail.lastIndexOf(" · ") + 3) : t.detail);
 
-export default function Execute({ rules, accounts, presetAccountId, singleOnly, followup, onBack, onDone, notify, ask, closeAsk }: Props) {
-  const locked = Boolean(singleOnly || followup);
-  const startIds = followup ? followup.picked : presetAccountId ? [presetAccountId] : [];
-  const startAmount = followup ? String(followup.row.amount) : "";
-  const startReason = followup ? reasonOf(followup.row) : "";
-  const [mode, setMode] = useState<"single" | "batch">("single");
+export default function Execute({ rules, accounts, presetAccountId, singleOnly, followup, editing, onReplace, onBack, onDone, notify, ask, closeAsk }: Props) {
+  const locked = Boolean(singleOnly || followup || editing);
+  const src = followup?.row ?? editing;
+  const editIds = editing ? (editing.targets ?? []).map((t) => accounts.find((a) => a.nric === t.account)?.id).filter((x): x is string => Boolean(x)) : [];
+  const startIds = followup ? followup.picked : editing ? editIds : presetAccountId ? [presetAccountId] : [];
+  const startAmount = src ? String(src.amount) : "";
+  const startReason = src ? reasonOf(src) : "";
+  // Schedule is stored as "Freq · HH:MM".
+  const [editFreq, editTime] = editing ? editing.schedule.split(" · ") : [];
+  const [mode, setMode] = useState<"single" | "batch">(editing?.type === "Batch" ? "batch" : "single");
   const [ids, setIds] = useState<string[]>(startIds);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [ruleId, setRuleId] = useState("");
+  const [ruleId, setRuleId] = useState(editing?.type === "Batch" ? rules.find((r) => r.name === editing.recipient)?.id ?? "" : "");
   const [amount, setAmount] = useState(startAmount);
   const [reason, setReason] = useState(startReason);
-  const [timing, setTiming] = useState<"now" | "later">("now");
-  const [date, setDate] = useState("");
-  const [freq, setFreq] = useState<string>("Once");
-  const [time, setTime] = useState(NIGHT_TIME);
+  const [timing, setTiming] = useState<"now" | "later">(editing ? "later" : "now");
+  const [date, setDate] = useState(editing?.date ?? "");
+  const [freq, setFreq] = useState<string>(editFreq ?? "Once");
+  const [time, setTime] = useState(editTime ?? NIGHT_TIME);
 
   const pool = followup ? followup.pool : accounts;
   const chosen = useMemo(() => ids.map((id) => accounts.find((a) => a.id === id)).filter((a): a is Account => Boolean(a)), [ids, accounts]);
@@ -69,8 +75,9 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
     if (single && chosen.some((a) => a.status !== "Active")) return notify("Inactive Education Accounts cannot receive top-ups.");
     if (single && followup && chosen.some((a) => !followup.pool.some((p) => p.id === a.id))) return notify("Follow-ups can only include original Failed accounts that have not already been credited.");
     if (!single && !picked.length) return notify("Please select an active Batch Top-up Rule.");
-    if (needAmount && !Number.isSafeInteger(amt) || amt <= 0 || amt > MAX_AMOUNT) return notify(`Enter a whole-dollar top-up amount from S$1 to ${cash(MAX_AMOUNT)}.`);
+    if (needAmount && (!Number.isSafeInteger(amt) || amt <= 0 || amt > MAX_AMOUNT)) return notify(`Enter a whole-dollar top-up amount from S$1 to ${cash(MAX_AMOUNT)}.`);
     if (!reason.trim()) return notify("Please enter a reason.");
+    if (editing && !later) return notify("An edited top-up stays scheduled. Cancel it and create a new one to run it now.");
     if (later && !date) return notify("Please select the execution date.");
     // One run per amount: a rule with per-condition amounts splits into a run per amount, so each history row has one amount.
     const runs = single
@@ -85,11 +92,12 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
     const when = later ? `${date}${time && ` at ${time}`}` : "Execute now";
     ask({
       title: "Review and confirm",
-      text: (later ? "Review the scheduled top-up details." : "Review the top-up details before confirming.") + (followup ? ` This creates a NEW top-up linked to ${followup.id}; the original stays unchanged.` : ""),
+      text: (later ? "Review the scheduled top-up details." : "Review the top-up details before confirming.") + (editing ? ` This replaces the scheduled top-up ${editing.ref}.` : "") + (followup ? ` This creates a NEW top-up linked to ${followup.id}; the original stays unchanged.` : ""),
       details: `Top-up Type: ${single ? "Specific Accounts" : "Batch"}\n${single ? `Recipients: ${chosen.map((a) => `${a.name} (${maskNric(a.nric)})`).join(", ")}` : `Rule: ${all ? `All active rules (${picked.length}), in creation order` : picked[0].name}`}\nEligible accounts: ${n}${!single && stacked ? ` (${stacked} qualify for more than one rule and receive each top-up)` : ""}\nAmount per account: ${needAmount ? cash(amt) : "By rule"}\nEstimated total: ${cash(grand)}\nReason: ${reason.trim()}\nExecution: ${later ? `${when} · ${freq}` : when}${followup ? `\nFollow-up to: ${followup.id}` : ""}`,
       confirmLabel: "Confirm",
       onConfirm: () => {
         const d = later ? date : sgToday();
+        if (editing) onReplace?.(editing);
         // One history row per rule, oldest rule first, so overlapping rules stack in creation order.
         for (const r of runs) {
           if (!single && !r.targets.length) continue;
@@ -102,7 +110,7 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
             ...(followup ? { followupOf: followup.id } : {}),
           }, later ? [] : r.targets.map((a) => a.id));
         }
-        closeAsk(); notify(later ? "Schedule recorded in demo." : followup ? "New top-up created; the original failed record is unchanged." : "Top-up simulated successfully."); onBack();
+        closeAsk(); notify(editing ? "Scheduled top-up updated." : later ? "Schedule recorded in demo." : followup ? "New top-up created; the original failed record is unchanged." : "Top-up simulated successfully."); onBack();
       },
     });
   };
@@ -126,7 +134,8 @@ export default function Execute({ rules, accounts, presetAccountId, singleOnly, 
       )}
       <button type="button" className="backline" id="execution-back-btn" onClick={onBack}>{followup ? "← Back to original top-up execution" : "← Back to top-up transactions"}</button>
       <div className="two">
-        <div className="card leftcard"><h2>{followup ? "Create Specific Accounts Top-up" : "Create top-up"}</h2>
+        <div className="card leftcard"><h2>{editing ? `Edit pending top-up · ${editing.ref}` : followup ? "Create Specific Accounts Top-up" : "Create top-up"}</h2>
+          {editing && <div className="help" role="note" style={{ marginBottom: 12 }}>This top-up has not run yet. Saving replaces the scheduled record.</div>}
           {!locked && <div className="field" id="topup-type-field"><label>Top-up Type</label><div className="switch">
             <button type="button" className={single ? "selected" : ""} onClick={() => changeMode("single")}>Specific Accounts</button>
             <button type="button" className={!single ? "selected" : ""} onClick={() => changeMode("batch")}>Batch</button></div></div>}

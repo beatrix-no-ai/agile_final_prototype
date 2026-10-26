@@ -125,8 +125,8 @@ describe("SBFAS grouping: MOEFAS-locked bands", () => {
 
   it("defaults leave the MOEFAS bands ungrouped and group the remaining bands by need", () => {
     const rule = defaultSbfasRule("S001");
-    expect(rule.grouping.ghi).toEqual([null, null, null, null, "LOW", "LOW", "LOW", "LOW"]);
-    expect(rule.grouping.pci).toEqual([null, null, null, null, "HIGH", "MED", "MED", "MED"]);
+    expect(rule.grouping.ghi).toEqual([null, null, null, null, ...Array(10).fill("LOW")]);
+    expect(rule.grouping.pci).toEqual([null, null, null, null, "HIGH", ...Array(9).fill("MED")]);
   });
 });
 

@@ -11,9 +11,9 @@ export type Account = { id: string; nric: string; name: string; school: string; 
 /** One credit to one Education Account, kept so the account ledger and the parent portal can show it. */
 export type TopUpEntry = { id: string; studentId: string; amount: number; date: string; ref: string; note: string };
 
-export const FREQUENCIES = ["Once", "Weekly", "Monthly", "Yearly"] as const;
+export const FREQUENCIES = ["Once", "Monthly", "Yearly"] as const;
 
-export type TxStatus = "Success" | "Partial Success" | "Pending" | "Failed";
+export type TxStatus = "Success" | "Partial Success" | "Pending" | "Failed" | "Cancelled";
 /** One account inside a top-up. `txid` exists only once the account has been processed (not Pending). */
 export type Target = { student: string; account: string; status: "Success" | "Pending" | "Failed"; reason?: string; txid?: string };
 /** `school` = the school (by name) whose user ran it; HQ runs have none. `followupOf` = display ID of the failed top-up this one retries. "Single" is shown as "Specific Accounts" (one or more manually chosen accounts). */

@@ -4,7 +4,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { Segmented } from "../../../components/ui/Segmented";
 import {
-  SCHEMES, tierAssigned, tierGaps, tierInUse, tierOverlap, tierProblem,
+  MAX_TIERS, SCHEMES, tierAssigned, tierGaps, tierInUse, tierOverlap, tierProblem,
   type Range, type Rule, type Scheme, type TierConfig, type TierKind,
 } from "../../../data/moefas";
 import { formatSGD } from "../../../lib/format";
@@ -51,9 +51,10 @@ export default function IncomeTiers({ tiers, setTiers, rules, notify }: Props) {
 
   const add = () => {
     const last = d.ranges.at(-1)!;
+    if (d.ranges.length >= MAX_TIERS) return notify(`At most ${MAX_TIERS} tiers.`, true);
     if (!last.every(Number.isFinite) || last[0] >= last[1]) return notify("Enter a valid last range before adding a tier.", true);
-    const mid = Math.floor((last[0] + last[1]) / 2 * 100) / 100, end = last[1];
-    edit((s) => { s.ranges.at(-1)![1] = mid; s.ranges.push([Math.round((mid + 0.01) * 100) / 100, end]); s.schemes.push(s.schemes.at(-1)!); });
+    const mid = Math.floor((last[0] + last[1]) / 2), end = last[1];
+    edit((s) => { s.ranges.at(-1)![1] = mid; s.ranges.push([mid + 1, end]); s.schemes.push(s.schemes.at(-1)!); });
     notify("Last range split into two tiers. Adjust the amounts as needed.");
   };
   const remove = () => {
@@ -93,7 +94,7 @@ export default function IncomeTiers({ tiers, setTiers, rules, notify }: Props) {
                       <td className={`${td} font-semibold`}>Tier {i + 1}</td>
                       {([0, 1] as const).map((j) => (
                         <td key={j} className={td}>
-                          <input type="number" min={0} max={999999999} step="0.01" required className={cell} aria-label={`${K} Tier ${i + 1} ${j ? "maximum" : "minimum"}`}
+                          <input type="number" min={0} max={999999999} step="1" required className={cell} aria-label={`${K} Tier ${i + 1} ${j ? "maximum" : "minimum"}`}
                             aria-invalid={!!msg} value={Number.isNaN(r[j]) ? "" : r[j]}
                             onChange={(e) => setBound(i, j, e.target.value)} onBlur={() => settle(i, j)} />
                         </td>

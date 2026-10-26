@@ -22,15 +22,15 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 // Top-up History badges: Pending amber, Failed grey, the rest green (as in the prototype). Details page: Failed red, Partial Success amber.
-const listClass = (s: Transaction["status"]) => (s === "Pending" ? "draft" : s === "Failed" ? "deactivated" : "");
-const detailClass = (s: Transaction["status"]) => (s === "Pending" ? "draft" : s === "Failed" ? "failed" : s === "Partial Success" ? "partial" : "");
+const listClass = (s: Transaction["status"]) => (s === "Pending" ? "draft" : s === "Failed" || s === "Cancelled" ? "deactivated" : "");
+const detailClass = (s: Transaction["status"]) => (s === "Pending" ? "draft" : s === "Failed" || s === "Cancelled" ? "failed" : s === "Partial Success" ? "partial" : "");
 const targetClass = (s: string) => (s === "Pending" ? "draft" : s === "Failed" ? "deactivated" : "");
 
 const typeLabel = (t: Transaction["type"]) => (t === "Batch" ? "Batch" : "Specific Accounts");
 
 type Ledger = ReturnType<typeof ledgerIds>;
 
-function History({ rows, accounts, ledger, viewingId, setViewingId, onCreate, onFollowup, notify }: { rows: Transaction[]; accounts: Account[]; ledger: Ledger; viewingId: string | null; setViewingId: (id: string | null) => void; onCreate: () => void; onFollowup: (id: string, picked: string[]) => void; notify: (m: string) => void }) {
+function History({ rows, accounts, ledger, viewingId, setViewingId, onCreate, onFollowup, onCancel, onEdit, notify }: { onCancel: (t: Transaction) => void; onEdit: (t: Transaction) => void; rows: Transaction[]; accounts: Account[]; ledger: Ledger; viewingId: string | null; setViewingId: (id: string | null) => void; onCreate: () => void; onFollowup: (id: string, picked: string[]) => void; notify: (m: string) => void }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [type, setType] = useState("");
@@ -62,7 +62,7 @@ function History({ rows, accounts, ledger, viewingId, setViewingId, onCreate, on
     downloadXlsx(merges.length === 1 ? `${sel[0]}-top-up-report.xlsx` : "top-up-reports.xlsx", "Top-up report", out, { cols, merges });
   };
   const viewing = viewingId === null ? -1 : ledger.findIndex((l) => l.id === viewingId);
-  if (viewing >= 0 && rows[viewing]) return <Details key={viewingId} t={rows[viewing]} id={ledger[viewing].id} items={ledger[viewing].targets} accounts={accounts} rows={rows} ledger={ledger} onOpen={setViewingId} onBack={() => setViewingId(null)} onFollowup={onFollowup} />;
+  if (viewing >= 0 && rows[viewing]) return <Details key={viewingId} t={rows[viewing]} id={ledger[viewing].id} items={ledger[viewing].targets} accounts={accounts} rows={rows} ledger={ledger} onOpen={setViewingId} onBack={() => setViewingId(null)} onCancel={onCancel} onEdit={onEdit} onFollowup={onFollowup} />;
   return (
     <div id="transactions-list" className="card tablecard">
       <div className="tabletop"></div>
@@ -105,7 +105,7 @@ function History({ rows, accounts, ledger, viewingId, setViewingId, onCreate, on
   );
 }
 
-function Details({ t, id, items, accounts, rows, ledger, onOpen, onBack, onFollowup }: { t: Transaction; id: string; items: Target[]; accounts: Account[]; rows: Transaction[]; ledger: Ledger; onOpen: (id: string) => void; onBack: () => void; onFollowup: (id: string, picked: string[]) => void }) {
+function Details({ t, id, items, accounts, rows, ledger, onOpen, onBack, onCancel, onEdit, onFollowup }: { onCancel: (t: Transaction) => void; onEdit: (t: Transaction) => void; t: Transaction; id: string; items: Target[]; accounts: Account[]; rows: Transaction[]; ledger: Ledger; onOpen: (id: string) => void; onBack: () => void; onFollowup: (id: string, picked: string[]) => void }) {
   const [q, setQ] = useState("");
   const [st, setSt] = useState("");
   // A Failed / Partial Success top-up can be retried: tick its failed accounts and open a NEW Specific Accounts top-up (this record never changes).
@@ -129,6 +129,7 @@ function Details({ t, id, items, accounts, rows, ledger, onOpen, onBack, onFollo
         <div className="tabletop"><h2>Top-up Details · {id}</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button type="button" className="btn small" disabled={!hasReport} onClick={download} title={hasReport ? "Successful and failed records, in the Student Finance System format." : "Available once the top-up has run."}>Download Excel report</button>
+            {pending && <><button type="button" className="btn small" onClick={() => onEdit(t)}>Edit</button><button type="button" className="btn small" onClick={() => onCancel(t)}>Cancel top-up</button></>}
             <span className={`badge ${detailClass(t.status)}`}>{t.status}</span></div></div>
         {t.followupOf && <div className="followup-link-row"><span>Created from failed Top-up</span><strong>{origin ? <button type="button" className="inline-link" onClick={() => onOpen(t.followupOf!)}>{t.followupOf} ↗</button> : t.followupOf}</strong></div>}
         {row("Type", typeLabel(t.type))}
@@ -194,6 +195,7 @@ export default function TopUp() {
   const [creating, setCreating] = useState(Boolean(preset)); // a preset student opens the create form directly
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<{ id: string; picked: string[] } | null>(null); // a follow-up of a failed top-up (picked = NRICs)
+  const [editing, setEditing] = useState<Transaction | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const { notify, toast } = useToast();
 
@@ -216,12 +218,12 @@ export default function TopUp() {
     <div className="tu">
       <nav className="tabs" role="tablist" aria-label="Top-up workspace">
         {tabs.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "active" : ""} onClick={() => { setTab(t.id); setCreating(false); setRetrying(null); }}>{t.label}</button>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "active" : ""} onClick={() => { setTab(t.id); setCreating(false); setRetrying(null); setEditing(null); }}>{t.label}</button>
         ))}
       </nav>
-      {tab === "transactions" && (creating || followup
-        ? <Execute key={followup?.id ?? "new"} rules={tu.rules} accounts={accounts} presetAccountId={followup ? undefined : preset?.id} singleOnly={ownSchool !== undefined} followup={followup} onBack={() => { setCreating(false); setRetrying(null); }} onDone={done} notify={notify} ask={setDialog} closeAsk={closeAsk} />
-        : <History rows={history} accounts={accounts} ledger={ledger} viewingId={viewingId} setViewingId={setViewingId} onCreate={() => setCreating(true)} onFollowup={(id, picked) => setRetrying({ id, picked })} notify={notify} />)}
+      {tab === "transactions" && (creating || followup || editing
+        ? <Execute key={editing?.ref ?? followup?.id ?? "new"} editing={editing ?? undefined} onReplace={(old) => dispatch({ type: "remove", row: old })} rules={tu.rules} accounts={accounts} presetAccountId={followup ? undefined : preset?.id} singleOnly={ownSchool !== undefined} followup={followup} onBack={() => { setCreating(false); setRetrying(null); setEditing(null); }} onDone={done} notify={notify} ask={setDialog} closeAsk={closeAsk} />
+        : <History rows={history} accounts={accounts} ledger={ledger} viewingId={viewingId} setViewingId={setViewingId} onCreate={() => setCreating(true)} onFollowup={(id, picked) => setRetrying({ id, picked })} onEdit={(t) => { setViewingId(null); setEditing(t); }} onCancel={(t) => { if (window.confirm("Cancel this pending top-up? It will not run.")) { dispatch({ type: "cancel", row: t }); notify("Pending top-up cancelled."); } }} notify={notify} />)}
       {tab === "rules" && <Rules rules={tu.rules} onChange={(rules) => dispatch({ type: "setRules", rules })} notify={notify} ask={setDialog} closeAsk={closeAsk} />}
       <Dialog spec={dialog} onClose={closeAsk} />
       {toast}

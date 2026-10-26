@@ -6,7 +6,9 @@ import { FUND_RULES, PAST_TRANSACTIONS, type FundRule, type TopUpEntry, type Tra
 export type TopUpState = { history: Transaction[]; rules: FundRule[]; credits: Record<string, number>; entries: TopUpEntry[] };
 export type TopUpAction =
   | { type: "topUp"; row: Transaction; creditedIds: string[] }
-  | { type: "setRules"; rules: FundRule[] };
+  | { type: "setRules"; rules: FundRule[] }
+  | { type: "cancel"; row: Transaction }
+  | { type: "remove"; row: Transaction };
 
 export const initialTopUp = (): TopUpState => ({ history: PAST_TRANSACTIONS, rules: FUND_RULES, credits: {}, entries: [] });
 
@@ -16,6 +18,10 @@ export const initialTopUp = (): TopUpState => ({ history: PAST_TRANSACTIONS, rul
  */
 export function topUpReducer(state: TopUpState, a: TopUpAction): TopUpState {
   if (a.type === "setRules") return { ...state, rules: a.rules };
+  // Only a Pending (scheduled) top-up can be cancelled; nothing was credited, so only its status changes.
+  // Edit = remove the Pending row, then the form adds the replacement row(s).
+  if (a.type === "remove") return { ...state, history: state.history.filter((h) => h !== a.row || h.status !== "Pending") };
+  if (a.type === "cancel") return { ...state, history: state.history.map((h) => (h === a.row && h.status === "Pending" ? { ...h, status: "Cancelled" } : h)) };
   const credits = { ...state.credits };
   const entries = [...state.entries];
   for (const id of a.creditedIds) {

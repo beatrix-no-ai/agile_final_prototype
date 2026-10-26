@@ -52,7 +52,7 @@ describe("income tiers", () => {
   it("finds the tier a range overlaps", () => {
     const { ranges } = tiers.ghi;
     expect(tierOverlap(ranges, 1, 1500, 3000)).toBe(0);
-    expect(tierOverlap(ranges, 1, 2000.01, 3000)).toBe(-1);
+    expect(tierOverlap(ranges, 1, 2001, 3000)).toBe(-1);
     expect(tierOverlap(ranges, 0, 0, 2000)).toBe(-1);
     expect(tierOverlap(ranges, 1, NaN, 3000)).toBe(-1);
   });
@@ -61,18 +61,18 @@ describe("income tiers", () => {
     t.ghi.ranges[1][0] = 1999;
     expect(tierProblem(t)).toMatch(/GHI Tier 2: overlaps Tier 1/);
   });
-  it("rejects minimum above maximum and more than 2 decimals", () => {
+  it("rejects minimum above maximum and non-whole dollars", () => {
     const t = defaultTiers();
     t.pci.ranges[0] = [600, 500];
     expect(tierProblem(t)).toMatch(/PCI Tier 1/);
     const u = defaultTiers();
-    u.pci.ranges[0][1] = 500.005;
-    expect(tierProblem(u)).toMatch(/2 decimal/);
+    u.pci.ranges[0][1] = 500.5;
+    expect(tierProblem(u)).toMatch(/whole dollars/);
   });
   it("reports uncovered amounts as gaps, not errors", () => {
     expect(tierGaps(tiers)).toEqual([]);
     const t = defaultTiers();
-    t.ghi.ranges[1][0] = 2000.25;
+    t.ghi.ranges[1][0] = 2500;
     expect(tierProblem(t)).toBe("");
     expect(tierGaps(t)).toEqual(["ghi"]);
   });
@@ -81,7 +81,7 @@ describe("income tiers", () => {
     t.ghi.ranges[0][1] = 1900;
     expect(tierInUse(rules(), t, tiers)).toMatch(/FASR26100001/);
     const s = defaultTiers();
-    s.ghi.ranges[7][0] = 10000.5;
+    s.ghi.ranges[13][0] = 12500;
     expect(tierInUse(rules(), s, tiers)).toBe("");
   });
 });
