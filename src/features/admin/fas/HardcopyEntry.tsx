@@ -35,6 +35,8 @@ import { statusLabel } from "./review";
 // shows their school, and their own school receives any SBFAS referral. (2) after that application
 // is rejected at SBFAS, the parent hands in a SEPARATE new request — at the submit step the form
 // goes straight to the school's SBFAS queue as attempt 2, 3, ... The Applications tab keeps history.
+// School scope: the school user may only search/submit their OWN school's students by hand; a
+// sibling at another school sits on the family form through the shared registry alone.
 //
 // The entry form follows the online family application (Sprint 3 parity — the same fields, the same
 // assessment): I Child particulars · II Household income (extra money + residents; the band itself
@@ -297,7 +299,9 @@ export default function HardcopyEntry() {
   const schoolOfLevelName = (level: string) => schoolNameOf(schoolOfLevel(level as Level));
   // Section I lists every child the paper form names, across schools: this school's children are
   // highlighted, and a child at another school shows their school — their own school runs any SBFAS
-  // review, because the review queue follows the child's school.
+  // review, because the review queue follows the child's school. Scope (Sprint 3): the school user's
+  // own searching/keying covers only their school — other-school siblings reach the form solely
+  // through the shared registry (family lookup or issued draft), which pulls the whole family.
   const roster = useMemo(() => reg.students.map((s) => {
     const code = schoolOfStudent(s, reg.classes);
     const grant = fas.moefas[s.id];
@@ -565,6 +569,11 @@ export default function HardcopyEntry() {
     if (ids.length !== new Set(ids).size) return "The same child is listed twice — each child appears once on the form.";
     const unmatched = rows.find((r) => !r.match);
     if (unmatched) return `Row ${unmatched.i + 1} doesn't match a child in the registry — check the NRIC (BC/NRIC no.) and name against the form, or clear the row.`;
+    // School scope (Sprint 3): the school user's own keying covers only THEIR school's students.
+    // A child at another school joins the form through the shared registry alone — the family lookup
+    // and the issued draft pull the whole family; another school's student cannot be keyed in by hand.
+    const foreign = rows.find((r) => !!mySchool && !r.row.db && r.match && !r.match.mineSchool);
+    if (foreign) return `Row ${foreign.i + 1}: ${foreign.match!.student.name} studies at ${foreign.match!.school} — another school's student. Children at other schools join this form only through the family lookup or the issued draft, never keyed in by hand.`;
     // The returned copy must be cross-checked against the draft the form was issued as (mandatory —
     // both flows, MOE and the SBFAS queue): the staff member ticks the confirmation under the lookup.
     // Whichever way the draft was found — by its printed code, or by the family's NRIC.
@@ -900,7 +909,7 @@ export default function HardcopyEntry() {
             <div className="mt-3 space-y-2 border-t border-line pt-3">
               <p className="text-[13px] font-semibold text-on-surface">No printed form? Family lookup — parent / guardian NRIC</p>
               <p className="text-[13px] text-on-surface-variant">
-                Take the NRIC from the paper form&apos;s declaration. The applicant, contact, address and every child come from the shared MOE registry — the child rows below arrive filled and locked (not editable). Nothing matches? Type the children in by hand in Section I.
+                Take the NRIC from the paper form&apos;s declaration. The applicant, contact, address and every child come from the shared MOE registry — the child rows below arrive filled and locked (not editable). Nothing matches? Type the children in by hand in Section I — hand-keyed rows must be your own school&apos;s students; a sibling at another school comes in only with the family, through this lookup.
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -1017,6 +1026,13 @@ export default function HardcopyEntry() {
                               ? <Badge tone="primary">Your school</Badge>
                               : <Badge tone="neutral">Other school</Badge>}
                             {match.blocked && <Badge tone="neutral">Already has an application</Badge>}
+                            {/* Scope: another school's student is only on the form because the family
+                                lookup / draft pulled the whole family — never by hand (Sprint 3). */}
+                            {!match.mineSchool && !locked && (
+                              <span className="font-medium text-alert">
+                                Another school&apos;s student — children at other schools join the form only through the family lookup, not by hand.
+                              </span>
+                            )}
                           </>
                         ) : rowFilled(row) ? (
                           <span className="font-medium text-alert">No child matches this row.</span>
