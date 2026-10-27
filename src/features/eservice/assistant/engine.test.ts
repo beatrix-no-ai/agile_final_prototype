@@ -30,7 +30,7 @@ test("out of scope and eligibility questions are declined with a way out", () =>
   expect(ask("what's the weather").replies[0].chips).toEqual(["Talk to a person"]);
   expect(ask("Am I eligible for FAS?").replies[0].text).toMatch(/can't tell you/);
   expect(ask("Talk to a person").replies[0].human).toBeTruthy();
-  expect(ask("Where is my receipt?").replies[0].text).toMatch(/no separate receipts/);
+  expect(ask("Where is my receipt?").replies[0].text).toMatch(/View details/);
 });
 
 test("ID numbers are refused and not echoed", () => {

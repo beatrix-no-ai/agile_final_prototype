@@ -8,7 +8,7 @@ export const STARTERS = ["How do I pay a fee?", "Check my child's balance", "App
 export const ANSWERS = {
   // Source: FS_Payment_Parent_View_v2. There is one way to pay: the Education Account first, the rest by card or bank. No choice screen.
   pay: {
-    text: "You pay in one way. The system uses each child's Education Account first, and anything left is paid by card or bank. Each ticked invoice is paid in full.",
+    text: "You pay in one way. The system uses each child's Education Account first, and anything left is paid by card or bank. Part payment is possible: you can pay only some invoices, and if the account covers part of an invoice, the rest goes by card or bank.",
     steps: [
       "Open Payments.",
       "Tick the invoice(s) you want to pay, or Select all unpaid and overdue.",
@@ -40,7 +40,7 @@ export const ANSWERS = {
     link: { to: "/parent", label: "Open Overview" },
   },
   transactions: {
-    text: "Transactions lists top-ups, payments and refunds for your children, newest first, with the date, description, student, method and amount. Card payments are listed but don't change the Education Account balance. There are no separate receipts or statements yet.",
+    text: "Transactions lists top-ups, payments and refunds for your children, newest first. You can filter by child, type and date range. Card payments are listed but don't change the Education Account balance. The Invoices tab lists paid invoices; press View details to see the charges, subsidy and payments of each one.",
     source: "Help: Transactions",
     link: { to: "/parent/transactions", label: "Open Transactions" },
   },
