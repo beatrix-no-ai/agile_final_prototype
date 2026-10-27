@@ -1,4 +1,4 @@
-/** Horizontal bars, one row per item, so long lists (e.g. 14 ranks) stay readable. `total` draws a grey full bar behind the red value. */
+/** Vertical bars, one column per item; columns narrow to fit long lists (e.g. 14 ranks). `total` draws a grey full bar behind the red value. */
 export function BarChart({
   data,
   format = (n) => n.toLocaleString("en-US"),
@@ -10,21 +10,20 @@ export function BarChart({
   const max = Math.max(...data.map((d) => Math.max(clean(d.value), clean(d.total)))) || 1; // || 1 only guards the all-zero case
   if (data.length === 0) return <p className="text-sm text-on-surface-variant">No data</p>;
   return (
-    <ul className="space-y-2">
+    <div className="flex items-end gap-2">
       {data.map((d) => {
         const v = clean(d.value);
-        const label = d.total === undefined ? format(v) : `${format(v)} / ${format(clean(d.total))}`;
-        return (
-          <li key={d.label} className="grid grid-cols-[5rem_1fr_5rem] items-center gap-3 text-[13px]">
-            <span className="truncate text-on-surface-variant">{d.label}</span>
-            <div className="relative h-3 rounded-full bg-surface-container" role="img" aria-label={`${d.label} ${label}`}>
-              {d.total !== undefined && <div className="absolute inset-y-0 left-0 rounded-full bg-outline/40" style={{ width: `${(clean(d.total) / max) * 100}%` }} />}
-              <div className="absolute inset-y-0 left-0 rounded-full bg-primary" style={{ width: `${(v / max) * 100}%` }} />
-            </div>
-            <span className="text-right font-medium tabular-nums">{label}</span>
-          </li>
+        const label = d.total === undefined ? format(v) : `${format(v)} of ${format(clean(d.total))}`;        return (
+          <div key={d.label} className="flex min-w-0 flex-1 flex-col items-center gap-1" role="img" aria-label={`${d.label} ${label}`} title={label}>
+            <span className="text-[11px] font-medium tabular-nums">{format(v)}</span>
+            {d.total !== undefined && <span className="-mt-1 text-[10px] text-on-surface-variant tabular-nums">of {format(clean(d.total))}</span>}
+            <div className="relative h-40 w-full max-w-10 border-b border-line">
+              {d.total !== undefined && <div className="absolute inset-x-0 bottom-0 rounded-t-md bg-outline/40" style={{ height: `${(clean(d.total) / max) * 100}%` }} />}
+              <div className="absolute inset-x-0 bottom-0 rounded-t-md bg-primary" style={{ height: `${(v / max) * 100}%` }} />            </div>
+            <span className="w-full truncate text-center text-[11px] text-on-surface-variant">{d.label}</span>
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 }
