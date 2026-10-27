@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { ArrowLeft, CaretRight, FilePlus, MagnifyingGlass, Plus, Printer, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
@@ -315,7 +315,16 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   const [checkedAgainst, setCheckedAgainst] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState("");
+  // Each error names the part of the form it belongs to, so the warning renders AT that section
+  // (and focus lands on the offending control) instead of being pushed to the bottom of the page.
+  const [error, setError] = useState<{ where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared"; message: string } | null>(null);
+  const crossRef = useRef<HTMLInputElement>(null);
+  const extraRef = useRef<HTMLInputElement>(null);
+  const resRef = useRef<HTMLInputElement>(null);
+  const applicantRef = useRef<HTMLInputElement>(null);
+  const declaredRef = useRef<HTMLInputElement>(null);
+  const focusOf = (e: { where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared" }): RefObject<HTMLInputElement | null> | null =>
+    e.where === "crosscheck" ? crossRef : e.where === "extra" ? extraRef : e.where === "residents" ? resRef : e.where === "applicant" ? applicantRef : e.where === "declared" ? declaredRef : null;
 
   // Sprint 3 parity with the online application: the two declared fields are recorded with the form,
   // but the band itself is never keyed — it comes from HOMES (IRAS + CPF), a band only.
@@ -324,26 +333,26 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
     source: "retrieved from HOMES (IRAS + CPF) — the extra money and household size declared on the form are recorded with the application",
   });
 
-  const validate = (): string | null => {
+  const validate = (): { where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared"; message: string } | null => {
     const unmatched = rows.find((r) => !matchOf(r));
-    if (unmatched) return `${unmatched.name} no longer matches a child in the registry — the registry changed since the form was issued; void this draft and issue a fresh form.`;
-    if (!checkedAgainst) return `Cross-check required: compare this entry against the signed form and draft ${draft.id}, then tick the confirmation at the top.`;
+    if (unmatched) return { where: "children", message: `${unmatched.name} no longer matches a child in the registry — the registry changed since the form was issued; void this draft and issue a fresh form.` };
+    if (!checkedAgainst) return { where: "crosscheck", message: `Cross-check required: compare this entry against the signed form and draft ${draft.id}, then tick this confirmation.` };
     // Section II: the two declared fields, validated exactly like the online application.
-    if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim())) return "Section II: enter the extra monthly money in dollars, or 0 if none.";
+    if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim())) return { where: "extra", message: "Enter the extra monthly money in dollars, or 0 if none." };
     const people = Number(residents.trim());
     if (!Number.isInteger(people) || people < 1 || people > 20)
-      return "Section II: enter the number of people currently living in the home (a whole number from 1 to 20).";
-    if (!applicant.trim() || !declared)
-      return "Complete Sections I–III: sign off the declaration with the parent/guardian name.";
+      return { where: "residents", message: "Enter the number of people currently living in the home (a whole number from 1 to 20)." };
+    if (!applicant.trim()) return { where: "applicant", message: "Enter the parent / guardian name as signed on the declaration." };
+    if (!declared) return { where: "declared", message: "Tick the confirmation — the declaration must be signed and dated on the paper form." };
     const fresh = chosen.filter((r) => !r.blocked);
-    if (!fresh.length) return "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031).";
+    if (!fresh.length) return { where: "children", message: "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031)." };
     return null;
   };
 
   const startReview = () => {
     const err = validate();
-    if (err) { setError(err); return; }
-    setError("");
+    if (err) { setError(err); focusOf(err)?.current?.focus(); return; }
+    setError(null);
     setReviewing(true);
   };
 
@@ -352,8 +361,8 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   // the staff lands on the Applications list with the new record on top.
   const submit = () => {
     const err = validate();
-    if (err) { setError(err); setReviewing(false); return; }
-    setError("");
+    if (err) { setError(err); setReviewing(false); focusOf(err)?.current?.focus(); return; }
+    setError(null);
     setReviewing(false);
     setConfirming(false);
     const { band } = bandFromForm();
@@ -431,7 +440,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
           </section>
-          {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
+          {error && <p className="text-[13px] font-medium text-alert" role="alert">{error.message}</p>}
           <div className="flex justify-between gap-3">
             <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
             <Button onClick={() => setConfirming(true)}>Submit</Button>
@@ -445,18 +454,19 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               Issued {new Date(draft.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draft.issuedBy}
               {" "}· {draft.children.length} {draft.children.length > 1 ? "children" : "child"} — everything the form was printed with is locked below; fill in what the parent wrote by hand.
             </p>
-            <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
+            <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "crosscheck" ? "border-alert" : "border-line"} bg-surface-container-low`}>
               <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
               <p className="text-on-surface-variant">
                 This entry is the returned copy — compare the parent&apos;s Section II declarations against the signed form before submitting.
               </p>
               <label className="mt-2 flex items-start gap-2.5">
-                <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => setCheckedAgainst(e.target.checked)} />
+                <input ref={crossRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => { setCheckedAgainst(e.target.checked); if (error?.where === "crosscheck") setError(null); }} />
                 <span>
                   I have compared this entry with the signed form and draft {draft.id} — the children match and Section II is as the parent declared.{" "}
                   <span className="text-alert" aria-hidden>*</span>
                 </span>
               </label>
+              {error?.where === "crosscheck" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
             </div>
           </div>
           <section className="space-y-3">
@@ -478,6 +488,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                 );
               })}
             </ul>
+            {error?.where === "children" && <p role="alert" className="text-[13px] font-medium text-alert">{error.message}</p>}
             <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{draft.contact || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{draft.address || "—"}</span></p>
             {draft.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{draft.email}</span></p>}
@@ -486,18 +497,20 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
           <section className="space-y-3 border-t border-line pt-4">
             <SectionTitle n="II" title="Household income" note="As declared on the paper form — the same two fields as the online application." />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field required label="Extra monthly money (S$)" hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none.">
+              <Field required label="Extra monthly money (S$)" hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none." error={error?.where === "extra" ? error.message : undefined}>
                 <input
+                  ref={extraRef}
                   className={inputClass}
                   aria-label="Extra monthly money"
                   placeholder="e.g. 0"
                   inputMode="decimal"
                   value={extraIncome}
-                  onChange={(e) => setExtraIncome(e.target.value)}
+                  onChange={(e) => { setExtraIncome(e.target.value); if (error?.where === "extra") setError(null); }}
                 />
               </Field>
-              <Field required label="People currently living in your home" hint="Everyone who lives with you now, including you.">
+              <Field required label="People currently living in your home" hint="Everyone who lives with you now, including you." error={error?.where === "residents" ? error.message : undefined}>
                 <input
+                  ref={resRef}
                   className={inputClass}
                   aria-label="People currently living in the home"
                   type="number"
@@ -506,7 +519,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                   step={1}
                   inputMode="numeric"
                   value={residents}
-                  onChange={(e) => setResidents(e.target.value)}
+                  onChange={(e) => { setResidents(e.target.value); if (error?.where === "residents") setError(null); }}
                 />
               </Field>
             </div>
@@ -524,21 +537,21 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               <li>The information given is true — false information is an offence under Section 182 of the Penal Code 1871.</li>
             </ul>
             {/* The paper form collects the parent/guardian name only here — at the declaration the applicant signs. */}
-            <Field label="Parent / guardian name (as signed on the declaration)" required>
-              <input className={inputClass} value={applicant} onChange={(e) => setApplicant(e.target.value)} placeholder="Name as written on the form" />
+            <Field label="Parent / guardian name (as signed on the declaration)" required error={error?.where === "applicant" ? error.message : undefined}>
+              <input ref={applicantRef} className={inputClass} value={applicant} onChange={(e) => { setApplicant(e.target.value); if (error?.where === "applicant") setError(null); }} placeholder="Name as written on the form" />
             </Field>
-            <label className="flex items-start gap-2.5 rounded-control border border-line px-3 py-2 text-sm">
-              <input type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={declared} onChange={(e) => setDeclared(e.target.checked)} />
+            <label className={`flex items-start gap-2.5 rounded-control border px-3 py-2 text-sm ${error?.where === "declared" ? "border-alert" : "border-line"}`}>
+              <input ref={declaredRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={declared} onChange={(e) => { setDeclared(e.target.checked); if (error?.where === "declared") setError(null); }} />
               <span>
                 The declaration is signed and dated on the paper form by <span className="font-semibold">{applicant.trim() || "the applicant"}</span>
               </span>
             </label>
+            {error?.where === "declared" && <p role="alert" className="text-[13px] font-medium text-alert">{error.message}</p>}
             <Field label="Anything else on the form (optional)">
               <textarea rows={2} className={`${inputClass} py-2`} value={note} onChange={(e) => setNote(e.target.value)} />
             </Field>
           </section>
 
-          {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
           <div className="flex justify-end">
             <Button onClick={startReview}>Review the form</Button>
           </div>
