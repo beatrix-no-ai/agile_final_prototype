@@ -269,7 +269,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
                     {c.student}
                     {a && <span className="text-[13px] text-on-surface-variant"> · {a.id}</span>}
                   </span>
-                  <Badge tone={c.outcome === "MOEFAS granted" ? "success" : c.outcome === "Already covered" ? "neutral" : "warning"}>
+                  <Badge tone={c.outcome === "MOEFAS granted" ? "success" : c.outcome === "Already covered" ? "neutral" : "alert"}>
                     {c.outcome === "MOEFAS granted" ? `MOEFAS granted${c.tier ? ` · ${c.tier}` : ""}` : c.outcome === "Already covered" ? "Already covered" : "MOEFAS not granted"}
                   </Badge>
                 </li>
