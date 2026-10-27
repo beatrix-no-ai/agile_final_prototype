@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { SBFAS_APPLICATIONS, attemptOf, latestAttempts, sourceOf, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
+import { SBFAS_APPLICATIONS, attemptOf, sourceOf, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
 import { rankOf } from "../../../data/sbfasRule";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
@@ -23,10 +23,8 @@ import { RiskBadge } from "./ReviewPage";
 import { isDeclined, isGranted, sortQueue, statusLabel } from "./review";
 
 type Filter = "all" | "pending" | "granted" | "declined";
-type SourceFilter = "all" | SbfasSource;
 
 const statusTone: Record<SbfasStatus, BadgeTone> = { Pending: "neutral", Approved: "success", Overridden: "success", Rejected: "alert" };
-const sourceTone: Record<SbfasSource, BadgeTone> = { "MOE referral": "neutral", Resubmission: "warning" };
 
 /** What this student's family still owes on issued charges, after any FAS subsidy and payments. */
 type Row = SbfasApplication & { payable: number; balance: number; nationality: string };
@@ -42,10 +40,10 @@ function SbfasReview() {
   // Each school reviews only its own students' applications (BR15); MOE HQ has no school and sees every one.
   // A school account without a school sees nothing rather than everything.
   const mySchool = role === "school" ? staff?.schoolCode ?? "" : null;
-  // Shared with the Budgets pages, so a decision moves the school's statistics. One row per child:
-  // a request a newer attempt supersedes stays on the record but drops out of the queue.
+  // Shared with the Budgets pages, so a decision moves the school's statistics. One row per child
+  // holds structurally: a parent re-request requeues the SAME application (rounds log), never a second record.
   const apps = useMemo(
-    () => latestAttempts(fas.apps).filter((a) => {
+    () => fas.apps.filter((a) => {
       if (mySchool === null) return true;
       const s = reg.students.find((x) => x.id === a.studentId);
       return s ? schoolOfStudent(s, reg.classes) === mySchool : false;
@@ -53,7 +51,6 @@ function SbfasReview() {
     [fas.apps, mySchool, reg.students, reg.classes],
   );
   const [filter, setFilter] = useState<Filter>("all");
-  const [source, setSource] = useState<SourceFilter>("all");
   const navigate = useNavigate();
 
   const enriched: Row[] = useMemo(
@@ -67,12 +64,11 @@ function SbfasReview() {
     [apps, fees.state.charges, movements, reg.students],
   );
   const rows: Row[] = useMemo(
-    () => enriched.filter((a) => (filter === "all"
+    () => enriched.filter((a) => filter === "all"
       || (filter === "pending" && a.status === "Pending")
       || (filter === "granted" && isGranted(a))
-      || (filter === "declined" && isDeclined(a)))
-      && (source === "all" || sourceOf(a) === source)),
-    [enriched, filter, source],
+      || (filter === "declined" && isDeclined(a))),
+    [enriched, filter],
   );
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
@@ -94,8 +90,8 @@ function SbfasReview() {
     { key: "incomeBand", header: "Income per person", sortable: true },
     { key: "source", header: "Source", render: (a) => (
       <>
-        <Badge tone={sourceTone[sourceOf(a)]}>{sourceOf(a)}</Badge>
-        {attemptOf(a) > 1 && <span className="mt-1 block text-[13px] text-on-surface-variant">Attempt {attemptOf(a)}{a.supersedesId ? ` · after ${a.supersedesId}` : ""}</span>}
+        <Badge tone="neutral">{sourceOf(a)}</Badge>
+        {attemptOf(a) > 1 && <span className="mt-1 block text-[13px] text-on-surface-variant">Round {attemptOf(a)} — re-requested by the parent</span>}
       </>
     ) },
     { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
@@ -133,23 +129,16 @@ function SbfasReview() {
       <Card
         title="SBFAS review queue"
         action={
-          <div className="flex flex-wrap items-center gap-4">
-            <div role="group" aria-label="Filter applications" className="flex gap-2">
-              {tabs.map(([k, label]) => (
-                <Button key={k} size="sm" variant={filter === k ? "primary" : "secondary"} aria-pressed={filter === k} onClick={() => setFilter(k)}>
-                  {label}
-                </Button>
-              ))}
-            </div>
-            <select className="rounded-control border border-line bg-surface px-3 py-1.5 text-sm" aria-label="Filter by application source" value={source} onChange={(e) => setSource(e.target.value as SourceFilter)}>
-              <option value="all">All sources</option>
-              <option value="MOE referral">MOE referral</option>
-              <option value="Resubmission">Resubmission</option>
-            </select>
+          <div role="group" aria-label="Filter applications" className="flex flex-wrap gap-2">
+            {tabs.map(([k, label]) => (
+              <Button key={k} size="sm" variant={filter === k ? "primary" : "secondary"} aria-pressed={filter === k} onClick={() => setFilter(k)}>
+                {label}
+              </Button>
+            ))}
           </div>
         }
       >
-        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only. One row per child — a request a newer attempt replaces stays on the record.</p>
+        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only. One row per child — a parent re-request requeues the same application with its reason logged.</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (

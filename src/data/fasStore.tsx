@@ -1,11 +1,11 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
-import { applyDecision, isGranted, type Action, type Draft } from "../features/admin/fas/review";
+import { isGranted, type Action, type Draft } from "../features/admin/fas/review";
 import { sbfasUsage } from "../lib/budget";
 import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type FamilyDraft, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { normNric } from "./familyRegistry";
-import { applyAmendment, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
+import { applyAmendment, applyDecision, applyRequeue, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
 
@@ -21,7 +21,7 @@ export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "submitSbfasReapply"; studentId: string; reason: string; by?: string; at: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr"; guardianNric?: string; draftId?: string }
+  | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; at: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
   | { type: "amendDecision"; id: string; tier: SbfasTier; reason: string; by: string; at: string }
@@ -65,15 +65,14 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
   }
   if (a.type === "amendDecision") {
     // Reopen & amend (Sprint 3: the parent comes to the school after a rejection): only a rejection
-    // NOBODY has re-applied from can be amended — a later attempt in the queue supersedes it, and
-    // amending both would grant the same child twice.
+    // still sitting undecided-since can be amended — a requeued application is Pending again and is
+    // simply decided, and amending a grant would grant the same child twice.
     const app = state.apps.find((x) => x.id === a.id);
-    if (!app || app.status !== "Rejected" || state.apps.some((x) => x.supersedesId === a.id)) return state;
+    if (!app || app.status !== "Rejected") return state;
     return { ...state, apps: applyAmendment(state.apps, a.id, a.tier, a.reason, a.by, a.at) };
   }
   if (a.type === "decide") {
-    const apps = applyDecision(state.apps, a.id, a.action, a.draft).map((x) => (x.id === a.id ? { ...x, decidedAt: a.at } : x));
-    return { ...state, apps };
+    return { ...state, apps: applyDecision(state.apps, a.id, a.action, a.draft, a.at) };
   }
   if (a.type === "submitFamily") {
     let apps = state.apps;
@@ -89,6 +88,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
           id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
           incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), source: "MOE referral", riskScore: 50,
           recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
+          rounds: [{ at: a.at, note: "First request" }],
           explanation: rec?.level
             ? `Submitted by the family through the FAS form. ${a.band.label} is grouped ${rec.level} by the school's SBFAS rules${rec.tier ? `, suggesting ${rec.tier}${rec.subsidy ?? ""}` : " but no tier is mapped to that level"} — review the household and the student's fees before deciding.`
             : FAMILY_EXPLANATION,
@@ -129,6 +129,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
         id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
         incomeBand: a.band.label, source: "MOE referral", familyAppId: faId, enteredBy: a.by, riskScore: 50,
         recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
+        rounds: [{ at: a.at, note: "First request" }],
         explanation: `Paper form ${a.entryMode === "ocr" ? "scanned and read by OCR, then checked" : "keyed in"} by ${a.by} for ${a.applicant}${a.note.trim() ? ` — note on the form: ${a.note.trim()}` : ""}. MOEFAS was assessed first and not granted for this band, so the case is referred to the school. The income band comes from the paper form (no MyInfo sync); review the household and the student's fees before deciding.`,
         status: "Pending",
       }];
@@ -146,40 +147,15 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
     };
     return { ...state, apps, moefas, familyApps: [familyApp, ...state.familyApps], drafts: markReturned(state.drafts, a.guardianNric, faId, a.at, a.draftId) };
   }
-  if (a.type === "submitSbfasReapply") {
-    // ASSUMPTION (client pending): a new SBFAS request does NOT re-run the MOEFAS assessment — it goes
-    // straight to the school queue. Only allowed after a FINAL rejection: nothing pending, no MOEFAS
-    // grant, a previous rejection to supersede, and a reason saying what changed.
-    const student = STUDENTS.find((s) => s.id === a.studentId);
+  if (a.type === "requeueSbfas") {
+    // The parent asked again after a rejection (Sprint 3): the SAME application returns to the
+    // school's queue with the reason logged as its next round — one record per child, never a
+    // second application, and no MOE re-assessment.
     const mine = state.apps.filter((x) => x.studentId === a.studentId);
-    if (!student || state.moefas[a.studentId] || mine.some((x) => x.status === "Pending") || !a.reason.trim()) return state;
+    if (state.moefas[a.studentId] || mine.some((x) => x.status === "Pending") || !a.reason.trim()) return state;
     const rejected = mine.filter((x) => x.status === "Rejected").sort((x, y) => attemptOf(y) - attemptOf(x))[0];
     if (!rejected) return state;
-    // Hardcopy flow 2 (the form names a school): the paper form joins the hardcopy history as its own
-    // family record, and the new request points at it. The portal re-apply (no school) creates no record.
-    const faId = nextFamilyId(state.familyApps);
-    const familyApp = a.school ? [{
-      id: faId, channel: "Hardcopy" as const, school: a.school,
-      applicant: a.applicant?.trim() || "—", contact: a.contact ?? "",
-      bandLabel: rejected.incomeBand, note: a.reason.trim(),
-      enteredBy: a.by ?? "School user", entryMode: a.entryMode ?? "manual", at: a.at,
-      children: [{ studentId: student.id, student: student.name, level: student.level, outcome: "New SBFAS request" as const }],
-    }] : [];
-    return {
-      ...state,
-      apps: [...state.apps, {
-        id: nextSbfasId(state.apps), student: student.name, studentId: a.studentId, level: student.level,
-        incomeBand: rejected.incomeBand, householdBand: rejected.householdBand, incomeSyncedOn: rejected.incomeSyncedOn,
-        source: "Resubmission", familyAppId: a.school ? faId : rejected.familyAppId, attemptNo: attemptOf(rejected) + 1,
-        supersedesId: rejected.id, reapplyReason: a.reason.trim(), enteredBy: a.by, riskScore: 50,
-        recommendedTier: rejected.recommendedTier, slaDays: 10,
-        explanation: `New request after SBFAS application ${rejected.id} was rejected${a.by ? ` — handed in at the school by ${a.by}` : " — submitted through the parent portal"}. What changed: ${a.reason.trim()}. The household bands are carried over from the earlier request; review them before deciding.`,
-        status: "Pending",
-      }],
-      familyApps: [...familyApp, ...state.familyApps],
-      // Flow 2's returned form closes its draft too — it is the same printed form coming back.
-      drafts: markReturned(state.drafts, a.guardianNric, faId, a.at, a.draftId),
-    };
+    return { ...state, apps: applyRequeue(state.apps, rejected.id, a.reason.trim(), a.by ?? "School user", a.at) };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
   const entry: BudgetChange = { id: `BC-${state.history.length + 1}`, scope: a.scope, target: a.target, from, to: a.amount, by: a.by, at: a.at };

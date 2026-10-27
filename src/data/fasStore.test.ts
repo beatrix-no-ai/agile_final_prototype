@@ -3,7 +3,6 @@ import { MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT } from "./b
 import type { FamilyDraft } from "./familyApplications";
 import type { Band } from "./familyFas";
 import { FAMILY_STUDENT_NAMES } from "./parent";
-import { latestAttempts } from "./sbfasApplications";
 import { STUDENTS } from "./students";
 import { fasReducer, initialFasState, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
 
@@ -280,104 +279,77 @@ describe("a hardcopy application entered at the school (Requirement 5)", () => {
   });
 });
 
-describe("a new SBFAS request after a rejection", () => {
+describe("a parent re-request after a rejection (one application, round log)", () => {
   const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
   const at = "2026-10-20T09:00:00.000Z";
   const band: Band = { id: "b3", label: "$751 - $1,000 per person", tier: "SBFAS" };
+  const appIdOf = (s: ReturnType<typeof initialFasState>) => s.apps.find((a) => a.studentId === ethan.id)!.id;
   // Start from an online submission, then have the school reject it.
   const rejected = () => {
     const s0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
-    const id = s0.apps.find((a) => a.studentId === ethan.id)!.id;
-    return fasReducer(s0, { type: "decide", id, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
+    return fasReducer(s0, { type: "decide", id: appIdOf(s0), action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
   };
-  const rejectedId = (s: ReturnType<typeof initialFasState>) => s.apps.find((a) => a.studentId === ethan.id)!.id;
+  const requeue = (s: ReturnType<typeof initialFasState>, reason = "Parent stopped working", by = "Alicia Tan") =>
+    fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason, by, at });
 
   it("reopen & amend turns the rejection into a grant with the hardship recorded", () => {
     const s = rejected();
-    const out = fasReducer(s, { type: "amendDecision", id: rejectedId(s), tier: "Tier 2", reason: "Parent came in — retrenched in October", by: "Alicia Tan", at });
-    const a = out.apps.find((x) => x.id === rejectedId(s))!;
+    const out = fasReducer(s, { type: "amendDecision", id: appIdOf(s), tier: "Tier 2", reason: "Parent came in — retrenched in October", by: "Alicia Tan", at });
+    const a = out.apps.find((x) => x.id === appIdOf(s))!;
     expect(a).toMatchObject({
       status: "Approved", sbfasTier: "Tier 2", justification: "Income above range",
       amendReason: "Parent came in — retrenched in October", amendedBy: "Alicia Tan",
     });
   });
 
-  it("a rejection the family already re-applied from cannot be reopened — decide the newer request", () => {
-    let s = rejected();
-    s = fasReducer(s, { type: "submitSbfasReapply", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at });
-    expect(fasReducer(s, { type: "amendDecision", id: rejectedId(s), tier: "Tier 2", reason: "why", by: "Alicia Tan", at })).toBe(s);
-  });
-
-  const reapply = (s: ReturnType<typeof initialFasState>, reason = "Parent stopped working", by?: string) =>
-    fasReducer(s, { type: "submitSbfasReapply", studentId: ethan.id, reason, by, at });
-
-  it("creates attempt 2 in the queue, superseding the rejected application and carrying the reason", () => {
-    const s = reapply(rejected(), "Parent stopped working", "Alicia Tan");
+  it("a re-request requeues the SAME application — round 2, Pending again, reason logged, no second record", () => {
+    const s = requeue(rejected());
     const mine = s.apps.filter((a) => a.studentId === ethan.id);
-    expect(mine).toHaveLength(2);
-    expect(mine[1]).toMatchObject({ attemptNo: 2, supersedesId: mine[0].id, reapplyReason: "Parent stopped working", source: "Resubmission", status: "Pending", enteredBy: "Alicia Tan" });
-    expect(mine[1].incomeBand).toBe(mine[0].incomeBand);
-    expect(s.familyApps).toHaveLength(0); // the portal re-apply creates no hardcopy record
+    expect(mine).toHaveLength(1);
+    expect(mine[0]).toMatchObject({ status: "Pending", attemptNo: 2 });
+    expect(mine[0].rounds).toHaveLength(2);
+    expect(mine[0].rounds![0].decision).toMatchObject({ status: "Rejected", justification: "Income above range" });
+    expect(mine[0].rounds![1]).toMatchObject({ note: "Parent stopped working", by: "Alicia Tan" });
   });
 
-  it("records the hardcopy flow-2 form in the paper history", () => {
-    const s = fasReducer(rejected(), {
-      type: "submitSbfasReapply", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at,
-      school: "Riverbank Primary School", applicant: "Benson Chua", contact: "+65 8112 9743", entryMode: "ocr",
-    });
-    const request = s.apps.filter((a) => a.studentId === ethan.id)[1];
-    expect(s.familyApps).toHaveLength(1);
-    expect(s.familyApps[0]).toMatchObject({
-      channel: "Hardcopy", school: "Riverbank Primary School", applicant: "Benson Chua",
-      bandLabel: "$751 - $1,000 per person", note: "Parent stopped working",
-      enteredBy: "Alicia Tan", entryMode: "ocr",
-      children: [{ student: ethan.name, outcome: "New SBFAS request" }],
-    });
-    expect(request.familyAppId).toBe(s.familyApps[0].id);
-  });
-
-  it("is refused while the previous application is still pending", () => {
+  it("is refused while the application is pending, without a reason, and after a grant", () => {
     const pending = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
-    expect(reapply(pending)).toEqual(pending);
-  });
-
-  it("is refused without a reason, and after a grant", () => {
+    expect(requeue(pending)).toEqual(pending);
     const s = rejected();
-    expect(reapply(s, "   ")).toEqual(s);
-    const granted = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
-    const id = granted.apps.find((a) => a.studentId === ethan.id)!.id;
-    const ok = fasReducer(granted, { type: "decide", id, action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
-    expect(reapply(ok)).toEqual(ok);
+    expect(requeue(s, "   ")).toEqual(s);
+    const granted0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
+    const granted = fasReducer(granted0, { type: "decide", id: appIdOf(granted0), action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
+    expect(requeue(granted)).toEqual(granted);
   });
 
-  it("after attempt 2 is rejected, attempt 3 follows the same rule — nothing is blocked, attempts just count up", () => {
-    let s = reapply(rejected()); // attempt 2 pending
-    const second = s.apps.filter((a) => a.studentId === ethan.id)[1];
-    s = fasReducer(s, { type: "decide", id: second.id, action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at });
-    s = reapply(s, "Rent went up");
-    const mine = s.apps.filter((a) => a.studentId === ethan.id);
-    expect(mine).toHaveLength(3);
-    expect(mine[2]).toMatchObject({ attemptNo: 3, supersedesId: second.id });
+  it("a requeued application cannot be reopened & amended — it is pending again, decide it", () => {
+    const s = requeue(rejected());
+    expect(fasReducer(s, { type: "amendDecision", id: appIdOf(s), tier: "Tier 2", reason: "why", by: "Alicia Tan", at })).toBe(s);
   });
 
-  it("the child's outcome reads the latest attempt, so a new request puts them back to awaiting", () => {
+  it("after round 2 is rejected, round 3 follows the same rule — the record just counts up", () => {
+    let s = requeue(rejected());
+    s = fasReducer(s, { type: "decide", id: appIdOf(s), action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at });
+    s = requeue(s, "Rent went up");
+    const a = s.apps.find((x) => x.studentId === ethan.id)!;
+    expect(s.apps.filter((x) => x.studentId === ethan.id)).toHaveLength(1);
+    expect(a).toMatchObject({ status: "Pending", attemptNo: 3 });
+    expect(a.rounds).toHaveLength(3);
+    expect(a.rounds![1].decision).toMatchObject({ status: "Rejected", justification: "Still above range" });
+  });
+
+  it("the child's outcome reads the live record, so a re-request puts them back to awaiting", () => {
     expect(selectChildFas(rejected(), ethan.id)).toMatchObject({ status: "Not granted" });
-    expect(selectChildFas(reapply(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
+    expect(selectChildFas(requeue(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
   });
 
-  it("the queue's one-row-per-child view keeps only the newest attempt — superseded ones stay on the record", () => {
-    let s = reapply(rejected()); // attempt 2 pending, attempt 1 rejected
-    const live = latestAttempts(s.apps).filter((a) => a.studentId === ethan.id);
-    expect(live).toHaveLength(1);
-    expect(live[0].attemptNo).toBe(2);
-    // attempt 2 is rejected and attempt 3 filed: only attempt 3 shows
-    s = fasReducer(s, { type: "decide", id: live[0].id, action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at });
-    s = reapply(s, "Rent went up");
-    const live3 = latestAttempts(s.apps).filter((a) => a.studentId === ethan.id);
-    expect(live3).toHaveLength(1);
-    expect(live3[0].attemptNo).toBe(3);
-    // nobody else's application is hidden
-    expect(latestAttempts(s.apps)).toHaveLength(s.apps.length - 2);
+  it("deciding logs the decision on the round that is open", () => {
+    const s0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
+    const s = fasReducer(s0, { type: "decide", id: appIdOf(s0), action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
+    const a = s.apps.find((x) => x.studentId === ethan.id)!;
+    expect(a.rounds).toHaveLength(1);
+    expect(a.rounds![0].decision).toMatchObject({ status: "Approved", tier: "Tier 3", at });
+    expect(a.decidedAt).toBe(at);
   });
 });
 
@@ -424,20 +396,6 @@ describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", 
       at, guardianNric: "s1234567d",
     });
     expect(s.drafts[0]).toMatchObject({ status: "returned", returnedAppId: s.familyApps[0].id, returnedAt: "2026-10-26" });
-  });
-
-  it("a returned flow-2 form (straight to the SBFAS queue) closes its draft the same way", () => {
-    let s = initialFasState();
-    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
-    const s0 = fasReducer(s, { type: "submitFamily", studentIds: [ethan.id], band, at });
-    const id = s0.apps.find((a) => a.studentId === ethan.id)!.id;
-    s = fasReducer(s0, { type: "decide", id, action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at });
-    s = fasReducer(s, {
-      type: "submitSbfasReapply", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at,
-      school: "Riverbank Primary School", applicant: "Benson Chua", contact: "+65 8112 9743", guardianNric: "S1234567D",
-    });
-    expect(s.drafts[0].status).toBe("returned");
-    expect(s.drafts[0].returnedAppId).toBe(s.familyApps[0].id);
   });
 
   it("a submission whose family has no draft on file leaves the register untouched", () => {

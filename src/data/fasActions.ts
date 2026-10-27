@@ -28,8 +28,9 @@ export const suggestionOf = (rule: SbfasRule, pci: number): SbfasSuggestion => {
 
 /**
  * The things that change a student's FAS: the school deciding an SBFAS application, the parent submitting
- * the family application, the school entering a paper (hardcopy) application, and a new SBFAS request after
- * a rejection. All go through here so the FAS store and the student's unpaid charges always change together.
+ * the family application, the school entering a paper (hardcopy) application, and a parent re-request
+ * after a rejection (the same application requeued). All go through here so the FAS store and the
+ * student's unpaid charges always change together.
  */
 export function useFasActions() {
   const fas = useFas();
@@ -91,8 +92,10 @@ export function useFasActions() {
         type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),
       }, input.studentIds);
     },
-    submitSbfasReapply(input: { studentId: string; reason: string; by?: string; school?: string; applicant?: string; contact?: string; entryMode?: "manual" | "ocr"; guardianNric?: string; draftId?: string }) {
-      run({ type: "submitSbfasReapply", ...input, at: new Date().toISOString() }, [input.studentId]);
+    // The parent asked again after a rejection: the SAME application returns to the queue with the
+    // reason logged as its next round — the child goes back to "awaiting", so fees re-check too.
+    requeueSbfas(input: { studentId: string; reason: string; by?: string }) {
+      run({ type: "requeueSbfas", ...input, at: new Date().toISOString() }, [input.studentId]);
     },
     // Issuing a form touches no student's FAS, so it goes straight to the store — no fee sync.
     issueDraft(draft: FamilyDraft) {

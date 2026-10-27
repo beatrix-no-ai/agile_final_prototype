@@ -3,14 +3,22 @@ import { STUDENTS } from "./students";
 /** Tier names are positional: the school decides HOW MANY tiers it offers, so any "Tier N" is valid. */
 export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
+
+/** One round of this application in the school's queue: why it (re-)entered, and the decision that
+ *  ended it. `note` carries the parent's what-changed reason on a re-request round. */
+export type SbfasRound = {
+  /** ISO date the round entered the queue. */
+  at: string;
+  by?: string;
+  note?: string;
+  decision?: { status: SbfasStatus; tier?: SbfasTier; justification?: string; at: string };
+};
 /**
  * How the application reached the school's queue: "MOE referral" = MOE assessed first (an online
  * e-Service submission or a paper form the school scanned in) and referred the case down after it
- * fell outside the MOEFAS bands — the paper channel is told by `familyAppId`, not the source;
- * "Resubmission" = a NEW paper or online request the parent made after an SBFAS rejection
- * (see `supersedesId`), which goes straight to the school without a MOE assessment.
+ * fell outside the MOEFAS bands — the paper channel is told by `familyAppId`, not the source.
  */
-export type SbfasSource = "MOE referral" | "Resubmission";
+export type SbfasSource = "MOE referral";
 
 export type SbfasApplication = {
   id: string;
@@ -28,12 +36,12 @@ export type SbfasApplication = {
   source?: SbfasSource;
   /** The MOE family application this referral came from (hardcopy channel; online referrals keep the seeded behaviour for now). */
   familyAppId?: string;
-  /** 1 = first request; 2+ = the parent asked again after a rejection (`supersedesId` points at it). */
+  /** 1 = first request; 2+ = the parent asked again after a rejection — the SAME application requeued (`rounds` tells each round's story). */
   attemptNo?: number;
-  supersedesId?: string;
-  /** Required from attempt 2 on: what changed since the rejected request. */
-  reapplyReason?: string;
-  /** When the school recorded that it told the parent the outcome (hardcopy families have no portal). */
+  /** Every round this application has spent in the school's queue: why it (re-)entered and the
+   *  decision that ended it. Round 1 is the original referral; a re-request after a rejection
+   *  requeues this same record — one application per child, never a second one. */
+  rounds?: SbfasRound[];
   /** Staff member who entered the paper form; undefined on online submissions. */
   enteredBy?: string;
   /** AI risk score 0-100 (higher = more likely to struggle with fees). Level comes from riskLevel(). */
@@ -59,16 +67,13 @@ export type SbfasApplication = {
 
 /** Source with the legacy default: seeds created before the field existed are MOE referrals. */
 export const sourceOf = (a: Pick<SbfasApplication, "source">): SbfasSource => a.source ?? "MOE referral";
-/** Attempt with the legacy default: every seeded application is a first request. */
+/** Attempt (round) with the legacy default: every seeded application is a first request. */
 export const attemptOf = (a: Pick<SbfasApplication, "attemptNo">): number => a.attemptNo ?? 1;
 
-/** The one live row per child for lists (Sprint 3): an application a newer attempt supersedes drops
- *  out of the queue — it stays on the record, told on the new request's review page. Attempts always
- *  share the child, so this composes with any scoping filter (the school's or HQ's). */
-export function latestAttempts<T extends Pick<SbfasApplication, "id" | "supersedesId">>(apps: T[]): T[] {
-  const superseded = new Set(apps.flatMap((a) => (a.supersedesId ? [a.supersedesId] : [])));
-  return apps.filter((a) => !superseded.has(a.id));
-}
+/** The rounds a record carries, synthesising round 1 for records created before rounds existed (the
+ *  seeds) so every decided record can close its round. Pure — dates come from the record itself. */
+const roundsOf = (a: Pick<SbfasApplication, "rounds" | "incomeSyncedOn">): SbfasRound[] =>
+  a.rounds ?? [{ at: a.incomeSyncedOn ?? "", note: "First request" }];
 
 /** Income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
 export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
@@ -83,18 +88,45 @@ export type Action = "approve" | "override" | "reject";
 export type Draft = { justification: string; tier: SbfasTier };
 const STATUS: Record<Action, SbfasStatus> = { approve: "Approved", override: "Overridden", reject: "Rejected" };
 
-/** Pure. Records an approve/override/reject on one application (validation happens in the review modal). */
-export function applyDecision(apps: SbfasApplication[], id: string, action: Action, draft: Draft): SbfasApplication[] {
-  return apps.map((a) =>
-    a.id !== id
-      ? a
-      : {
-          ...a,
-          status: STATUS[action],
-          sbfasTier: action === "reject" ? undefined : action === "override" ? draft.tier : a.recommendedTier,
-          justification: draft.justification.trim() || undefined,
-        },
-  );
+/** Pure. Records an approve/override/reject on one application (validation happens in the review modal).
+ *  The decision also closes the round that is currently open, and `decidedAt` follows it. */
+export function applyDecision(apps: SbfasApplication[], id: string, action: Action, draft: Draft, at: string): SbfasApplication[] {
+  return apps.map((a) => {
+    if (a.id !== id) return a;
+    const status = STATUS[action];
+    const tier = action === "reject" ? undefined : action === "override" ? draft.tier : a.recommendedTier;
+    const justification = draft.justification.trim() || undefined;
+    const rounds = roundsOf(a);
+    const last = rounds.length - 1;
+    return {
+      ...a,
+      status,
+      sbfasTier: tier,
+      justification,
+      decidedAt: at,
+      rounds: rounds.map((r, i) => (i === last ? { ...r, decision: { status, tier, justification, at } } : r)),
+    };
+  });
+}
+
+/** Pure. A parent re-request after a rejection (Sprint 3): the SAME application goes back into the
+ *  school's queue — status Pending again, the round counter up, and the what-changed reason logged
+ *  as the next round. Only a rejection can be requeued, and no second record is ever created (one
+ *  application per child). The previous round is already closed by the rejection decision. */
+export function applyRequeue(apps: SbfasApplication[], id: string, reason: string, by: string, at: string): SbfasApplication[] {
+  return apps.map((a) => {
+    if (a.id !== id || a.status !== "Rejected") return a;
+    return {
+      ...a,
+      status: "Pending" as const,
+      sbfasTier: undefined,
+      justification: undefined,
+      decidedAt: undefined,
+      attemptNo: attemptOf(a) + 1,
+      explanation: `The parent asked again after the rejection — what changed: ${reason}. The bands are unchanged; every earlier round stays on this application's log.`,
+      rounds: [...roundsOf(a), { at, by, note: reason }],
+    };
+  });
 }
 
 /** Pure. Reopens a REJECTED decision and amends it to a grant — the parent came to the school after

@@ -19,8 +19,9 @@ import { PaperDetail } from "./HardcopyEntry";
  *  expanding the list, so the list stays scannable no matter how many applications there are.
  *
  *  The edge case lives here (Sprint 3): after this school REJECTS a child's SBFAS request, the
- *  parent may come back asking again. The staff files a NEW request from this page — attempt 2, 3,
- *  ... straight into the school's SBFAS review queue, no MOE re-assessment. */
+ *  parent may come back asking again. The staff files the re-request from this page — the SAME
+ *  application returns to the school's SBFAS review queue with the reason logged as its next
+ *  round (attempt 2, 3, ...): one application per child, no second record, no MOE re-assessment. */
 export default function HardcopyDetailPage() {
   const { faId = "" } = useParams();
   const navigate = useNavigate();
@@ -47,7 +48,6 @@ export default function HardcopyDetailPage() {
   const [reason, setReason] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
-
   const backLink = (
     <button
       type="button"
@@ -93,10 +93,7 @@ export default function HardcopyDetailPage() {
     setError("");
     reaskable
       .filter((c) => picked.has(c.studentId))
-      .forEach((c) => actions.submitSbfasReapply({
-        studentId: c.studentId, reason: reason.trim(), by: staff?.name ?? "School user",
-        school: schoolName, applicant: fa.applicant, contact: fa.contact,
-      }));
+      .forEach((c) => actions.requeueSbfas({ studentId: c.studentId, reason: reason.trim(), by: staff?.name ?? "School user" }));
     setReaskOpen(false);
   };
 
@@ -113,8 +110,8 @@ export default function HardcopyDetailPage() {
             <p className="text-[13px] text-on-surface-variant">
               {reaskable.map((c) => c.student).join(", ")} had the SBFAS request rejected. If the school is reconsidering its own
               decision, use Reopen &amp; amend on the review screen — the record is amended in place. This button is for the
-              parent&apos;s new form: it goes straight into this school&apos;s SBFAS review queue as the next attempt, without a MOE
-              re-assessment, and the queue then shows only this newest request for the child.
+              parent&apos;s new request: the same application returns to this school&apos;s SBFAS review queue with the reason
+              logged on it — no second application is created, and no MOE re-assessment runs.
             </p>
             <div className="flex justify-end">
               <Button onClick={openReask}>
@@ -177,8 +174,8 @@ export default function HardcopyDetailPage() {
           </Field>
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
           <p className="text-[13px] text-on-surface-variant">
-            The request lands in this school&apos;s SBFAS review queue as the next attempt — the queue shows only this newest
-            request for the child. The rejected decision stays on the record, told on the new request&apos;s review page.
+            The same application returns to this school&apos;s SBFAS review queue as its next round — the queue keeps one row
+            per child. Every round (the request and its decision) stays logged on the application&apos;s review page.
           </p>
         </div>
       </Modal>

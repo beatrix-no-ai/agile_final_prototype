@@ -51,7 +51,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 /** The review body, shared by nothing else anymore but kept as its own component so the page can key
  *  it per application (resets the decision draft when the reviewer opens another one). */
-function ReviewBody({ app, rule, superseded, onDecide, onAmend }: { app: Enriched; rule: SbfasRule | null; superseded: SbfasApplication | null; onDecide: (id: string, action: Action, draft: Draft) => void; onAmend: (id: string, tier: SbfasTier, reason: string) => void }) {
+function ReviewBody({ app, rule, onDecide, onAmend }: { app: Enriched; rule: SbfasRule | null; onDecide: (id: string, action: Action, draft: Draft) => void; onAmend: (id: string, tier: SbfasTier, reason: string) => void }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -85,9 +85,8 @@ function ReviewBody({ app, rule, superseded, onDecide, onAmend }: { app: Enriche
     onDecide(app.id, action, draft);
   };
 
-  // A rejection can only be reopened while it is still the family's live request — once a newer
-  // attempt supersedes it, amending here would grant the same child twice.
-  const supersededByNewer = fas.apps.some((x) => x.supersedesId === app.id);
+  // A rejection can only be reopened while it is still the live decision — a requeued application
+  // is Pending again, so it is simply decided (amending a grant would grant the same child twice).
   const amendNow = () => {
     const err = validateAmendment(amendReason);
     if (err) {
@@ -126,14 +125,28 @@ function ReviewBody({ app, rule, superseded, onDecide, onAmend }: { app: Enriche
         </p>
       )}
 
-      {superseded && (
+      {(app.rounds?.length ?? 0) > 1 && (
         <div className="rounded-control border border-line bg-surface-container-low p-4">
-          <p className="text-[13px] font-semibold text-on-surface">Resubmission — replaces {superseded.id}</p>
-          {app.reapplyReason && <p className="mt-1.5 text-sm text-on-surface">What changed: {app.reapplyReason}</p>}
-          <p className="mt-1.5 text-[13px] text-on-surface-variant">
-            Previous request {superseded.id} was {statusLabel(superseded.status)}
-            {superseded.justification ? ` — “${superseded.justification}”` : ""}. Household bands are carried over from it.
-          </p>
+          <p className="text-[13px] font-semibold text-on-surface">Request history — {app.rounds!.length} rounds on this application</p>
+          {/* One record per child: every parent re-request requeued THIS application; each round ends
+              with the decision that closed it, told here once. */}
+          <ol className="mt-2 space-y-1.5">
+            {app.rounds!.map((r, i) => (
+              <li key={i} className="text-[13px]">
+                <span className="font-semibold text-on-surface">Round {i + 1}</span>{" "}
+                {r.at ? new Date(r.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                {r.note && r.note !== "First request" ? ` — ${r.note}` : ""}
+                {r.by ? ` (filed by ${r.by})` : ""}
+                {r.decision && (
+                  <span className="text-on-surface-variant">
+                    {" "}→ {statusLabel(r.decision.status)}
+                    {r.decision.tier ? ` · ${rankOf(r.decision.tier)}` : ""}
+                    {r.decision.justification ? ` — “${r.decision.justification}”` : ""}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ol>
         </div>
       )}
 
@@ -183,7 +196,7 @@ function ReviewBody({ app, rule, superseded, onDecide, onAmend }: { app: Enriche
           <p className="mt-1 text-[13px] text-on-surface-variant">
             Outcome sent to the parent by SMS/email automatically on the decision date.
           </p>
-          {app.status === "Rejected" && !amending && !supersededByNewer && (
+          {app.status === "Rejected" && !amending && (
             <div className="mt-3 border-t border-line pt-3">
               <p className="text-[13px] text-on-surface-variant">
                 The parent can still come to the school — a rejection can be reopened and amended to a
@@ -193,12 +206,6 @@ function ReviewBody({ app, rule, superseded, onDecide, onAmend }: { app: Enriche
                 <Button variant="secondary" onClick={() => setAmending(true)}>Reopen &amp; amend</Button>
               </div>
             </div>
-          )}
-          {app.status === "Rejected" && supersededByNewer && (
-            <p className="mt-2 border-t border-line pt-2 text-[13px] text-on-surface-variant">
-              This rejection cannot be reopened — the family already made a newer request that supersedes
-              it; decide that request instead.
-            </p>
           )}
           {amending && (
             <div className="mt-3 space-y-3 border-t border-line pt-3">
@@ -306,7 +313,6 @@ export default function ReviewPage() {
   // The rule of the school that owns the application — SBFAS packages are school-defined.
   const school = student ? schoolOfStudent(student, reg.classes) : staff?.schoolCode ?? "S001";
   const rule = enriched ? ruleForSchool(sbfas.rules, school) : null;
-  const superseded = enriched?.supersedesId ? fas.apps.find((a) => a.id === enriched.supersedesId) ?? null : null;
   const back = () => navigate("/admin/fas", { state: { fasTab: "sbfas" } });
 
   const onDecide = (id: string, action: Action, draft: Draft) => {
@@ -364,7 +370,7 @@ export default function ReviewPage() {
         </Badge>
       </div>
       <Card title="Review the application">
-        <ReviewBody key={enriched.id} app={enriched} rule={rule} superseded={superseded} onDecide={onDecide} onAmend={onAmend} />
+        <ReviewBody key={enriched.id} app={enriched} rule={rule} onDecide={onDecide} onAmend={onAmend} />
       </Card>
     </div>
   );
