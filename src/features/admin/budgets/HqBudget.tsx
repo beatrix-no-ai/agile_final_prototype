@@ -8,6 +8,7 @@ import { StatCard } from "../../../components/ui/StatCard";
 import { ACADEMIC_YEAR, MOEFAS_TIER_AMOUNT } from "../../../data/budgets";
 import type { SbfasTier } from "../../../data/sbfasApplications";
 import { selectMoefas, useFas } from "../../../data/fasStore";
+import { LEVELS } from "../../../data/students";
 import { formatSGD } from "../../../lib/format";
 import { useSession } from "../../../session";
 import { BudgetAlert } from "./BudgetAlert";
@@ -63,7 +64,7 @@ export function HqBudget() {
             })}
           </ul>
         </Card>
-        <TierChartCard amountOf={(t) => MOEFAS_TIER_AMOUNT[t as SbfasTier] ?? 0} byTier={m.byTier} filters={["Primary", "Secondary"]} filterLabel="Level" note={(n, lvl) => `${n} ${lvl}students receiving MOEFAS this year.`} />
+        <TierChartCard amountOf={(t) => MOEFAS_TIER_AMOUNT[t as SbfasTier] ?? 0} byTier={m.byTier} classes={LEVELS} note={(n, lvl) => `${n} ${lvl}students receiving MOEFAS this year.`} />
       </div>
       <BudgetHistory changes={history} />
       <SetBudgetModal

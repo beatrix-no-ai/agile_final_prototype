@@ -18,27 +18,27 @@ export function BarChart({
   const pct = (n: number) => `${(n / max) * 100}%`;
   return (
     <div className="grid grid-cols-[auto_1fr] gap-x-3">
-      <div className="relative h-48 text-right text-[11px] text-on-surface-variant tabular-nums">
+      <div className="relative h-64 text-right text-xs text-on-surface-variant tabular-nums">
         {ticks.map((t) => (
           <span key={t} className="absolute right-0 translate-y-1/2" style={{ bottom: pct(t) }}>{axisFormat(t)}</span>
         ))}
         <span className="invisible">{axisFormat(max)}</span>
       </div>
-      <div className="relative h-48">
+      <div className="relative h-64">
         {ticks.map((t) => (
           <div key={t} className={`absolute inset-x-0 border-t ${t === 0 ? "border-line" : "border-dashed border-line/70"}`} style={{ bottom: pct(t) }} />
         ))}
-        <div className="absolute inset-0 flex items-end gap-3 px-2">
+        <div className="absolute inset-0 flex items-end gap-4 px-3">
           {data.map((d) => {
             const v = clean(d.value);
             const total = d.total === undefined ? undefined : clean(d.total);
             const text = total === undefined ? axisFormat(v) : `${axisFormat(v)} of ${axisFormat(total)}`; // tooltip keeps the unit
             return (
               <div key={d.label} className="group relative flex h-full min-w-0 flex-1 justify-center" role="img" aria-label={`${d.label} ${text}`} title={text}>
-                <div className="relative h-full w-full max-w-14">
+                <div className="relative h-full w-full max-w-16">
                   {total !== undefined && <div className="absolute inset-x-0 bottom-0 rounded-t-lg bg-outline/30" style={{ height: pct(total) }} />}
                   <div className="absolute inset-x-0 bottom-0 rounded-t-lg bg-primary motion-safe:transition-[height] group-hover:opacity-90" style={{ height: pct(v) }} />
-                  <span className="absolute left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-xs font-semibold tabular-nums" style={{ bottom: pct(total ?? v) }}>
+                  <span className="absolute left-1/2 mb-1.5 -translate-x-1/2 whitespace-nowrap text-sm font-semibold text-on-surface tabular-nums" style={{ bottom: pct(total ?? v) }}>
                     {format(v)}
                   </span>
                 </div>
@@ -48,9 +48,9 @@ export function BarChart({
         </div>
       </div>
       <span />
-      <div className="mt-2 flex gap-3 px-2">
+      <div className="mt-2 flex gap-4 px-3">
         {data.map((d) => (
-          <span key={d.label} className="min-w-0 flex-1 truncate text-center text-xs text-on-surface-variant">{d.label}</span>
+          <span key={d.label} className="min-w-0 flex-1 whitespace-nowrap text-center text-sm font-medium text-on-surface">{d.label}</span>
         ))}
       </div>
     </div>

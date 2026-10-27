@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
 import { applyDecision, isGranted, type Action, type Draft } from "../features/admin/fas/review";
 import { sbfasUsage } from "../lib/budget";
-import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type Level, type LevelBudget } from "./budgets";
+import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT, type LevelBudget } from "./budgets";
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
@@ -194,7 +194,7 @@ export function selectSbfas(s: FasState) {
 export function selectMoefas(s: FasState) {
   const grants = Object.entries(s.moefas).flatMap(([id, g]) => {
     const student = STUDENTS.find((x) => x.id === id);
-    return student ? [{ g, level: student.level.startsWith("P") ? "Primary" : "Secondary" }] : [];
+    return student ? [{ g, cls: student.level as string, level: student.level.startsWith("P") ? "Primary" : "Secondary" }] : [];
   });
   const levels = s.levels.map((l) => {
     const mine = grants.filter((x) => x.level === l.id);
@@ -205,8 +205,8 @@ export function selectMoefas(s: FasState) {
   return {
     levels, budget, used, remaining: budget - used, helped: sum(levels.map((l) => l.beneficiaries)),
     byTier: MOEFAS_BY_TIER.map((t) => {
-      const n = (lvl: string) => t[lvl as Level] + grants.filter((x) => x.level === lvl && x.g.tier === t.label).length;
-      return { label: t.label, by: { Primary: n("Primary"), Secondary: n("Secondary") }, value: n("Primary") + n("Secondary") };
+      const by = Object.fromEntries(LEVELS.map((c, i) => [c, t.byClass[i] + grants.filter((x) => x.cls === c && x.g.tier === t.label).length]));
+      return { label: t.label, by, value: sum(Object.values(by)) };
     }),
   };
 }
