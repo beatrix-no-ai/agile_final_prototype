@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { SBFAS_APPLICATIONS, attemptOf, sourceOf, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
+import { SBFAS_APPLICATIONS, attemptOf, latestAttempts, sourceOf, type SbfasApplication, type SbfasSource, type SbfasStatus } from "../../../data/sbfasApplications";
 import { rankOf } from "../../../data/sbfasRule";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
@@ -42,9 +42,10 @@ function SbfasReview() {
   // Each school reviews only its own students' applications (BR15); MOE HQ has no school and sees every one.
   // A school account without a school sees nothing rather than everything.
   const mySchool = role === "school" ? staff?.schoolCode ?? "" : null;
-  // Shared with the Budgets pages, so a decision moves the school's statistics.
+  // Shared with the Budgets pages, so a decision moves the school's statistics. One row per child:
+  // a request a newer attempt supersedes stays on the record but drops out of the queue.
   const apps = useMemo(
-    () => fas.apps.filter((a) => {
+    () => latestAttempts(fas.apps).filter((a) => {
       if (mySchool === null) return true;
       const s = reg.students.find((x) => x.id === a.studentId);
       return s ? schoolOfStudent(s, reg.classes) === mySchool : false;
@@ -148,7 +149,7 @@ function SbfasReview() {
           </div>
         }
       >
-        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only.</p>
+        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only. One row per child — a request a newer attempt replaces stays on the record.</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (

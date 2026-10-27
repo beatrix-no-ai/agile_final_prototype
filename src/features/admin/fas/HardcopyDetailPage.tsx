@@ -111,9 +111,10 @@ export default function HardcopyDetailPage() {
         <Card title="SBFAS not granted — the parent asked again?">
           <div className="space-y-3">
             <p className="text-[13px] text-on-surface-variant">
-              {reaskable.map((c) => c.student).join(", ")} had the SBFAS request rejected. If the parent comes back to the school,
-              file a new request here — it goes straight into this school&apos;s SBFAS review queue as the next attempt, without a
-              MOE re-assessment (edge case; the school can also reopen its own rejected decision from the review screen).
+              {reaskable.map((c) => c.student).join(", ")} had the SBFAS request rejected. If the school is reconsidering its own
+              decision, use Reopen &amp; amend on the review screen — the record is amended in place. This button is for the
+              parent&apos;s new form: it goes straight into this school&apos;s SBFAS review queue as the next attempt, without a MOE
+              re-assessment, and the queue then shows only this newest request for the child.
             </p>
             <div className="flex justify-end">
               <Button onClick={openReask}>
@@ -176,8 +177,8 @@ export default function HardcopyDetailPage() {
           </Field>
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error}</p>}
           <p className="text-[13px] text-on-surface-variant">
-            The request lands in this school&apos;s SBFAS review queue as the next attempt and appears as its own row in the
-            Applications tab. The rejected decision above stays on the record.
+            The request lands in this school&apos;s SBFAS review queue as the next attempt — the queue shows only this newest
+            request for the child. The rejected decision stays on the record, told on the new request&apos;s review page.
           </p>
         </div>
       </Modal>

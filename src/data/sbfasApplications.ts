@@ -62,6 +62,14 @@ export const sourceOf = (a: Pick<SbfasApplication, "source">): SbfasSource => a.
 /** Attempt with the legacy default: every seeded application is a first request. */
 export const attemptOf = (a: Pick<SbfasApplication, "attemptNo">): number => a.attemptNo ?? 1;
 
+/** The one live row per child for lists (Sprint 3): an application a newer attempt supersedes drops
+ *  out of the queue — it stays on the record, told on the new request's review page. Attempts always
+ *  share the child, so this composes with any scoping filter (the school's or HQ's). */
+export function latestAttempts<T extends Pick<SbfasApplication, "id" | "supersedesId">>(apps: T[]): T[] {
+  const superseded = new Set(apps.flatMap((a) => (a.supersedesId ? [a.supersedesId] : [])));
+  return apps.filter((a) => !superseded.has(a.id));
+}
+
 /** Income bands are read-only and come from the third-party MyInfo (SingPass) API — never typed in by the school. */
 export const INCOME_API_SOURCE = "MyInfo (SingPass) API";
 

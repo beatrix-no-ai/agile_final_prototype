@@ -3,6 +3,7 @@ import { MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TIER, SBFAS_TIER_AMOUNT } from "./b
 import type { FamilyDraft } from "./familyApplications";
 import type { Band } from "./familyFas";
 import { FAMILY_STUDENT_NAMES } from "./parent";
+import { latestAttempts } from "./sbfasApplications";
 import { STUDENTS } from "./students";
 import { fasReducer, initialFasState, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
 
@@ -362,6 +363,21 @@ describe("a new SBFAS request after a rejection", () => {
   it("the child's outcome reads the latest attempt, so a new request puts them back to awaiting", () => {
     expect(selectChildFas(rejected(), ethan.id)).toMatchObject({ status: "Not granted" });
     expect(selectChildFas(reapply(rejected()), ethan.id)).toEqual({ scheme: "SBFAS", status: "Awaiting school decision" });
+  });
+
+  it("the queue's one-row-per-child view keeps only the newest attempt — superseded ones stay on the record", () => {
+    let s = reapply(rejected()); // attempt 2 pending, attempt 1 rejected
+    const live = latestAttempts(s.apps).filter((a) => a.studentId === ethan.id);
+    expect(live).toHaveLength(1);
+    expect(live[0].attemptNo).toBe(2);
+    // attempt 2 is rejected and attempt 3 filed: only attempt 3 shows
+    s = fasReducer(s, { type: "decide", id: live[0].id, action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at });
+    s = reapply(s, "Rent went up");
+    const live3 = latestAttempts(s.apps).filter((a) => a.studentId === ethan.id);
+    expect(live3).toHaveLength(1);
+    expect(live3[0].attemptNo).toBe(3);
+    // nobody else's application is hidden
+    expect(latestAttempts(s.apps)).toHaveLength(s.apps.length - 2);
   });
 });
 
