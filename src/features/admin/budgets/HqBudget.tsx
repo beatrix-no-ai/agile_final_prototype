@@ -2,9 +2,7 @@ import { useState } from "react";
 import { Coins, Receipt, UsersThree, Wallet } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
-import { BarChart } from "../../../components/ui/BarChart";
 import { Card } from "../../../components/ui/Card";
-import { Segmented } from "../../../components/ui/Segmented";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StatCard } from "../../../components/ui/StatCard";
 import { ACADEMIC_YEAR } from "../../../data/budgets";
@@ -14,6 +12,7 @@ import { useSession } from "../../../session";
 import { BudgetAlert } from "./BudgetAlert";
 import { BudgetHistory } from "./BudgetHistory";
 import { SetBudgetModal } from "./SetBudgetModal";
+import { TierChartCard } from "./TierChartCard";
 
 const compact = { compact: true };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -22,7 +21,6 @@ export function HqBudget() {
   const { state, dispatch } = useFas();
   const { user } = useSession();
   const [modal, setModal] = useState(false);
-  const [level, setLevel] = useState<"All" | "Primary" | "Secondary">("All");
   const m = selectMoefas(state);
   const over = m.remaining < 0;
   const history = state.history.filter((h) => h.scope === "MOEFAS");
@@ -64,15 +62,7 @@ export function HqBudget() {
             })}
           </ul>
         </Card>
-        <Card
-          title="Students helped by tier"
-          action={<Segmented label="Level" value={level} onChange={setLevel} options={[{ value: "All", label: "All" }, { value: "Primary", label: "Primary" }, { value: "Secondary", label: "Secondary" }]} />}
-        >
-          <BarChart data={m.byTier.map((t) => ({ label: t.label, value: level === "All" ? t.value : t[level] }))} />
-          <p className="mt-2 text-sm text-on-surface-variant">
-            {(level === "All" ? m.helped : m.levels.find((l) => l.id === level)!.beneficiaries).toLocaleString("en-US")} {level === "All" ? "" : `${level} `}students receiving MOEFAS this year.
-          </p>
-        </Card>
+        <TierChartCard byTier={m.byTier} note={(n, lvl) => `${n} ${lvl}students receiving MOEFAS this year.`} />
       </div>
       <BudgetHistory changes={history} />
       <SetBudgetModal

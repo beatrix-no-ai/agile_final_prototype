@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Coins, Receipt, UsersThree, Wallet, Gavel } from "@phosphor-icons/react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
-import { BarChart } from "../../../components/ui/BarChart";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StatCard } from "../../../components/ui/StatCard";
 import { ACADEMIC_YEAR, SBFAS_GOVERNANCE } from "../../../data/budgets";
@@ -13,6 +12,7 @@ import { BudgetAlert } from "./BudgetAlert";
 import { BudgetHistory } from "./BudgetHistory";
 import { RecentGrants } from "./RecentGrants";
 import { SetBudgetModal } from "./SetBudgetModal";
+import { TierChartCard } from "./TierChartCard";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -39,10 +39,7 @@ export function SchoolBudget() {
         </div>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Students helped by tier">
-          <BarChart data={s.byTier} />
-          <p className="mt-2 text-sm text-on-surface-variant">{s.helped} students receiving SBFAS this year. Updates when you approve an application.</p>
-        </Card>
+        <TierChartCard byTier={s.byTier} note={(n, lvl) => `${n} ${lvl}students receiving SBFAS this year. Updates when you approve an application.`} />
         <RecentGrants grants={selectRecentGrants(state)} />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

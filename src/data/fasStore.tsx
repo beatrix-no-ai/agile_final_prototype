@@ -166,6 +166,18 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 
+/** Seeded plus live SBFAS grants per tier and level, including tiers the school added beyond the seeded four. */
+function sbfasByTier(apps: SbfasApplication[]) {
+  const live = (lvl: Level) => sbfasUsage(apps.filter((a) => (a.level.startsWith("P") ? "Primary" : "Secondary") === lvl)).byTier;
+  const p = live("Primary"), q = live("Secondary");
+  const labels = [...new Set([...SBFAS_BY_TIER.map((t) => t.label), ...Object.keys(p), ...Object.keys(q)])];
+  return labels.map((label) => {
+    const seed = SBFAS_BY_TIER.find((t) => t.label === label);
+    const Primary = (seed?.Primary ?? 0) + (p[label] ?? 0), Secondary = (seed?.Secondary ?? 0) + (q[label] ?? 0);
+    return { label, Primary, Secondary, value: Primary + Secondary };
+  });
+}
+
 /** School view. The seeded figures are what was granted before this queue; live decisions add on top. */
 export function selectSbfas(s: FasState) {
   const live = sbfasUsage(s.apps);
@@ -174,8 +186,8 @@ export function selectSbfas(s: FasState) {
     budget: s.sbfasBudget,
     used,
     remaining: s.sbfasBudget - used,
-    helped: sum(SBFAS_BY_TIER.map((t) => t.value)) + live.count,
-    byTier: SBFAS_BY_TIER.map((t) => ({ label: t.label, value: t.value + (live.byTier[t.label as keyof typeof live.byTier] ?? 0) })),
+    helped: sum(SBFAS_BY_TIER.map((t) => t.Primary + t.Secondary)) + live.count,
+    byTier: sbfasByTier(s.apps),
   };
 }
 

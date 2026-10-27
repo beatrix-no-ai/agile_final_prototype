@@ -10,10 +10,10 @@ export const SBFAS = { budget: 120000, absorbed: 74800 };
 
 /** 148 beneficiaries in total. */
 export const SBFAS_BY_TIER = [
-  { label: "Tier 1", value: 52 },
-  { label: "Tier 2", value: 44 },
-  { label: "Tier 3", value: 32 },
-  { label: "Tier 4", value: 20 },
+  { label: "Tier 1", Primary: 30, Secondary: 22 },
+  { label: "Tier 2", Primary: 26, Secondary: 18 },
+  { label: "Tier 3", Primary: 18, Secondary: 14 },
+  { label: "Tier 4", Primary: 12, Secondary: 8 },
 ];
 
 export const SBFAS_GOVERNANCE = [
