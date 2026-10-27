@@ -413,7 +413,6 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   const validate = (): { where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared"; message: string } | null => {
     const unmatched = rows.find((r) => !matchOf(r));
     if (unmatched) return { where: "children", message: `${unmatched.name} no longer matches a child in the registry — the registry changed since the form was issued; void this draft and issue a fresh form.` };
-    if (!checkedAgainst) return { where: "crosscheck", message: `Cross-check required: compare this entry against the signed form and draft ${draft.id}, then tick this confirmation.` };
     // Section II: the two declared fields, validated exactly like the online application.
     if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim())) return { where: "extra", message: "Enter the extra monthly money in dollars, or 0 if none." };
     const people = Number(residents.trim());
@@ -423,6 +422,8 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
     if (!declared) return { where: "declared", message: "Tick the confirmation — the declaration must be signed and dated on the paper form." };
     const fresh = chosen.filter((r) => !r.blocked);
     if (!fresh.length) return { where: "children", message: "Every child on this form already holds an application or a MOEFAS grant — there is nothing new to submit (AC-031)." };
+    // The cross-check box closes the form, so it validates last — errors surface top-to-bottom.
+    if (!checkedAgainst) return { where: "crosscheck", message: `Cross-check required: compare this entry against the signed form and draft ${draft.id}, then tick this confirmation.` };
     return null;
   };
 
@@ -538,20 +539,6 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               Issued {new Date(draft.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draft.issuedBy}
               {" "}· {draft.children.length} {draft.children.length > 1 ? "children" : "child"} — everything the form was printed with is locked below; fill in what the parent wrote by hand.
             </p>
-            <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "crosscheck" ? "border-alert" : "border-line"} bg-surface-container-low`}>
-              <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
-              <p className="text-on-surface-variant">
-                This entry is the returned copy — compare the parent&apos;s Section II declarations against the signed form before submitting.
-              </p>
-              <label className="mt-2 flex items-start gap-2.5">
-                <input ref={crossRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => { setCheckedAgainst(e.target.checked); if (error?.where === "crosscheck") setError(null); }} />
-                <span>
-                  I have compared this entry with the signed form and draft {draft.id} — the children match and Section II is as the parent declared.{" "}
-                  <span className="text-alert" aria-hidden>*</span>
-                </span>
-              </label>
-              {error?.where === "crosscheck" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
-            </div>
           </div>
           <section className="space-y-3">
             <SectionTitle n="I" title="Particulars of the child" note="Pre-printed from the registry when the form was issued — locked (not editable)." />
@@ -652,6 +639,23 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               <textarea rows={2} className={`${inputClass} py-2`} value={note} onChange={(e) => setNote(e.target.value)} />
             </Field>
           </section>
+
+          {/* The cross-check closes the form: the staff reads the whole keyed-in entry first, then
+              confirms against the signed paper — so it sits at the very end, above the button. */}
+          <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "crosscheck" ? "border-alert" : "border-line"} bg-surface-container-low`}>
+            <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
+            <p className="text-on-surface-variant">
+              This entry is the returned copy — compare the parent&apos;s Section II declarations against the signed form before submitting.
+            </p>
+            <label className="mt-2 flex items-start gap-2.5">
+              <input ref={crossRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => { setCheckedAgainst(e.target.checked); if (error?.where === "crosscheck") setError(null); }} />
+              <span>
+                I have compared this entry with the signed form and draft {draft.id} — the children match and Section II is as the parent declared.{" "}
+                <span className="text-alert" aria-hidden>*</span>
+              </span>
+            </label>
+            {error?.where === "crosscheck" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
+          </div>
 
           <div className="flex justify-end">
             <Button onClick={startReview}>Review the form</Button>
