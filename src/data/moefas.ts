@@ -100,7 +100,7 @@ export type Basis = "percent" | "fixed";
 /** One subsidy row; one amount per condition. `id` is "" until the user picks a component for the fee type. */
 export type RuleComponent = { id: string; type: FeeKind; basis: Basis; amounts: (number | "")[] };
 /** Pending = activated with a future effective date; it becomes Active on that date. */
-export type RuleStatus = "Active" | "Inactive" | "Draft" | "Pending";
+export type RuleStatus = "Active" | "Inactive" | "Draft" | "Pending" | "Canceled";
 /** A child matches a condition when GHI OR PCI falls in the chosen tier. -1 = not chosen yet (drafts only). */
 export type Condition = { ghi: number; pci: number };
 /** `effectiveFrom` (YYYY-MM-DD): activating with a future date schedules the rule (Pending) until that date. */
@@ -116,6 +116,7 @@ export const SEED: Rule[] = [
   { id: "FASR26100002", name: "MOEFAS 2025 — Standard assistance", status: "Inactive", conditions: CONDITIONS(), components: [comp("MFC-003", "percent", [75, 40])] },
   { id: "FASR26100004", name: "MOEFAS 2027 — Scheduled assistance", effectiveFrom: "2027-01-01", status: "Pending", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
   { id: "FASR26100003", name: "MOEFAS 2027 — Proposed assistance", status: "Draft", conditions: CONDITIONS(), components: [comp("MFC-002", "fixed", [15, 8]), comp("MFC-004", "percent", [60, 30])] },
+  { id: "FASR26100005", name: "MOEFAS 2027 — Cancelled scheduled assistance", effectiveFrom: "2027-02-01", status: "Canceled", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
 ];
 
 const KEY = "moefas-conditions-or-v3";
@@ -125,7 +126,11 @@ export function useRules() {
   const [rules, set] = useState<Rule[]>(() => {
     try {
       const d = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (Array.isArray(d) && d.length && d.every((r) => Array.isArray(r?.conditions))) return promoteDue(d, sgToday());
+      if (Array.isArray(d) && d.length && d.every((r) => Array.isArray(r?.conditions))) {
+        // Stable Canceled demo record, also added when this browser already has saved rules.
+        const demo = SEED.find((r) => r.status === "Canceled")!;
+        return promoteDue(d.some((r) => r.id === demo.id) ? d : [...d, demo], sgToday());
+      }
     } catch { /* private mode / bad JSON: use the seed */ }
     return SEED;
   });

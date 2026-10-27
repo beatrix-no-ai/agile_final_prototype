@@ -13,7 +13,7 @@ import {
 } from "../../../data/moefas";
 import { formatSGD } from "../../../lib/format";
 
-const TONE: Record<RuleStatus, BadgeTone> = { Active: "success", Draft: "warning", Inactive: "neutral", Pending: "primary" };
+const TONE: Record<RuleStatus, BadgeTone> = { Active: "success", Draft: "neutral", Inactive: "neutral", Pending: "warning", Canceled: "alert" };
 const th = "whitespace-nowrap border-b border-line bg-surface-container-low px-3 py-3 text-left text-[13px] font-medium text-on-surface-variant";
 const td = "border-b border-line px-3 py-2 align-top";
 const cell = "min-h-10 rounded-control border border-outline bg-surface-container-lowest px-2 text-sm disabled:opacity-70";
@@ -202,9 +202,9 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
   const [cancelling, setCancelling] = useState<Rule | null>(null);
   const cancel = () => {
     if (!cancelling) return;
-    setRules(rules.map((x) => (x.id === cancelling.id ? { ...x, status: "Draft" } : x)));
+    setRules(rules.map((x) => (x.id === cancelling.id ? { ...x, status: "Canceled" } : x)));
     setCancelling(null);
-    notify(`Scheduled rule ${cancelling.id} cancelled. It is back to Draft and will not become Active.`);
+    notify(`Scheduled rule ${cancelling.id} cancelled. It is now Canceled and will not become Active.`);
   };
 
   const requestActivation = (r: Rule) => {
@@ -268,7 +268,7 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <input className={`${inputClass} max-w-sm`} aria-label="Search rules" placeholder="Search rule name or ID" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className={`${inputClass} max-w-48`} aria-label="Filter rule status" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All statuses</option><option>Active</option><option>Inactive</option><option>Draft</option><option>Pending</option>
+            <option value="">All statuses</option><option>Active</option><option>Inactive</option><option>Draft</option><option>Pending</option><option>Canceled</option>
           </select>
         </div>
         <DataTable
@@ -280,17 +280,17 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
             <>
               <RowAction onClick={() => { notify(""); setEditing({ rule: r, isNew: false, readOnly: true }); }}>View</RowAction>
               <RowAction onClick={() => duplicate(r)}>Duplicate</RowAction>
-              {r.status !== "Active" && r.status !== "Pending" && <RowAction onClick={() => requestActivation(r)}>Activate</RowAction>}
+              {r.status !== "Active" && r.status !== "Pending" && r.status !== "Canceled" && <RowAction onClick={() => requestActivation(r)}>Activate</RowAction>}
               {r.status === "Pending" && <RowAction onClick={() => setCancelling(r)}>Cancel</RowAction>}
             </>
           )}
           empty={<EmptyState title="No matching rules" hint="Try another search or status." action={<Button variant="secondary" onClick={() => { setQ(""); setStatus(""); }}>Reset</Button>} />}
         />
-        <p className="mt-3 text-[13px] text-on-surface-variant">Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Draft rules have never been activated. Pending rules are scheduled: they become Active on their effective date and can be cancelled until then.</p>
+        <p className="mt-3 text-[13px] text-on-surface-variant">Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Draft rules have never been activated. Pending rules are scheduled: they become Active on their effective date and can be cancelled until then; a cancelled rule is Canceled and cannot be activated.</p>
       </Card>
       <Modal open={!!cancelling} onClose={() => setCancelling(null)} title="Cancel scheduled rule?"
         footer={<><Button variant="secondary" onClick={() => setCancelling(null)}>Keep schedule</Button><Button onClick={cancel}>Cancel rule</Button></>}>
-        <p>Cancel <b>{cancelling?.name}</b>? It was set to become Active on {cancelling?.effectiveFrom}. It goes back to Draft, and the current active rule stays Active.</p>
+        <p>Cancel <b>{cancelling?.name}</b>? It was set to become Active on {cancelling?.effectiveFrom}. Its status changes to Canceled, and the current active rule stays Active.</p>
       </Modal>
       <ActivateModal rule={activating} current={current} onClose={() => setActivating(null)} onConfirm={activate} />
     </>
