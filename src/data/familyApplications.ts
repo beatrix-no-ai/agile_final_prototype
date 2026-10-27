@@ -34,6 +34,9 @@ export type FamilyApplication = {
   /** Section I of the MOE form. */
   address?: string;
   email?: string;
+  /** True when the parent ticked No on the returned form's contact-details question — `contact` and
+   *  `address` are the values they wrote by hand, replacing what the issued form was printed with. */
+  contactCorrected?: boolean;
   /** Income band read off the paper form — a band only, never an exact income. */
   bandLabel: string;
   /** Sprint 3 parity with the online form: the two household fields the parent declares — money not

@@ -183,6 +183,11 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         </ul>
         <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{fa.contact || "—"}</span></p>
         {fa.address && <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{fa.address}</span></p>}
+        {fa.contactCorrected && (
+          <p className="text-[13px] text-on-surface-variant">
+            Updated from what the parent wrote on the returned form — they ticked that the printed details were no longer correct.
+          </p>
+        )}
         {fa.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{fa.email}</span></p>}
       </section>
       <section className="space-y-2 border-t border-line pt-4">
@@ -377,6 +382,12 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   const chosen = rows.flatMap((row) => { const m = matchOf(row); return m ? [m] : []; });
   const [applicant, setApplicant] = useState(draft.applicant);
   const [note, setNote] = useState("");
+  // The Section I contact question the PARENT answered on the paper with Yes / No: Yes keeps the
+  // values the form was printed with; No means the staff keys in the corrected number and address
+  // the parent wrote on the lines (draftPrint's fillbox).
+  const [detailsOk, setDetailsOk] = useState<"yes" | "no" | null>(null);
+  const [contact, setContact] = useState(draft.contact);
+  const [address, setAddress] = useState(draft.address);
   // Section II mirrors the online family application exactly (Sprint 3 parity): the two fields the
   // parent declares on the paper form — money not in HOMES, and everyone living at home.
   const [extraIncome, setExtraIncome] = useState("");
@@ -394,14 +405,25 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   const [confirming, setConfirming] = useState(false);
   // Each error names the part of the form it belongs to, so the warning renders AT that section
   // (and focus lands on the offending control) instead of being pushed to the bottom of the page.
-  const [error, setError] = useState<{ where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared"; message: string } | null>(null);
+  const [error, setError] = useState<{ where: "crosscheck" | "children" | "details" | "contact" | "address" | "extra" | "residents" | "applicant" | "declared"; message: string } | null>(null);
   const crossRef = useRef<HTMLInputElement>(null);
+  const detailsRef = useRef<HTMLInputElement>(null);
+  const contactRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLInputElement>(null);
   const extraRef = useRef<HTMLInputElement>(null);
   const resRef = useRef<HTMLInputElement>(null);
   const applicantRef = useRef<HTMLInputElement>(null);
   const declaredRef = useRef<HTMLInputElement>(null);
-  const focusOf = (e: { where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared" }): RefObject<HTMLInputElement | null> | null =>
-    e.where === "crosscheck" ? crossRef : e.where === "extra" ? extraRef : e.where === "residents" ? resRef : e.where === "applicant" ? applicantRef : e.where === "declared" ? declaredRef : null;
+  const focusOf = (e: { where: "crosscheck" | "children" | "details" | "contact" | "address" | "extra" | "residents" | "applicant" | "declared" }): RefObject<HTMLInputElement | null> | null =>
+    e.where === "crosscheck" ? crossRef
+      : e.where === "details" ? detailsRef
+      : e.where === "contact" ? contactRef
+      : e.where === "address" ? addressRef
+      : e.where === "extra" ? extraRef
+      : e.where === "residents" ? resRef
+      : e.where === "applicant" ? applicantRef
+      : e.where === "declared" ? declaredRef
+      : null;
 
   // Sprint 3 parity with the online application: the two declared fields are recorded with the form,
   // but the band itself is never keyed — it comes from HOMES (IRAS + CPF), a band only.
@@ -410,9 +432,13 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
     source: "retrieved from HOMES (IRAS + CPF) — the extra money and household size declared on the form are recorded with the application",
   });
 
-  const validate = (): { where: "crosscheck" | "children" | "extra" | "residents" | "applicant" | "declared"; message: string } | null => {
+  const validate = (): { where: "crosscheck" | "children" | "details" | "contact" | "address" | "extra" | "residents" | "applicant" | "declared"; message: string } | null => {
     const unmatched = rows.find((r) => !matchOf(r));
     if (unmatched) return { where: "children", message: `${unmatched.name} no longer matches a child in the registry — the registry changed since the form was issued; void this draft and issue a fresh form.` };
+    // Section I's contact question, as the parent ticked it on the returned paper.
+    if (!detailsOk) return { where: "details", message: "Tick the parent's answer — are the printed contact details still correct?" };
+    if (detailsOk === "no" && !contact.trim()) return { where: "contact", message: "Enter the current contact number the parent wrote on the returned form." };
+    if (detailsOk === "no" && !address.trim()) return { where: "address", message: "Enter the current home address the parent wrote on the returned form." };
     // Section II: the two declared fields, validated exactly like the online application.
     if (!/^\d+(\.\d{1,2})?$/.test(extraIncome.trim())) return { where: "extra", message: "Enter the extra monthly money in dollars, or 0 if none." };
     const people = Number(residents.trim());
@@ -445,9 +471,10 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
     setConfirming(false);
     const { band } = bandFromForm();
     actions.submitHardcopy({
-      studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: draft.contact, note,
+      studentIds: chosen.map((r) => r.student.id), band, school: schoolName, applicant: applicant.trim(), contact: contact.trim(), note,
       by, entryMode: "manual",
-      address: draft.address, email: draft.email,
+      address: address.trim(), email: draft.email,
+      detailsCorrected: detailsOk === "no" ? true : undefined,
       extraIncome: Number(extraIncome) || 0,
       residents: Number(residents) || 0,
       declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
@@ -490,9 +517,14 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                 );
               })}
             </ul>
-            <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{draft.contact || "—"}</span></p>
-            <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{draft.address || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{contact.trim() || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{address.trim() || "—"}</span></p>
             <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{draft.email || "—"}</span></p>
+            <p className="text-[13px] text-on-surface-variant">
+              {detailsOk === "no"
+                ? "Parent ticked No — the number and address above are what they wrote on the returned form."
+                : "Parent ticked Yes — the printed contact details are still correct."}
+            </p>
             <p className="text-[13px] text-on-surface-variant">
               Returned copy of <span className="font-medium text-on-surface">{draft.id}</span>, issued{" "}
               {new Date(draft.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} — cross-checked against the draft.
@@ -560,9 +592,59 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               })}
             </ul>
             {error?.where === "children" && <p role="alert" className="text-[13px] font-medium text-alert">{error.message}</p>}
-            <p className="text-sm"><span className="text-on-surface-variant">Contact: </span><span className="font-medium">{draft.contact || "—"}</span></p>
-            <p className="text-sm"><span className="text-on-surface-variant">Home address: </span><span className="font-medium">{draft.address || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Contact (as printed): </span><span className="font-medium">{draft.contact || "—"}</span></p>
+            <p className="text-sm"><span className="text-on-surface-variant">Home address (as printed): </span><span className="font-medium">{draft.address || "—"}</span></p>
             {draft.email && <p className="text-sm"><span className="text-on-surface-variant">Email: </span><span className="font-medium">{draft.email}</span></p>}
+            <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "details" ? "border-alert" : "border-line"} bg-surface-container-low`}>
+              <p className="font-semibold text-on-surface">
+                Are the printed contact details still correct? <span className="text-alert" aria-hidden>*</span>
+              </p>
+              <p className="text-on-surface-variant">Tick the answer on the returned form (Section I).</p>
+              <div className="mt-2 flex flex-col gap-1.5">
+                <label className="flex items-start gap-2.5">
+                  <input
+                    ref={detailsRef}
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-[#8A2538]"
+                    checked={detailsOk === "yes"}
+                    onChange={(e) => { setDetailsOk(e.target.checked ? "yes" : null); if (error?.where === "details") setError(null); }}
+                  />
+                  <span>Yes — the contact number and home address printed above are still correct.</span>
+                </label>
+                <label className="flex items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 size-4 accent-[#8A2538]"
+                    checked={detailsOk === "no"}
+                    onChange={(e) => { setDetailsOk(e.target.checked ? "no" : null); if (error?.where === "details") setError(null); }}
+                  />
+                  <span>No — the parent wrote their current number and address on the form; key them in below.</span>
+                </label>
+              </div>
+              {error?.where === "details" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
+            </div>
+            {detailsOk === "no" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field required label="Current contact number" hint="As the parent wrote it on the returned form." error={error?.where === "contact" ? error.message : undefined}>
+                  <input
+                    ref={contactRef}
+                    className={inputClass}
+                    aria-label="Current contact number"
+                    value={contact}
+                    onChange={(e) => { setContact(e.target.value); if (error?.where === "contact") setError(null); }}
+                  />
+                </Field>
+                <Field required label="Current home address" hint="As the parent wrote it on the returned form." error={error?.where === "address" ? error.message : undefined}>
+                  <input
+                    ref={addressRef}
+                    className={inputClass}
+                    aria-label="Current home address"
+                    value={address}
+                    onChange={(e) => { setAddress(e.target.value); if (error?.where === "address") setError(null); }}
+                  />
+                </Field>
+              </div>
+            )}
           </section>
 
           <section className="space-y-3 border-t border-line pt-4">

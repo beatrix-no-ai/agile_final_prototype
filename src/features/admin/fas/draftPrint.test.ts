@@ -49,9 +49,11 @@ describe("the printed pre-filled form", () => {
     expect(html).toContain("Benson Chua</div><div>Date");
   });
 
-  it("gives the parent a place to fill in the current phone number and address", () => {
-    expect(html).toContain("Parent / guardian to fill — current contact details");
-    expect(html).toContain("The contact number and home address printed above are still correct.");
+  it("asks the parent yes / no whether the printed contact details still stand, with lines for new ones", () => {
+    expect(html).toContain("Parent / guardian to fill — are these details still correct?");
+    expect(html).toContain("<b>Yes</b> — the contact number and home address printed above are still correct.");
+    expect(html).toContain("<b>No</b> — write the current details on the lines below.");
+    expect(html).toContain("Tick one box only");
     // Two fill-in lines in Section I: the pre-filled values stay for checking, the blanks carry what the parent writes.
     expect((html.match(/Contact number:<\/b> ___/g) ?? []).length).toBe(1);
     expect((html.match(/Home address:<\/b> ___/g) ?? []).length).toBe(1);

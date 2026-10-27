@@ -484,4 +484,18 @@ describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", 
     expect(s.familyApps[0].extraIncomeDocs).toEqual(["Payslip_Sep_2026.pdf"]);
     expect(s.familyApps[0].residentsDocs).toEqual(["Tenancy_agreement_Oct2026.pdf"]);
   });
+
+  it("a No on the contact question stores the corrected details and marks them corrected", () => {
+    let s = initialFasState();
+    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
+    s = fasReducer(s, {
+      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
+      applicant: "Benson Chua", contact: "+65 9000 1234", note: "", by: "Alicia Tan", entryMode: "manual",
+      at, guardianNric: "S1234567D", draftId: "DRF-0001",
+      address: "Blk 808 Jurong West Ave 1, #10-101, Singapore 640808", detailsCorrected: true,
+    });
+    expect(s.familyApps[0].contact).toBe("+65 9000 1234");
+    expect(s.familyApps[0].address).toBe("Blk 808 Jurong West Ave 1, #10-101, Singapore 640808");
+    expect(s.familyApps[0].contactCorrected).toBe(true);
+  });
 });

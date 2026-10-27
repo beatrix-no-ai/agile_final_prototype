@@ -20,7 +20,7 @@ export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: 
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; extraIncomeDocs?: string[]; residentsDocs?: string[]; recommend?: Record<string, SbfasSuggestion> }
+  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; extraIncomeDocs?: string[]; residentsDocs?: string[]; detailsCorrected?: boolean; recommend?: Record<string, SbfasSuggestion> }
   | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; docs?: string[]; at: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
@@ -134,7 +134,8 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
     if (!children.some((c) => c.outcome !== "Already covered")) return state; // nothing new: every child already had an application or a grant
     const familyApp: FamilyApplication = {
       id: faId, channel: "Hardcopy", school: a.school, applicant: a.applicant, contact: a.contact, bandLabel: a.band.label,
-      address: a.address || undefined, email: a.email || undefined, extraIncome: a.extraIncome, residents: a.residents, transportMode: a.transportMode,
+      address: a.address || undefined, email: a.email || undefined, contactCorrected: a.detailsCorrected || undefined,
+      extraIncome: a.extraIncome, residents: a.residents, transportMode: a.transportMode,
       hasAdminIncome: a.hasAdminIncome, household: a.hasAdminIncome ? a.household : undefined,
       welfareHome: a.welfareHome, welfareLetter: a.welfareHome ? a.welfareLetter : undefined,
       homesOnly: a.homesOnly || undefined,

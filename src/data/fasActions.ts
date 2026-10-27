@@ -83,6 +83,9 @@ export function useFasActions() {
       /** Section II evidence handed in with the returned form — one list per declaration (mock: file names). */
       extraIncomeDocs?: string[];
       residentsDocs?: string[];
+      /** True when the parent ticked No on the contact-details question — contact/address are the
+       *  corrected values they wrote on the returned form. */
+      detailsCorrected?: boolean;
     }) {
       run({
         type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),
