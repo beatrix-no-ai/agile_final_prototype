@@ -491,35 +491,4 @@ describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", 
     expect(s.familyApps[0].address).toBe("Blk 808 Jurong West Ave 1, #10-101, Singapore 640808");
     expect(s.familyApps[0].contactCorrected).toBe(true);
   });
-
-  it("a correction after the parent checked the printed copy fixes the SAME record — no new application", () => {
-    let s = initialFasState();
-    s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
-    s = fasReducer(s, {
-      type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
-      applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
-      at, guardianNric: "S1234567D", draftId: "DRF-0001",
-      extraIncome: 350, residents: 4,
-    });
-    const appId = s.familyApps[0].id;
-    const before = s.familyApps[0];
-    const fixed = fasReducer(s, {
-      type: "correctFamilyApp", id: appId, contact: "+65 9000 1234",
-      address: "Blk 808 Jurong West Ave 1, #10-101, Singapore 640808",
-      extraIncome: 600, residents: 5, note: "Parent called — one more person at home.",
-      by: "Alicia Tan", at: "2026-10-29T09:00:00.000Z",
-    });
-    // Still the one record, same id — nothing re-filed, nothing queued.
-    expect(fixed.familyApps).toHaveLength(1);
-    expect(fixed.familyApps[0].id).toBe(appId);
-    expect(fixed.familyApps[0]).toMatchObject({
-      contact: "+65 9000 1234", address: "Blk 808 Jurong West Ave 1, #10-101, Singapore 640808",
-      extraIncome: 600, residents: 5, note: "Parent called — one more person at home.",
-      corrected: { at: "2026-10-29T09:00:00.000Z", by: "Alicia Tan" },
-    });
-    // Only the keyed-in data changed: same children, same school, queue untouched.
-    expect(fixed.familyApps[0].children).toBe(before.children);
-    expect(fixed.familyApps[0].school).toBe(before.school);
-    expect(fixed.apps).toBe(s.apps);
-  });
 });

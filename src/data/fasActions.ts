@@ -96,12 +96,6 @@ export function useFasActions() {
     requeueSbfas(input: { studentId: string; reason: string; by?: string }) {
       run({ type: "requeueSbfas", ...input, at: new Date().toISOString() }, [input.studentId]);
     },
-    // The parent checked the printed verification copy and something was still wrong: the school
-    // fixes THIS record in place. The band comes from HOMES and decisions live on their own records,
-    // so no student's FAS changes and there is no fee sync.
-    correctFamilyApp(input: { id: string; contact: string; address: string; extraIncome: number; residents: number; note: string; by: string }) {
-      fas.dispatch({ type: "correctFamilyApp", ...input, at: new Date().toISOString() });
-    },
     // Issuing a form touches no student's FAS, so it goes straight to the store — no fee sync.
     issueDraft(draft: FamilyDraft) {
       fas.dispatch({ type: "issueDraft", draft });

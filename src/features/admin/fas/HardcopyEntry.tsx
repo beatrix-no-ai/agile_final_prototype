@@ -155,13 +155,6 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         {new Date(fa.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {fa.school} · entered by {fa.enteredBy}
         {fa.entryMode === "ocr" ? " (PDF upload + OCR)" : " (keyed in)"}
       </p>
-      {fa.corrected && (
-        <p className="-mt-3 text-[13px] text-on-surface-variant">
-          Corrected in place after the parent checked the printed copy —{" "}
-          {new Date(fa.corrected.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {fa.corrected.by}.
-          Same application, nothing re-filed.
-        </p>
-      )}
       <section className="space-y-2">
         <SectionTitle n="I" title="Particulars of the child" />
         <ul className="space-y-1.5">

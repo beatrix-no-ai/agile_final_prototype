@@ -93,14 +93,4 @@ describe("the printed verification copy", () => {
     expect(html).toContain("they will correct <b>this same application</b>");
     expect(html).toContain("you never need to fill in a new form");
   });
-
-  it("marks corrections already made after an earlier check", () => {
-    const reprinted = verificationHtml(
-      { ...familyApp, corrected: { at: "2026-10-27T14:00:00.000Z", by: "Marcus Ong" } },
-      [],
-      "Greenfield Secondary School",
-    );
-    expect(reprinted).toContain("<b>Last corrected:</b> 27 October 2026 by Marcus Ong");
-    expect(reprinted).toContain("this copy already includes that correction");
-  });
 });

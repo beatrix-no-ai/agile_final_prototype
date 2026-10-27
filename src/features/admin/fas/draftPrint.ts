@@ -122,7 +122,6 @@ export function verificationHtml(fa: FamilyApplication, linked: SbfasApplication
 <p class="kv"><b>Contact number:</b> ${esc(fa.contact)}</p>
 ${fa.address ? `<p class="kv"><b>Home address:</b> ${esc(fa.address)}</p>` : ""}
 ${fa.email ? `<p class="kv"><b>Email:</b> ${esc(fa.email)}</p>` : ""}
-${fa.corrected ? `<p class="kv"><b>Last corrected:</b> ${longDate(fa.corrected.at)} by ${esc(fa.corrected.by)} — this copy already includes that correction.` : ""}
 
 <h2>Section II — Household income</h2>
 <p class="kv"><b>Extra monthly money (S$):</b> ${fa.extraIncome !== undefined ? fa.extraIncome.toLocaleString("en-SG") : "—"}</p>
