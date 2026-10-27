@@ -32,10 +32,8 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
   const all = payable.length > 0 && payable.every((i) => keysOf(i).every((k) => selected.has(k)));
   const some = payable.some((i) => keysOf(i).some((k) => selected.has(k)));
   useEffect(() => { if (allRef.current) allRef.current.indeterminate = some && !all; }, [some, all]);
-  // Unpaid first (overdue, then by due date), paid invoices below (most recent first).
-  const rank = { overdue: 0, unpaid: 1, paid: 2 } as const;
-  const sorted = [...invoices].sort((a, b) => rank[a.status] - rank[b.status] || (a.status === "paid" ? b.dueDate.localeCompare(a.dueDate) : a.dueDate.localeCompare(b.dueDate)));
-  const firstPaid = sorted.findIndex((i) => i.status === "paid");
+  // Only what is still owed: overdue first, then by due date.
+  const sorted = [...payable].sort((a, b) => Number(b.status === "overdue") - Number(a.status === "overdue") || a.dueDate.localeCompare(b.dueDate));
   const kid = (id: string) => kids.find((c) => c.id === id);
 
   return (
@@ -45,7 +43,7 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
         Select all unpaid and overdue ({payable.length})
       </label>
       <ul className="mt-3 space-y-2.5">
-        {sorted.map((i, idx) => {
+        {sorted.map((i) => {
           const paid = i.status === "paid";
           const keys = keysOf(i);
           const on = !paid && keys.every((k) => selected.has(k));
@@ -53,7 +51,6 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
           const c = kid(i.childId);
           return (
             <li key={i.id}>
-              {paid && idx === firstPaid && firstPaid > 0 && <p className="pb-1 pt-5 text-[13px] font-semibold text-on-surface-variant">Already paid</p>}
               <label
                 className={`flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 rounded-control border px-4 py-3 motion-safe:transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
                   paid ? "border-line opacity-60" : on || partial ? "cursor-pointer border-primary bg-primary-fixed/40" : i.status === "overdue" ? "cursor-pointer border-alert/40 bg-error-container/30 hover:border-alert" : "cursor-pointer border-line hover:border-primary-fixed-dim hover:bg-surface-container-low"
