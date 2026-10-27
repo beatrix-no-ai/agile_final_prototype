@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Coins, Receipt, UsersThree, Wallet, Gavel } from "@phosphor-icons/react";
+import { Coins, Receipt, UsersThree, Wallet } from "@phosphor-icons/react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ProgressBar } from "../../../components/ui/ProgressBar";
 import { StatCard } from "../../../components/ui/StatCard";
-import { ACADEMIC_YEAR, SBFAS_GOVERNANCE } from "../../../data/budgets";
+import { ACADEMIC_YEAR, SBFAS_TIER_AMOUNT } from "../../../data/budgets";
+import type { SbfasTier } from "../../../data/sbfasApplications";
 import { selectRecentGrants, selectSbfas, useFas } from "../../../data/fasStore";
 import { formatSGD } from "../../../lib/format";
 import { useSession } from "../../../session";
@@ -45,22 +46,10 @@ export function SchoolBudget() {
         </div>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
-        <TierChartCard byTier={s.byTier} filters={myClasses} filterLabel="Class" note={(n, lvl) => `${n} ${lvl}students receiving SBFAS this year. Updates when you approve an application.`} />
+        <TierChartCard amountOf={(t) => SBFAS_TIER_AMOUNT[t as SbfasTier] ?? 0} byTier={s.byTier} filters={myClasses} filterLabel="Class" note={(n, lvl) => `${n} ${lvl}students receiving SBFAS this year. Updates when you approve an application.`} />
         <RecentGrants grants={selectRecentGrants(state)} />
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BudgetHistory changes={history} />
-        <Card title="Governance notes">
-          <ul className="space-y-3 text-sm text-on-surface-variant">
-            {SBFAS_GOVERNANCE.map((n) => (
-              <li key={n} className="flex gap-2">
-                <Gavel size={18} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-                {n}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
+      <BudgetHistory changes={history} />
       <SetBudgetModal
         open={modal}
         onClose={() => setModal(false)}

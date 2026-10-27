@@ -17,13 +17,6 @@ export const SBFAS_BY_TIER = [
   { label: "Tier 4", byClass: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2] },
 ];
 
-export const SBFAS_GOVERNANCE = [
-  "SBFAS only applies where MOEFAS is not granted; the school decides tier and amount.",
-  "Granted counts the yearly package value of each approved tier; the fee waiver (Tier 1 full, then 75%, 50%, 25%) is one part of it.",
-  "Absorbed cost is reported to MOE HQ every quarter.",
-  "Unused SBFAS budget does not roll over to the next financial year.",
-];
-
 /** MOE HQ view (MOEFAS). Only Primary and Secondary: Education Accounts cover ages 7-16. Beneficiaries (9,300 in total) are a subset of the dashboard "Total Student" (12,480). Secondary is deliberately over budget (Review Focus 2). Total allocated: S$38,000,000. */
 export const MOEFAS_BY_LEVEL: LevelBudget[] = [
   { id: "Primary", budget: 20000000, used: 17400000, beneficiaries: 5200 },
