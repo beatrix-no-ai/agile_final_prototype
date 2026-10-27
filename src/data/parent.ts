@@ -3,7 +3,7 @@
 
 export const MOCK_TODAY = "2026-10-12";
 
-export type Invoice = { id: string; childId: string; title: string; amount: number; dueDate: string; status: "unpaid" | "overdue" | "paid" };
+export type Invoice = { id: string; childId: string; title: string; amount: number; dueDate: string; status: "unpaid" | "overdue" | "paid"; parts?: { name: string; amount: number }[] };
 export type Child = { id: string; name: string; level: string; school: string; educationBalance: number };
 export type Transaction = {
   id: string;

@@ -9,7 +9,7 @@ export type FeeState = { types: FeeType[]; charges: Charge[]; debits: Record<str
 export type FeeAction =
   | { type: "saveType"; fee: FeeType }
   | { type: "generate"; fee: FeeType; students: Student[]; issued: string; due: string; term?: string; rates?: Record<string, number> }
-  | { type: "recordPayment"; chargeId: string; amount: number; method: PayMethod }
+  | { type: "recordPayment"; chargeId: string; amount: number; method: PayMethod; component?: string }
   | { type: "applyFas"; studentId: string; fas: { scheme: FasScheme; rate: number } | null; on: string };
 
 export const initialFeeState = (): FeeState => ({ types: FEE_TYPES, charges: seedCharges(), debits: {}, paidFromAccount: [] });
@@ -42,7 +42,7 @@ export function feeReducer(state: FeeState, a: FeeAction): FeeState {
   if (a.type === "recordPayment") {
     const charge = state.charges.find((c) => c.id === a.chargeId);
     if (!charge) return state;
-    const payment = makePayment(charge, a.amount, a.method);
+    const payment = makePayment(charge, a.amount, a.method, a.component);
     const fromAccount = a.method === "Education account";
     return {
       ...state,

@@ -4,11 +4,11 @@ import type { ClassRecord, SchoolRecord } from "../data/schoolMgmt";
 import type { Charge } from "../data/fees";
 import type { TopUpEntry } from "../data/topup";
 import type { Level, Student } from "../data/students";
-import { isPayable, settle } from "../features/eservice/payments/settle";
+import { isPayable, selectedParts, settle } from "../features/eservice/payments/settle";
 import { ledgerFor } from "./accounts";
 import { schoolOfStudent } from "./registry";
 import { withBalance, type Movements } from "./studentFas";
-import { balanceOf, chargeStatus, payableOf } from "./fees";
+import { balanceOf, chargeStatus, componentBalances, payableOf } from "./fees";
 
 const cents = (n: number) => Math.round(n * 100) / 100;
 
@@ -35,7 +35,7 @@ export function familyInvoices(charges: readonly Charge[], childIds: readonly st
     .filter((c) => childIds.includes(c.studentId))
     .map((c) => {
       const status = chargeStatus(c);
-      return { id: c.id, childId: c.studentId, title: c.title, amount: status === "paid" ? payableOf(c) : balanceOf(c), dueDate: c.due, status: status === "outstanding" ? "unpaid" : status };
+      return { id: c.id, childId: c.studentId, title: c.title, amount: status === "paid" ? payableOf(c) : balanceOf(c), dueDate: c.due, status: status === "outstanding" ? "unpaid" : status, parts: componentBalances(c).filter((p) => status !== "paid" && p.amount > 0) };
     });
 }
 
@@ -62,11 +62,13 @@ export function payActions(invoices: Invoice[], children: Child[], ids: Readonly
   const out: FeeAction[] = [];
   for (const line of settle(invoices, children, ids).lines) {
     let left = line.fromAccount;
-    for (const i of invoices.filter((x) => x.childId === line.child.id && isPayable(x) && ids.has(x.id))) {
-      const account = Math.min(left, i.amount);
-      left = cents(left - account);
-      if (account > 0) out.push({ type: "recordPayment", chargeId: i.id, amount: account, method: "Education account" });
-      if (cents(i.amount - account) > 0) out.push({ type: "recordPayment", chargeId: i.id, amount: cents(i.amount - account), method: "Card / PayNow" });
+    for (const i of invoices.filter((x) => x.childId === line.child.id && isPayable(x) && selectedParts(x, ids).length)) {
+      for (const p of selectedParts(i, ids)) {
+        const account = Math.min(left, p.amount);
+        left = cents(left - account);
+        if (account > 0) out.push({ type: "recordPayment", chargeId: i.id, amount: account, method: "Education account", component: p.name });
+        if (cents(p.amount - account) > 0) out.push({ type: "recordPayment", chargeId: i.id, amount: cents(p.amount - account), method: "Card / PayNow", component: p.name });
+      }
     }
   }
   return out;

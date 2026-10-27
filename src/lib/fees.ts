@@ -17,6 +17,16 @@ export const payableOf = (c: { components: ChargeComponent[] }) => sum(c.compone
 export const paidOf = (c: Pick<Charge, "payments">) => sum(c.payments.map((p) => p.amount));
 /** What the parent still owes after subsidy and payments. */
 export const balanceOf = (c: Charge) => Math.max(0, Math.round((payableOf(c) - paidOf(c)) * 100) / 100);
+/** What is still owed per component: tagged payments go to their component, untagged ones fill components in order. */
+export function componentBalances(c: Charge) {
+  const left = c.components.map((x) => cents(x.amount - Math.min(x.subsidy ?? 0, x.amount)) - c.payments.filter((p) => p.component === x.name).reduce((t, p) => t + cents(p.amount), 0));
+  let free = c.payments.filter((p) => !p.component).reduce((t, p) => t + cents(p.amount), 0);
+  return c.components.map((x, k) => {
+    const take = Math.min(free, Math.max(0, left[k]));
+    free -= take;
+    return { name: x.name, amount: Math.max(0, left[k] - take) / 100 };
+  });
+}
 /** Last payment date (shown as "paid on"), or undefined when nothing is paid. */
 export const paidOnOf = (c: Pick<Charge, "payments">) => c.payments.length ? c.payments.map((p) => p.on).sort().at(-1) : undefined;
 
@@ -90,7 +100,7 @@ export function addDays(iso: string, days: number): string {
 
 /** Next payment id inside a charge: CH-1021-P1, -P2 … */
 export const nextPaymentId = (c: Charge) => `${c.id}-P${c.payments.length + 1}`;
-export const makePayment = (c: Charge, amount: number, method: Payment["method"]): Payment => ({ id: nextPaymentId(c), on: TODAY, amount: Math.round(amount * 100) / 100, method });
+export const makePayment = (c: Charge, amount: number, method: Payment["method"], component?: string): Payment => ({ id: nextPaymentId(c), on: TODAY, amount: Math.round(amount * 100) / 100, method, ...(component && { component }) });
 
 /** Students of one class in one school. */
 

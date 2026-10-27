@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { MOCK_TODAY, type Child, type Invoice } from "../../../data/parent";
 import { formatDate, formatSGD } from "../../../lib/format";
-import { isPayable } from "./settle";
+import { isPayable, keysOf, partKey } from "./settle";
 
 const tone: Record<Invoice["status"], BadgeTone> = { unpaid: "neutral", overdue: "alert", paid: "success" };
 const label: Record<Invoice["status"], string> = { unpaid: "Unpaid", overdue: "Overdue", paid: "Paid" };
@@ -22,15 +22,15 @@ type Props = {
   invoices: Invoice[];
   kids: Child[];
   selected: ReadonlySet<string>;
-  onToggle: (id: string) => void;
+  onToggle: (keys: string[]) => void;
   onToggleAll: () => void;
 };
 
 export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }: Props) {
   const payable = invoices.filter(isPayable);
   const allRef = useRef<HTMLInputElement>(null);
-  const all = payable.length > 0 && payable.every((i) => selected.has(i.id));
-  const some = payable.some((i) => selected.has(i.id));
+  const all = payable.length > 0 && payable.every((i) => keysOf(i).every((k) => selected.has(k)));
+  const some = payable.some((i) => keysOf(i).some((k) => selected.has(k)));
   useEffect(() => { if (allRef.current) allRef.current.indeterminate = some && !all; }, [some, all]);
   // Unpaid first (overdue, then by due date), paid invoices below (most recent first).
   const rank = { overdue: 0, unpaid: 1, paid: 2 } as const;
@@ -47,17 +47,19 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
       <ul className="mt-3 space-y-2.5">
         {sorted.map((i, idx) => {
           const paid = i.status === "paid";
-          const on = selected.has(i.id);
+          const keys = keysOf(i);
+          const on = !paid && keys.every((k) => selected.has(k));
+          const partial = !paid && !on && keys.some((k) => selected.has(k));
           const c = kid(i.childId);
           return (
             <li key={i.id}>
               {paid && idx === firstPaid && firstPaid > 0 && <p className="pb-1 pt-5 text-[13px] font-semibold text-on-surface-variant">Already paid</p>}
               <label
                 className={`flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 rounded-control border px-4 py-3 motion-safe:transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary ${
-                  paid ? "border-line opacity-60" : on ? "cursor-pointer border-primary bg-primary-fixed/40" : i.status === "overdue" ? "cursor-pointer border-alert/40 bg-error-container/30 hover:border-alert" : "cursor-pointer border-line hover:border-primary-fixed-dim hover:bg-surface-container-low"
+                  paid ? "border-line opacity-60" : on || partial ? "cursor-pointer border-primary bg-primary-fixed/40" : i.status === "overdue" ? "cursor-pointer border-alert/40 bg-error-container/30 hover:border-alert" : "cursor-pointer border-line hover:border-primary-fixed-dim hover:bg-surface-container-low"
                 }`}
               >
-                <input type="checkbox" className={box} checked={on} disabled={paid} onChange={() => onToggle(i.id)} />
+                <input type="checkbox" className={box} checked={on} ref={(el) => { if (el) el.indeterminate = partial; }} disabled={paid} onChange={() => onToggle(keys)} aria-label={`Pay all of ${i.title}`} />
                 <span aria-hidden="true" className="hidden size-10 shrink-0 place-items-center rounded-full bg-primary-fixed text-sm font-bold text-primary sm:grid">{c?.name[0] ?? "?"}</span>
                 <span className="min-w-0 flex-1 basis-40">
                   <span className="block text-[15px] font-semibold leading-snug">{i.title}</span>
@@ -69,6 +71,22 @@ export function InvoiceList({ invoices, kids, selected, onToggle, onToggleAll }:
                   <Badge tone={tone[i.status]}>{label[i.status]}</Badge>
                 </span>
               </label>
+              {!paid && (i.parts?.length ?? 0) > 0 && (
+                <ul aria-label={`Fee components of ${i.title}`} className="ml-6 mt-1.5 space-y-1 border-l border-line pl-4 sm:ml-9">
+                  {i.parts!.map((p) => {
+                    const k = partKey(i.id, p.name);
+                    return (
+                      <li key={k}>
+                        <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-control px-2 text-sm hover:bg-surface-container-low has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary">
+                          <input type="checkbox" className={box} checked={selected.has(k)} onChange={() => onToggle([k])} />
+                          <span className="flex-1">{p.name}</span>
+                          <span className="font-semibold tabular-nums">{formatSGD(p.amount)}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </li>
           );
         })}

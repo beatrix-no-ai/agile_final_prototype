@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 import { feeReducer, initialFeeState } from "../data/feeStore";
 import { FEE_TYPES, type FeeType } from "../data/fees";
 import { STUDENTS, type Student } from "../data/students";
-import { addDays, aggregate, balanceOf, chargeStatus, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, subsidyOf, subsidyRate, validateFeeType } from "./fees";
+import { addDays, aggregate, balanceOf, chargeStatus, componentBalances, fasOf, feeDraftOk, feeOf, fundingOf, makeCharge, MOEFAS_RATE, nextChargeId, paidOf, payableOf, SBFAS_RATE, seedCharges, subsidyOf, subsidyRate, validateFeeType } from "./fees";
 
 const draft = (o = {}) => ({ name: "Trip", level: "", components: [{ name: "Bus", amount: "12.50", on: true }], ...o });
 
@@ -82,6 +82,16 @@ describe("derived status — outstanding/overdue/paid without terms", () => {
     const full = feeReducer({ ...initialFeeState(), charges: [half] }, { type: "recordPayment", chargeId: "CH-1", amount: balanceOf(half), method: "Card / PayNow" }).charges[0];
     expect(chargeStatus(full)).toBe("paid");
     expect(fundingOf(full).fromAccount + fundingOf(full).fromGateway).toBe(payableOf(c));
+  });
+  test("paying one component leaves the others owed; untagged payments fill components in order", () => {
+    const c = { ...makeCharge("CH-1", fasFee, fasStudent("Not applied", "Not applied"), { issued: "2026-09-01", due: yesterday }) };
+    const [first, second] = c.components;
+    const paid = feeReducer({ ...initialFeeState(), charges: [c] }, { type: "recordPayment", chargeId: "CH-1", amount: second.amount, method: "Card / PayNow", component: second.name }).charges[0];
+    expect(componentBalances(paid)[1].amount).toBe(0);
+    expect(componentBalances(paid)[0].amount).toBe(first.amount);
+    expect(balanceOf(paid)).toBe(payableOf(c) - second.amount);
+    const untagged = { ...c, payments: [{ id: "x", on: yesterday, amount: first.amount + 1, method: "Card / PayNow" as const }] };
+    expect(componentBalances(untagged).slice(0, 2).map((p) => p.amount)).toEqual([0, second.amount - 1]);
   });
   test("default due date is 30 days after issue", () => {
     const c = makeCharge("CH-1", fasFee, fasStudent("Not applied", "Not applied"));

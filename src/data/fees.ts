@@ -14,7 +14,8 @@ export type FasScheme = "MOEFAS" | "SBFAS";
 export type AccountPayment = { id: string; studentId: string; amount: number; on: string; title: string };
 /** Money a parent paid against one charge, and where it came from. */
 export type PayMethod = "Education account" | "Card / PayNow";
-export type Payment = { id: string; on: string; amount: number; method: PayMethod };
+/** `component` names the fee component the payment was for; untagged payments cover components in order. */
+export type Payment = { id: string; on: string; amount: number; method: PayMethod; component?: string };
 /**
  * One fee issued to one student — no term: the charge carries its own issued/due dates and its whole
  * money story (components + FAS subsidy + parent payments). Status is derived, never stored

@@ -9,10 +9,22 @@ export const isPayable = (i: Invoice) => i.status !== "paid";
 const cents = (n: number) => Math.round(n * 100) / 100;
 const sum = (xs: number[]) => cents(xs.reduce((a, b) => a + b, 0));
 
+/** Selection key for one fee component of an invoice. Selecting the bare invoice id still means the whole invoice. */
+export const partKey = (invoiceId: string, name: string) => `${invoiceId}#${name}`;
+/** The components of `i` being paid (the whole invoice when its id is selected or it has no components listed). */
+export function selectedParts(i: Invoice, ids: ReadonlySet<string>) {
+  if (!isPayable(i)) return [];
+  if (ids.has(i.id)) return [{ name: undefined as string | undefined, amount: i.amount }];
+  return (i.parts ?? []).filter((p) => ids.has(partKey(i.id, p.name)));
+}
+/** The selection keys that make up a whole invoice: one per component, or the invoice id when it has none listed. */
+export const keysOf = (i: Invoice) => (i.parts?.length ? i.parts.map((p) => partKey(i.id, p.name)) : [i.id]);
+const selectedAmount = (i: Invoice, ids: ReadonlySet<string>) => sum(selectedParts(i, ids).map((p) => p.amount));
+
 export function settle(invoices: Invoice[], children: Child[], ids: ReadonlySet<string>): Summary {
   const lines = children
     .map((child) => {
-      const total = sum(invoices.filter((i) => i.childId === child.id && isPayable(i) && ids.has(i.id)).map((i) => i.amount));
+      const total = sum(invoices.filter((i) => i.childId === child.id).map((i) => selectedAmount(i, ids)));
       const s = splitSettlement(total, child.educationBalance);
       return { child, total, fromAccount: cents(s.fromAccount), fromGateway: cents(s.fromGateway) };
     })

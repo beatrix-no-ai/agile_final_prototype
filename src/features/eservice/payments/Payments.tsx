@@ -10,7 +10,7 @@ import { useMockQuery } from "../../../lib/useMockQuery";
 import { GatewayModal } from "./GatewayModal";
 import { InvoiceList } from "./InvoiceList";
 import { PaymentSummary } from "./PaymentSummary";
-import { isPayable, settle } from "./settle";
+import { isPayable, keysOf, settle } from "./settle";
 
 export default function Payments() {
   const query = useMockQuery(null);
@@ -25,17 +25,19 @@ export default function Payments() {
 
   const summary = useMemo(() => settle(data.invoices, data.children, selected), [data, selected]);
   const payable = data.invoices.filter(isPayable);
-  const payableIds = payable.map((i) => i.id);
+  const payableIds = payable.flatMap(keysOf);
   const owed = payable.reduce((n, i) => n + i.amount, 0);
   const overdue = payable.filter((i) => i.status === "overdue");
   const toUse = new Map(summary.lines.map((l) => [l.child.id, l.fromAccount]));
 
-  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (!n.delete(id)) n.add(id); return n; });
+  // Toggling several keys (a whole invoice) selects them all unless all are already selected.
+  const toggle = (keys: string[]) => setSelected((s) => { const n = new Set(s); const on = keys.every((k) => n.has(k)); keys.forEach((k) => (on ? n.delete(k) : n.add(k))); return n; });
   const toggleAll = () => setSelected((s) => (payableIds.every((id) => s.has(id)) ? new Set() : new Set(payableIds)));
 
   const onPaid = useCallback(() => {
     dispatch({ type: "pay", ids: [...selected], date: MOCK_TODAY });
-    setMessage(`Payment of ${formatSGD(summary.total)} received for ${selected.size} ${selected.size === 1 ? "invoice" : "invoices"}.`);
+    const n = new Set([...selected].map((k) => k.split("#")[0])).size;
+    setMessage(`Payment of ${formatSGD(summary.total)} received for ${n} ${n === 1 ? "invoice" : "invoices"}.`);
     setSelected(new Set());
     focusMsg.current = true;
   }, [dispatch, selected, summary.total]);
