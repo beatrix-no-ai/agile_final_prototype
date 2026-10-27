@@ -59,14 +59,6 @@ export type SbfasApplication = {
   justification?: string;
   /** ISO timestamp of the decision; set when the application is decided. */
   decidedAt?: string;
-  /** Set when a Rejected decision was reopened and amended to a grant (the parent came to the school):
-   *  the hardship the parent presented, as recorded by the school admin. The original rejection
-   *  reason stays in `justification` — the audit trail keeps both. */
-  amendReason?: string;
-  /** ISO timestamp of the amendment (also the new decision date). */
-  amendedAt?: string;
-  /** Staff member who reopened and amended the rejected decision. */
-  amendedBy?: string;
 };
 
 /** Source with the legacy default: seeds created before the field existed are MOE referrals. */
@@ -134,19 +126,6 @@ export function applyRequeue(apps: SbfasApplication[], id: string, reason: strin
       rounds: [...roundsOf(a), { at, by, note: reason }],
     };
   });
-}
-
-/** Pure. Reopens a REJECTED decision and amends it to a grant — the parent came to the school after
- *  the rejection and the school admin is satisfied the hardship warrants SBFAS. The chosen tier is
- *  granted, the amendment is recorded (reason, who, when) and the ORIGINAL rejection reason stays in
- *  `justification`. Anything not rejected is left untouched — a pending or already-granted
- *  application has nothing to reopen. */
-export function applyAmendment(apps: SbfasApplication[], id: string, tier: SbfasTier, reason: string, by: string, at: string): SbfasApplication[] {
-  return apps.map((a) =>
-    a.id !== id || a.status !== "Rejected"
-      ? a
-      : { ...a, status: "Approved", sbfasTier: tier, decidedAt: at, amendedAt: at, amendedBy: by, amendReason: reason.trim() || undefined },
-  );
 }
 
 /**

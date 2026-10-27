@@ -4,7 +4,6 @@ import { fasReducer, useFas, type FasAction, type SbfasSuggestion } from "./fasS
 import { useFees } from "./feeStore";
 import type { Band } from "./familyFas";
 import type { FamilyApplication, FamilyDraft, HouseholdMember, TransportMode } from "./familyApplications";
-import type { SbfasTier } from "./sbfasApplications";
 import { useRegistry } from "./registryStore";
 import { useSbfas } from "./sbfasStore";
 import { levelForBands, ruleForSchool, suggestedTierOf, subsidySummary, type SbfasRule } from "./sbfasRule";
@@ -67,12 +66,6 @@ export function useFasActions() {
     decide(id: string, action: Action, draft: Draft) {
       const app = fas.state.apps.find((a) => a.id === id);
       if (app) run({ type: "decide", id, action, draft, at: new Date().toISOString() }, [app.studentId]);
-    },
-    // Reopen & amend a rejected decision (the parent came to the school): the grant re-prices the
-    // student's unpaid fees the same way a fresh approve does.
-    amend(id: string, tier: SbfasTier, reason: string, by: string) {
-      const app = fas.state.apps.find((a) => a.id === id);
-      if (app) run({ type: "amendDecision", id, tier, reason, by, at: new Date().toISOString() }, [app.studentId]);
     },
     submitFamily(studentIds: string[], band: Band) {
       run({ type: "submitFamily", studentIds, band, at: new Date().toISOString(), recommend: suggest(studentIds, band) }, studentIds);

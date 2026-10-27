@@ -5,7 +5,7 @@ import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TI
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type FamilyDraft, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { normNric } from "./familyRegistry";
-import { applyAmendment, applyDecision, applyRequeue, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, yearOf, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
+import { applyDecision, applyRequeue, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, yearOf, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
 
@@ -24,7 +24,6 @@ export type FasAction =
   | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; at: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
-  | { type: "amendDecision"; id: string; tier: SbfasTier; reason: string; by: string; at: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
 
 export const initialFasState = (): FasState => ({ apps: SBFAS_APPLICATIONS, sbfasBudget: SBFAS.budget, levels: MOEFAS_BY_LEVEL, history: [], moefas: {}, familyApps: [], drafts: [] });
@@ -62,14 +61,6 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
   }
   if (a.type === "voidDraft") {
     return { ...state, drafts: state.drafts.filter((d) => d.id !== a.id) };
-  }
-  if (a.type === "amendDecision") {
-    // Reopen & amend (Sprint 3: the parent comes to the school after a rejection): only a rejection
-    // still sitting undecided-since can be amended — a requeued application is Pending again and is
-    // simply decided, and amending a grant would grant the same child twice.
-    const app = state.apps.find((x) => x.id === a.id);
-    if (!app || app.status !== "Rejected") return state;
-    return { ...state, apps: applyAmendment(state.apps, a.id, a.tier, a.reason, a.by, a.at) };
   }
   if (a.type === "decide") {
     return { ...state, apps: applyDecision(state.apps, a.id, a.action, a.draft, a.at) };

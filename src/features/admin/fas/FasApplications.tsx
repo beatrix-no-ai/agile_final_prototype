@@ -103,14 +103,7 @@ function SbfasReview() {
       </Link>
     ) },
     { key: "status", header: "Status", render: (a) => (
-      <>
-        <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${rankOf(a.sbfasTier)}` : ""}</Badge>
-        {a.amendedAt && (
-          <span className="mt-1 block text-[13px] text-on-surface-variant">
-            Reopened after rejection · {new Date(a.amendedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-          </span>
-        )}
-      </>
+      <Badge tone={statusTone[a.status]}>{statusLabel(a.status)}{a.sbfasTier ? ` · ${rankOf(a.sbfasTier)}` : ""}</Badge>
     ) },
   ];
   const tabs: [Filter, string][] = [

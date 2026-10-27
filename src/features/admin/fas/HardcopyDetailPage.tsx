@@ -14,9 +14,9 @@ import { PaperDetail } from "./HardcopyEntry";
  *  expanding the list, so the list stays scannable no matter how many applications there are.
  *
  *  After this school REJECTS a child's SBFAS request, everything happens on the review page
- *  instead: the school reopens & amends its own decision there, or files the parent's re-request —
- *  the same application returns to the queue as its next round, reason logged (one application
- *  per child per year; see ReviewPage). */
+ *  instead: the parent's re-request returns the same application to the queue as its next round,
+ *  reason logged — a recorded decision is never changed in place (one application per child per
+ *  year; see ReviewPage). */
 export default function HardcopyDetailPage() {
   const { faId = "" } = useParams();
   const navigate = useNavigate();

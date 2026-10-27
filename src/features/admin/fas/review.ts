@@ -1,6 +1,6 @@
 import type { SbfasApplication, SbfasStatus, SbfasTier } from "../../../data/sbfasApplications";
 // applyDecision now lives in the data layer so the session store can record decisions without importing UI code.
-export { applyAmendment, applyDecision, type Action, type Draft } from "../../../data/sbfasApplications";
+export { applyDecision, type Action, type Draft } from "../../../data/sbfasApplications";
 
 export type DecisionError = { field: "justification" | "tier"; message: string };
 
@@ -25,10 +25,3 @@ export function validateDecision(action: "approve" | "override" | "reject", draf
   if (draft.tier === recommended) return { field: "tier", message: "Choose a tier different from the recommendation, or approve instead." };
   return null;
 }
-
-/** Sprint 3 (Sherly): reopening a rejection needs a reason — the hardship the parent presented at
- *  the school counter. Without it the amendment is just an unexplained flip of a final decision. */
-export const validateAmendment = (reason: string): DecisionError | null =>
-  reason.trim()
-    ? null
-    : { field: "justification", message: "Say why the rejection is reopened — e.g. the hardship the parent presented at the school." };

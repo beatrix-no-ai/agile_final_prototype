@@ -293,16 +293,6 @@ describe("a parent re-request after a rejection (one application, round log)", (
   const requeue = (s: ReturnType<typeof initialFasState>, reason = "Parent stopped working", by = "Alicia Tan") =>
     fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason, by, at });
 
-  it("reopen & amend turns the rejection into a grant with the hardship recorded", () => {
-    const s = rejected();
-    const out = fasReducer(s, { type: "amendDecision", id: appIdOf(s), tier: "Tier 2", reason: "Parent came in — retrenched in October", by: "Alicia Tan", at });
-    const a = out.apps.find((x) => x.id === appIdOf(s))!;
-    expect(a).toMatchObject({
-      status: "Approved", sbfasTier: "Tier 2", justification: "Income above range",
-      amendReason: "Parent came in — retrenched in October", amendedBy: "Alicia Tan",
-    });
-  });
-
   it("a re-request requeues the SAME application — round 2, Pending again, reason logged, no second record", () => {
     const s = requeue(rejected());
     const mine = s.apps.filter((a) => a.studentId === ethan.id);
@@ -321,11 +311,6 @@ describe("a parent re-request after a rejection (one application, round log)", (
     const granted0 = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
     const granted = fasReducer(granted0, { type: "decide", id: appIdOf(granted0), action: "approve", draft: { justification: "", tier: "Tier 3" }, at });
     expect(requeue(granted)).toEqual(granted);
-  });
-
-  it("a requeued application cannot be reopened & amended — it is pending again, decide it", () => {
-    const s = requeue(rejected());
-    expect(fasReducer(s, { type: "amendDecision", id: appIdOf(s), tier: "Tier 2", reason: "why", by: "Alicia Tan", at })).toBe(s);
   });
 
   it("after round 2 is rejected, round 3 follows the same rule — the record just counts up", () => {
