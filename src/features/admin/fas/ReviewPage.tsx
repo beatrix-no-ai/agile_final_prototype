@@ -51,7 +51,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 /** The review body, shared by nothing else anymore but kept as its own component so the page can key
  *  it per application (resets the decision draft when the reviewer opens another one). */
-function ReviewBody({ app, rule, onDecide, onAmend }: { app: Enriched; rule: SbfasRule | null; onDecide: (id: string, action: Action, draft: Draft) => void; onAmend: (id: string, tier: SbfasTier, reason: string) => void }) {
+function ReviewBody({ app, rule, onDecide, onAmend, onRequeue }: { app: Enriched; rule: SbfasRule | null; onDecide: (id: string, action: Action, draft: Draft) => void; onAmend: (id: string, tier: SbfasTier, reason: string) => void; onRequeue: (studentId: string, reason: string) => void }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -63,6 +63,11 @@ function ReviewBody({ app, rule, onDecide, onAmend }: { app: Enriched; rule: Sbf
   // decision is reopened in place and amended to a grant, with the hardship recorded on the record.
   const [amending, setAmending] = useState(false);
   const [amendReason, setAmendReason] = useState("");
+  // The parent's re-request (same edge case, from the review page): the SAME application returns to
+  // the queue as its next round, with the what-changed reason logged on it.
+  const [reasking, setReasking] = useState(false);
+  const [reaskReason, setReaskReason] = useState("");
+  const reaskRef = useRef<HTMLTextAreaElement>(null);
   // BR15: a school reviewer only sees their own students in the family sections; MOE sees all.
   const { role, staff } = useSession();
   const tierRef = useRef<HTMLSelectElement>(null);
@@ -96,6 +101,17 @@ function ReviewBody({ app, rule, onDecide, onAmend }: { app: Enriched; rule: Sbf
     }
     setAmending(false);
     onAmend(app.id, tier, amendReason.trim());
+  };
+
+  const fileReask = () => {
+    if (!reaskReason.trim()) {
+      setError({ field: "justification", message: "Say what changed since the rejected request — the reason is logged as the next round." });
+      reaskRef.current?.focus();
+      return;
+    }
+    setError(null);
+    setReasking(false);
+    onRequeue(app.studentId, reaskReason.trim());
   };
 
   return (
@@ -196,14 +212,42 @@ function ReviewBody({ app, rule, onDecide, onAmend }: { app: Enriched; rule: Sbf
           <p className="mt-1 text-[13px] text-on-surface-variant">
             Outcome sent to the parent by SMS/email automatically on the decision date.
           </p>
-          {app.status === "Rejected" && !amending && (
+          {app.status === "Rejected" && !amending && !reasking && (
             <div className="mt-3 border-t border-line pt-3">
               <p className="text-[13px] text-on-surface-variant">
-                The parent can still come to the school — a rejection can be reopened and amended to a
-                grant when the hardship warrants it. The original decision stays on the record.
+                Two ways a rejection moves: if the school is reconsidering its own decision, reopen &amp; amend
+                grants in place. If the parent asked again, file a re-request — the same application returns to
+                the queue as its next round, with the reason logged.
               </p>
-              <div className="mt-2 flex justify-end">
+              <div className="mt-2 flex flex-wrap justify-end gap-2">
+                <Button variant="secondary" onClick={() => setReasking(true)}>File a re-request</Button>
                 <Button variant="secondary" onClick={() => setAmending(true)}>Reopen &amp; amend</Button>
+              </div>
+            </div>
+          )}
+          {reasking && (
+            <div className="mt-3 space-y-3 border-t border-line pt-3">
+              <p className="text-[13px] font-semibold text-on-surface">File a re-request — the parent asked again</p>
+              <Field
+                label="What changed since the rejected request"
+                required
+                hint="e.g. a parent stopped working in August — logged as this application's next round."
+                error={error?.field === "justification" ? error.message : undefined}
+              >
+                <textarea
+                  ref={reaskRef}
+                  rows={3}
+                  className={`${inputClass} py-2`}
+                  value={reaskReason}
+                  onChange={(e) => {
+                    setReaskReason(e.target.value);
+                    if (error?.field === "justification") setError(null);
+                  }}
+                />
+              </Field>
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button variant="secondary" onClick={() => { setReasking(false); setReaskReason(""); setError(null); }}>Cancel</Button>
+                <Button onClick={fileReask}>File the re-request</Button>
               </div>
             </div>
           )}
@@ -293,7 +337,7 @@ export default function ReviewPage() {
   const { state: sbfas } = useSbfas();
   const fees = useFees();
   const movements = useMovements();
-  const { decide, amend } = useFasActions();
+  const { decide, amend, requeueSbfas } = useFasActions();
   const { staff } = useSession();
   const [announce, setAnnounce] = useState("");
 
@@ -327,6 +371,14 @@ export default function ReviewPage() {
     amend(id, tier, reason, staff?.name ?? "School user");
     const a = fas.apps.find((x) => x.id === id);
     if (a) setAnnounce(`Application ${id} for ${a.student} reopened and amended — SBFAS granted (${rankOf(tier)}).`);
+  };
+
+  // The parent's re-request: the same application returns to the queue as its next round, reason
+  // logged — the page flips back to the live decision form for the new round.
+  const onRequeue = (studentId: string, reason: string) => {
+    requeueSbfas({ studentId, reason, by: staff?.name ?? "School user" });
+    const a = enriched;
+    if (a) setAnnounce(`Re-request filed for ${a.student} — application ${a.id} returned to the queue as its next round.`);
   };
 
   const backLink = (
@@ -370,7 +422,7 @@ export default function ReviewPage() {
         </Badge>
       </div>
       <Card title="Review the application">
-        <ReviewBody key={enriched.id} app={enriched} rule={rule} onDecide={onDecide} onAmend={onAmend} />
+        <ReviewBody key={enriched.id} app={enriched} rule={rule} onDecide={onDecide} onAmend={onAmend} onRequeue={onRequeue} />
       </Card>
     </div>
   );
