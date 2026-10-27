@@ -14,7 +14,7 @@ describe("SBFAS stats follow real decisions", () => {
   it("starts at the seeded baseline", () => {
     const s = selectSbfas(initialFasState());
     expect(s).toMatchObject({ budget: SBFAS.budget, used: SBFAS.absorbed, remaining: SBFAS.budget - SBFAS.absorbed });
-    expect(s.helped).toBe(SBFAS_BY_TIER.reduce((t, x) => t + x.Primary + x.Secondary, 0));
+    expect(s.helped).toBe(SBFAS_BY_TIER.reduce((t, x) => t + x.byClass.reduce((a, b) => a + b, 0), 0));
     expect(s.byTier.reduce((t, x) => t + x.value, 0)).toBe(s.helped);
   });
 

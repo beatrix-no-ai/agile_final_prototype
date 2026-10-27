@@ -6,7 +6,7 @@ import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
-import { STUDENTS } from "./students";
+import { LEVELS, STUDENTS } from "./students";
 
 // ASSUMPTION: FAS decisions and budgets live in memory only and reset on reload (no backend), like the fee store.
 export type BudgetScope = "MOEFAS" | "SBFAS";
@@ -166,15 +166,14 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
 
 const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
 
-/** Seeded plus live SBFAS grants per tier and level, including tiers the school added beyond the seeded four. */
+/** Seeded plus live SBFAS grants per tier and class (P1 ... Sec 4), including tiers the school added beyond the seeded four. */
 function sbfasByTier(apps: SbfasApplication[]) {
-  const live = (lvl: Level) => sbfasUsage(apps.filter((a) => (a.level.startsWith("P") ? "Primary" : "Secondary") === lvl)).byTier;
-  const p = live("Primary"), q = live("Secondary");
-  const labels = [...new Set([...SBFAS_BY_TIER.map((t) => t.label), ...Object.keys(p), ...Object.keys(q)])];
+  const live = Object.fromEntries(LEVELS.map((c) => [c, sbfasUsage(apps.filter((a) => a.level === c)).byTier]));
+  const labels = [...new Set([...SBFAS_BY_TIER.map((t) => t.label), ...LEVELS.flatMap((c) => Object.keys(live[c]))])];
   return labels.map((label) => {
     const seed = SBFAS_BY_TIER.find((t) => t.label === label);
-    const Primary = (seed?.Primary ?? 0) + (p[label] ?? 0), Secondary = (seed?.Secondary ?? 0) + (q[label] ?? 0);
-    return { label, Primary, Secondary, value: Primary + Secondary };
+    const by = Object.fromEntries(LEVELS.map((c, i) => [c, (seed?.byClass[i] ?? 0) + (live[c][label] ?? 0)]));
+    return { label, by, value: sum(Object.values(by)) };
   });
 }
 
@@ -186,7 +185,7 @@ export function selectSbfas(s: FasState) {
     budget: s.sbfasBudget,
     used,
     remaining: s.sbfasBudget - used,
-    helped: sum(SBFAS_BY_TIER.map((t) => t.Primary + t.Secondary)) + live.count,
+    helped: sum(SBFAS_BY_TIER.flatMap((t) => t.byClass)) + live.count,
     byTier: sbfasByTier(s.apps),
   };
 }
@@ -207,7 +206,7 @@ export function selectMoefas(s: FasState) {
     levels, budget, used, remaining: budget - used, helped: sum(levels.map((l) => l.beneficiaries)),
     byTier: MOEFAS_BY_TIER.map((t) => {
       const n = (lvl: string) => t[lvl as Level] + grants.filter((x) => x.level === lvl && x.g.tier === t.label).length;
-      return { label: t.label, Primary: n("Primary"), Secondary: n("Secondary"), value: n("Primary") + n("Secondary") };
+      return { label: t.label, by: { Primary: n("Primary"), Secondary: n("Secondary") }, value: n("Primary") + n("Secondary") };
     }),
   };
 }
