@@ -23,7 +23,7 @@ export function TierChartCard({ byTier, filters, filterLabel, note, amountOf }: 
   const lvl = filter === "All" ? "" : `${filter} `;
   const money = (n: number) => formatSGD(n, { compact: true });
   // axis and bar labels: S$14.4M, S$500K
-  const short = (n: number) => (n >= 1e6 ? `S$${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `S$${+(n / 1e3).toFixed(1)}K` : `S$${n}`);
+  const short = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${+(n / 1e3).toFixed(1)}K` : `${n}`);
   const picker = (
     <select aria-label={filterLabel} className={`${inputClass.replace("w-full", "").replace("min-h-11", "min-h-9")} w-32 shrink-0`} value={filter} onChange={(e) => setFilter(e.target.value)}>
       <option value="All">All {filterLabel === "Class" ? "classes" : "levels"}</option>
@@ -37,7 +37,7 @@ export function TierChartCard({ byTier, filters, filterLabel, note, amountOf }: 
           {picker}
         </div>
       } className={byTier.length > 6 ? "lg:col-span-2" : ""}>
-      <BarChart data={data} format={metric === "cash" ? short : undefined} />
+      <BarChart data={data} format={metric === "cash" ? short : undefined} axisFormat={metric === "cash" ? (n) => `S$${short(n)}` : undefined} />
       <p className="mt-2 text-sm text-on-surface-variant">
         {metric === "cash" ? `${money(sum)} granted to ${lvl}students this year, at each rank's yearly package value.` : note(sum.toLocaleString("en-US"), lvl)}
       </p>

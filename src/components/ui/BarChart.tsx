@@ -2,9 +2,12 @@
 export function BarChart({
   data,
   format = (n) => n.toLocaleString("en-US"),
+  axisFormat = format,
 }: {
   data: { label: string; value: number; total?: number }[];
   format?: (n: number) => string;
+  /** Axis ticks; carries the unit (e.g. S$) so bar labels can drop it. */
+  axisFormat?: (n: number) => string;
 }) {
   const clean = (n?: number) => (n !== undefined && Number.isFinite(n) ? Math.max(0, n) : 0);
   if (data.length === 0) return <p className="text-sm text-on-surface-variant">No data</p>;
@@ -17,9 +20,9 @@ export function BarChart({
     <div className="grid grid-cols-[auto_1fr] gap-x-3">
       <div className="relative h-48 text-right text-[11px] text-on-surface-variant tabular-nums">
         {ticks.map((t) => (
-          <span key={t} className="absolute right-0 translate-y-1/2" style={{ bottom: pct(t) }}>{format(t)}</span>
+          <span key={t} className="absolute right-0 translate-y-1/2" style={{ bottom: pct(t) }}>{axisFormat(t)}</span>
         ))}
-        <span className="invisible">{format(max)}</span>
+        <span className="invisible">{axisFormat(max)}</span>
       </div>
       <div className="relative h-48">
         {ticks.map((t) => (
@@ -29,7 +32,7 @@ export function BarChart({
           {data.map((d) => {
             const v = clean(d.value);
             const total = d.total === undefined ? undefined : clean(d.total);
-            const text = total === undefined ? format(v) : `${format(v)} of ${format(total)}`;
+            const text = total === undefined ? axisFormat(v) : `${axisFormat(v)} of ${axisFormat(total)}`; // tooltip keeps the unit
             return (
               <div key={d.label} className="group relative flex h-full min-w-0 flex-1 justify-center" role="img" aria-label={`${d.label} ${text}`} title={text}>
                 <div className="relative h-full w-full max-w-14">
