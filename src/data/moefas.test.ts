@@ -89,7 +89,7 @@ describe("income tiers", () => {
 describe("applications", () => {
   const by = (id: string) => FAMILIES.find((f) => f.id === id)!;
   it("matches on GHI OR PCI", () => {
-    expect(FAMILIES.map(applicationStatus)).toEqual(["MOEFAS Granted", "SBFAS review", "Mixed outcomes"]);
+    expect(FAMILIES.map(applicationStatus)).toEqual(["MOEFAS Granted", "SBFAS Review", "Mixed Outcomes", "SBFAS Granted", "SBFAS Granted", "Rejected", "Mixed Outcomes", "SBFAS Review"]);
   });
   it("assesses each child against their own policy snapshot", () => {
     const m = by("FAS20260004");

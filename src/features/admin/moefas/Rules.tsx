@@ -252,9 +252,11 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
   const current = rules.find((r) => r.status === "Active");
   const list = rules.filter((r) => `${r.id} ${r.name}`.toLowerCase().includes(q.trim().toLowerCase()) && (!status || r.status === status));
   const columns: Column<Rule>[] = [
-    { key: "name", header: "Rule ID / name", sortable: true, render: (r) => <><span className="font-semibold">{r.name}</span><span className="block text-[13px] text-on-surface-variant">{r.id}</span></> },
-    { key: "components", header: "Fee components", render: (r) => r.components.filter((c) => c.id).map((c) => componentName(c.id)).join(", ") },
-    { key: "conditions", header: "Conditions", render: (r) => `${r.conditions.length} ${r.conditions.length === 1 ? "condition" : "conditions"}` },
+    { key: "id", header: "Rule ID", sortable: true, render: (r) => <span className="font-semibold">{r.id}</span> },
+    { key: "name", header: "Rule name", sortable: true, render: (r) => r.name },
+    { key: "effectiveFrom", header: "Effective date", render: (r) => r.effectiveFrom ?? "—" },
+    { key: "components", header: "Fee components", render: (r) => r.components.filter((c) => c.id).length },
+    { key: "conditions", header: "Ranks", render: (r) => r.conditions.length },
     { key: "status", header: "Status", render: (r) => <Badge tone={TONE[r.status]}>{r.status}</Badge> },
   ];
 
@@ -286,7 +288,7 @@ export default function Rules({ rules, setRules, tiers, notify }: Props) {
           )}
           empty={<EmptyState title="No matching rules" hint="Try another search or status." action={<Button variant="secondary" onClick={() => { setQ(""); setStatus(""); }}>Reset</Button>} />}
         />
-        <p className="mt-3 text-[13px] text-on-surface-variant">Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Draft rules have never been activated. Pending rules are scheduled: they become Active on their effective date and can be cancelled until then; a cancelled rule is Canceled and cannot be activated.</p>
+        <p className="mt-3 text-[13px] text-on-surface-variant">Only one rule can be Active at a time. Activating a rule makes the previous Active rule Inactive. Future rules remain Pending until their effective date; cancelling changes the status to Canceled.</p>
       </Card>
       <Modal open={!!cancelling} onClose={() => setCancelling(null)} title="Cancel scheduled rule?"
         footer={<><Button variant="secondary" onClick={() => setCancelling(null)}>Keep schedule</Button><Button onClick={cancel}>Cancel rule</Button></>}>

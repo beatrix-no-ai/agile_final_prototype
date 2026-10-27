@@ -13,13 +13,13 @@ import {
 } from "../../../data/moefas";
 import { useFas } from "../../../data/fasStore";
 import { childOutcomeNow, type FamilyApplication } from "../../../data/familyApplications";
-import { FamilyApplicationSections, KIND_TONE } from "../fas/FamilySections";
+import { FamilyApplicationSections } from "../fas/FamilySections";
 import { formDocImage } from "../fas/HardcopyEntry";
 import { formatSGD } from "../../../lib/format";
 
 const TONE: Record<string, BadgeTone> = {
   "MOEFAS granted": "success", "MOEFAS Granted": "success", Granted: "success", Matched: "success",
-  "SBFAS review": "warning", "Mixed outcomes": "warning", "Pending SBFAS review": "warning", "MOEFAS not granted": "warning",
+  "SBFAS Review": "warning", "Mixed Outcomes": "warning", "SBFAS Granted": "success", "SBFAS granted": "success", Rejected: "alert", "Pending SBFAS review": "warning", "MOEFAS not granted": "warning",
   "New SBFAS request": "warning",
   "Not granted": "alert", "Already covered": "neutral",
 };
@@ -243,10 +243,10 @@ const schoolsOf = (f: Row) => (isHardcopy(f) ? [f.school] : [...new Set(f.school
  *  the status filter so both channels filter together. */
 function hardcopyStatus(fa: FamilyApplication, apps: Parameters<typeof childOutcomeNow>[2]): string {
   const kinds = fa.children.map((c) => childOutcomeNow(fa, c, apps).kind);
-  if (kinds.includes("pending")) return "SBFAS review";
+  if (kinds.includes("pending")) return "SBFAS Review";
   const granted = kinds.includes("granted") || kinds.includes("neutral");
   const rejected = kinds.includes("rejected");
-  if (granted && rejected) return "Mixed outcomes";
+  if (granted && rejected) return "Mixed Outcomes";
   if (rejected) return "MOEFAS not granted";
   if (granted) return "MOEFAS Granted";
   return "Already covered";
@@ -298,7 +298,7 @@ export default function Applications({ rules }: { rules: Rule[] }) {
   if (openPortal) return <Detail key={openPortal.id} f={openPortal} rules={rules} onBack={() => setOpenId(null)} />;
   if (openHardcopy) return <HardcopyApplicationDetail key={openHardcopy.id} fa={openHardcopy} onBack={() => setOpenId(null)} />;
 
-  const all: Row[] = [...FAMILIES, ...fas.familyApps];
+  const all: Row[] = [...FAMILIES, ...fas.familyApps].sort((a, b) => a.id.localeCompare(b.id));
   const statusOf = (f: Row) => (isHardcopy(f) ? hardcopyStatus(f, fas.apps) : applicationStatus(f));
   const schools = [...new Set(all.flatMap(schoolsOf))].sort();
   const rows = all.filter((f) => (!school || schoolsOf(f).includes(school)) && (!channel || (isHardcopy(f) ? "Hardcopy" : "e-Service") === channel)
@@ -310,43 +310,29 @@ export default function Applications({ rules }: { rules: Rule[] }) {
       key: "id", header: "Application / submitted", sortable: true,
       render: (f) => isHardcopy(f) ? (
         <>
-          <span className="font-semibold">{f.id}</span>{" "}<Badge tone="primary">Hardcopy</Badge>
-          <span className="block text-[13px] text-on-surface-variant">
-            {new Date(f.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · entered by {f.enteredBy}{f.entryMode === "ocr" ? " (PDF + OCR)" : ""}
-          </span>
+          <span className="font-semibold">{f.id}</span>
+          <span className="block text-[13px] text-on-surface-variant">{new Date(f.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · AY 2026</span>
         </>
       ) : (
-        <><span className="font-semibold">{f.id}</span><span className="block text-[13px] text-on-surface-variant">18 Oct 2026 · 09:{12 + FAMILIES.indexOf(f) * 7} SGT</span></>
+        <><span className="font-semibold">{f.id}</span><span className="block text-[13px] text-on-surface-variant">18 Oct 2026 · AY 2026</span></>
       ),
     },
     {
       key: "applicant", header: "Applicant",
-      render: (f) => isHardcopy(f)
-        ? <>{f.applicant}<span className="block text-[13px] text-on-surface-variant">{f.contact} · {f.school}</span></>
-        : <>{f.parent}<span className="block text-[13px] text-on-surface-variant">Parent / guardian</span></>,
+      render: (f) => <>{isHardcopy(f) ? f.applicant : f.parent}<span className="block text-[13px] text-on-surface-variant">Parent / guardian</span></>,
     },
     {
       key: "children", header: "Children",
-      render: (f) => isHardcopy(f) ? (
-        <>{f.children.length} {f.children.length > 1 ? "children" : "child"}
-          {f.children.map((c) => {
-            const co = childOutcomeNow(f, c, fas.apps);
-            return (
-              <span key={c.studentId} className="block text-[13px]">
-                {c.student} · <Badge tone={KIND_TONE[co.kind]}>{co.label}</Badge>
-              </span>
-            );
-          })}
-        </>
-      ) : (
-        <>{f.children.length} {f.children.length > 1 ? "children" : "child"}{f.children.map((n, i) => <span key={n} className="block text-[13px] text-on-surface-variant">{n} · {childResult(f, i)}</span>)}</>
-      ),
+      render: (f) => {
+        const names = isHardcopy(f) ? f.children.map((c) => c.student) : f.children;
+        return <>{names.length} {names.length > 1 ? "children" : "child"}<span className="block text-[13px] text-on-surface-variant">{names.join(", ")}</span></>;
+      },
     },
     { key: "school", header: "School", render: (f) => schoolsOf(f).map((s) => <span key={s} className="block">{s}</span>) },
     {
       key: "source", header: "Source",
       render: (f) => isHardcopy(f)
-        ? <>School upload (hardcopy)<span className="block text-[13px] text-on-surface-variant">{f.school} · {f.entryMode === "ocr" ? "scanned PDF" : "keyed in"}</span></>
+        ? <>School upload<span className="block text-[13px] text-on-surface-variant">{f.enteredBy}</span></>
         : <>Parent portal<span className="block text-[13px] text-on-surface-variant">e-Service (online)</span></>,
     },
     { key: "outcome", header: "Application status", render: (f) => <Pill s={statusOf(f)} /> },
@@ -358,23 +344,22 @@ export default function Applications({ rules }: { rules: Rule[] }) {
       action={<span className="text-[13px] text-on-surface-variant">Academic year 2026</span>}
     >
       <p className="mb-4 text-sm text-on-surface-variant">
-        From the parent e-Service portal, plus paper MOE FAS forms schools scanned in for parents who cannot use the
-        portal — marked Hardcopy. Each child is assessed separately.
+        Parent portal and school-uploaded hard copies. MOEFAS is assessed automatically at household level.
       </p>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <input className={`${inputClass} max-w-sm`} aria-label="Search applications" placeholder="Search application, parent or child" value={q} onChange={(e) => setQ(e.target.value)} />
+        <select className={`${inputClass} max-w-52`} aria-label="Filter application status" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
+          <option value="">All statuses</option>
+          {OUTCOMES.map((o) => <option key={o}>{o}</option>)}
+        </select>
         <select className={`${inputClass} max-w-60`} aria-label="Filter school" value={school} onChange={(e) => setSchool(e.target.value)}>
           <option value="">All schools</option>
           {schools.map((s) => <option key={s}>{s}</option>)}
         </select>
-        <select className={`${inputClass} max-w-48`} aria-label="Filter channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
-          <option value="">All channels</option>
-          <option value="e-Service">e-Service (online)</option>
-          <option value="Hardcopy">Hardcopy (paper)</option>
-        </select>
-        <select className={`${inputClass} max-w-52`} aria-label="Filter application status" value={outcome} onChange={(e) => setOutcome(e.target.value)}>
-          <option value="">All statuses</option>
-          {[...OUTCOMES, "MOEFAS not granted", "Already covered"].map((o) => <option key={o}>{o}</option>)}
+        <select className={`${inputClass} max-w-52`} aria-label="Filter source" value={channel} onChange={(e) => setChannel(e.target.value)}>
+          <option value="">All sources</option>
+          <option value="e-Service">Parent portal</option>
+          <option value="Hardcopy">School upload</option>
         </select>
         <Button variant="secondary" onClick={() => { setQ(""); setChannel(""); setOutcome(""); setSchool(""); }}>Reset</Button>
       </div>

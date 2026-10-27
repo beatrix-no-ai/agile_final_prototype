@@ -65,10 +65,10 @@ export type FamilyApplication = {
   children: FamilyChild[];
 };
 
-// The seeded FAMILIES use FAS20260001/0002/0004, so live hardcopy submissions continue from 0005.
+// The seeded FAMILIES use FAS20260001–0010, so live hardcopy submissions continue from 0011.
 // The sequence is the digits minus the FAS-2026 year prefix — parsing the whole id would fold the
 // year into the number and double it on the second record (FAS202620260006).
-const BASE = 4;
+const BASE = 10;
 const seqOf = (id: string) => Math.max(0, (Number(id.replace(/\D/g, "")) || 0) - 20260000);
 export const nextFamilyId = (apps: Pick<FamilyApplication, "id">[]) =>
   `FAS2026${String(apps.reduce((m, a) => Math.max(m, seqOf(a.id)), BASE) + 1).padStart(4, "0")}`;

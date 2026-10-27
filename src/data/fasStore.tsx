@@ -26,16 +26,10 @@ export type FasAction =
 /** Demo paper forms a School user already scanned in, so MOE sees hardcopy rows (Source + uploaded scan) before anyone submits one. */
 const SEED_HARDCOPY: FamilyApplication[] = [
   {
-    id: "FAS20260005", channel: "Hardcopy", school: "Riverbank Primary School", applicant: "Benson Chua", contact: "+65 8112 9743",
+    id: "FAS20260008", channel: "Hardcopy", school: "Riverbank Primary School", applicant: "Benson Chua", contact: "+65 8112 9743",
     address: "Blk 412 Bedok North Ave 2, #08-115, Singapore 460412", bandLabel: "GHI Tier 1 · $0 – $2,000", homesOnly: true,
-    transportMode: "Public transport", declaredAt: "2026-10-20", enteredBy: "Marcus Ong", entryMode: "ocr", formFile: "MOE-FAS-form-chua-signed.pdf",
-    at: "2026-10-20T02:15:00.000Z", children: [{ studentId: "S20260009", student: "Chua Jia Hui", level: "P2", outcome: "MOEFAS granted", tier: "Tier 1" }],
-  },
-  {
-    id: "FAS20260006", channel: "Hardcopy", school: "Riverbank Primary School", applicant: "Goh Siew Lan", contact: "+65 9023 4418",
-    address: "Blk 88 Tampines St 81, #03-42, Singapore 520088", bandLabel: "GHI Tier 2 · $2,000.01 – $3,000", homesOnly: true,
-    transportMode: "School bus", declaredAt: "2026-10-21", enteredBy: "Priya Nair", entryMode: "manual",
-    at: "2026-10-21T06:40:00.000Z", children: [{ studentId: "S20260017", student: "Goh Yu Xuan", level: "P4", outcome: "MOEFAS granted", tier: "Tier 2" }],
+    transportMode: "Public transport", declaredAt: "2026-10-18", enteredBy: "Marcus Ong", entryMode: "ocr", formFile: "MOE-FAS-form-chua-signed.pdf",
+    at: "2026-10-18T02:15:00.000Z", children: [{ studentId: "S20260009", student: "Chua Jia Hui", level: "P2", outcome: "MOEFAS granted", tier: "Tier 1" }],
   },
 ];
 

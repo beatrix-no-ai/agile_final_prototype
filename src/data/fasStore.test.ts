@@ -176,7 +176,7 @@ describe("a hardcopy application entered at the school (Requirement 5)", () => {
     expect(s.moefas[chloe.id].tier).toBe("Tier 1");
     expect(s.apps).toHaveLength(initialFasState().apps.length);
     expect(s.familyApps).toHaveLength(1);
-    expect(s.familyApps[0]).toMatchObject({ id: "FAS20260005", channel: "Hardcopy", school: "Riverbank Primary School", entryMode: "ocr" });
+    expect(s.familyApps[0]).toMatchObject({ id: "FAS20260011", channel: "Hardcopy", school: "Riverbank Primary School", entryMode: "ocr" });
     expect(s.familyApps[0].children.map((c) => c.outcome)).toEqual(["MOEFAS granted", "MOEFAS granted"]);
   });
 
@@ -184,14 +184,14 @@ describe("a hardcopy application entered at the school (Requirement 5)", () => {
     const s = paper("SBFAS");
     const added = s.apps.slice(initialFasState().apps.length);
     expect(added.map((a) => a.studentId)).toEqual([ethan.id, chloe.id]);
-    expect(added.every((a) => a.source === "MOE referral" && a.familyAppId === "FAS20260005" && a.enteredBy === "Alicia Tan" && a.status === "Pending")).toBe(true);
+    expect(added.every((a) => a.source === "MOE referral" && a.familyAppId === "FAS20260011" && a.enteredBy === "Alicia Tan" && a.status === "Pending")).toBe(true);
     expect(s.familyApps[0].children.every((c) => c.outcome === "MOEFAS not granted")).toBe(true);
   });
 
-  it("consecutive paper records number FAS20260005, FAS20260006 — the year prefix is not folded into the sequence", () => {
+  it("consecutive paper records number FAS20260011, FAS20260012 — the year prefix is not folded into the sequence", () => {
     const first = paper("SBFAS", initialFasState(), [ethan.id]);
     const second = paper("SBFAS", first, [chloe.id]);
-    expect(second.familyApps.map((f) => f.id)).toEqual(["FAS20260006", "FAS20260005"]);
+    expect(second.familyApps.map((f) => f.id)).toEqual(["FAS20260012", "FAS20260011"]);
   });
 
   it("ASSUMPTION (AC-024-02): a paper form in the band above both schemes still reaches the school queue", () => {

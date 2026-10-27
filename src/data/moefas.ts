@@ -112,25 +112,20 @@ const CONDITIONS = (): Condition[] => [{ ghi: 0, pci: 0 }, { ghi: 1, pci: 1 }];
 export const blankRule = (id: string): Rule => ({ id, name: "", status: "Draft", conditions: CONDITIONS(), components: [] });
 
 export const SEED: Rule[] = [
-  { id: "FASR26100001", name: "MOEFAS 2026 — Standard assistance", status: "Active", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [80, 50]), comp("MFC-002", "fixed", [20, 10])] },
-  { id: "FASR26100002", name: "MOEFAS 2025 — Standard assistance", status: "Inactive", conditions: CONDITIONS(), components: [comp("MFC-003", "percent", [75, 40])] },
-  { id: "FASR26100004", name: "MOEFAS 2027 — Scheduled assistance", effectiveFrom: "2027-01-01", status: "Pending", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
-  { id: "FASR26100003", name: "MOEFAS 2027 — Proposed assistance", status: "Draft", conditions: CONDITIONS(), components: [comp("MFC-002", "fixed", [15, 8]), comp("MFC-004", "percent", [60, 30])] },
-  { id: "FASR26100005", name: "MOEFAS 2027 — Cancelled scheduled assistance", effectiveFrom: "2027-02-01", status: "Canceled", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
+  { id: "FASR26100001", name: "MOEFAS 2026 — Standard assistance", effectiveFrom: "2026-01-01", status: "Active", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [80, 50]), comp("MFC-002", "fixed", [20, 10])] },
+  { id: "FASR26100002", name: "MOEFAS 2025 — Standard assistance", effectiveFrom: "2025-01-01", status: "Inactive", conditions: CONDITIONS(), components: [comp("MFC-003", "percent", [75, 40])] },
+  { id: "FASR26100003", name: "MOEFAS 2027 — Proposed assistance", effectiveFrom: "2027-01-01", status: "Pending", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
+  { id: "FASR26100004", name: "MOEFAS 2027 — Cancelled scheduled assistance", effectiveFrom: "2027-02-01", status: "Canceled", conditions: CONDITIONS(), components: [comp("MFC-001", "percent", [85, 55]), comp("MFC-002", "fixed", [20, 10])] },
 ];
 
-const KEY = "moefas-conditions-or-v3";
+const KEY = "moefas-conditions-or-v4";
 
 /** Rules live in localStorage so edits survive a reload; falls back to the seed. */
 export function useRules() {
   const [rules, set] = useState<Rule[]>(() => {
     try {
       const d = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (Array.isArray(d) && d.length && d.every((r) => Array.isArray(r?.conditions))) {
-        // Stable Canceled demo record, also added when this browser already has saved rules.
-        const demo = SEED.find((r) => r.status === "Canceled")!;
-        return promoteDue(d.some((r) => r.id === demo.id) ? d : [...d, demo], sgToday());
-      }
+      if (Array.isArray(d) && d.length && d.every((r) => Array.isArray(r?.conditions))) return promoteDue(d, sgToday());
     } catch { /* private mode / bad JSON: use the seed */ }
     return SEED;
   });
@@ -210,6 +205,8 @@ export type Family = {
   snapshots?: string[];
   /** No supporting documents were submitted. */
   noDocs?: boolean;
+  /** Final per-child result once the school has decided SBFAS (overrides the automatic assessment). */
+  results?: ChildOutcome[];
 };
 
 /** Rule conditions as they stood when the child was assessed (mock: the real rules can change later). */
@@ -223,6 +220,11 @@ export const FAMILIES: Family[] = [
   { id: "FAS20260001", parent: "Rachel Lim", spouse: "David Lim", children: ["Ethan Lim Jun Hao", "Chloe Lim Wen Xin"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 5", "Secondary 2"], contact: "+65 9123 4567", address: "Blk 214 Bishan Street 23, #08-112, Singapore 570214", income: { g: [1000, 1800], p: [600, 700] } },
   { id: "FAS20260002", parent: "Nur Aisyah Binte Abdullah", spouse: "Muhammad Farhan", children: ["Adam Muhammad"], schools: ["Riverbank Primary School"], levels: ["Primary 4"], contact: "+65 9234 5678", address: "Blk 512 Tampines Central 1, #05-118, Singapore 520512", income: { g: [5001, 6000], p: [1250.01, 1500] }, noDocs: true },
   { id: "FAS20260004", parent: "Michelle Tan", spouse: "Daniel Tan", children: ["Lucas Tan Wei Jie", "Emma Tan Hui Min"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 6", "Secondary 3"], contact: "+65 9456 7890", address: "Blk 118 Toa Payoh Lorong 1, #09-210, Singapore 310118", income: { g: [1000, 1800], p: [450, 520] }, snapshots: ["FASR26100001", "FASR26100002"] },
+  { id: "FAS20260005", parent: "Lee Chee Meng", spouse: "—", children: ["Lee Kai En"], schools: ["Sunrise Primary School"], levels: ["Primary 1"], contact: "—", address: "—", income: { g: [5001, 6000], p: [1250.01, 1500] }, results: ["SBFAS granted"] },
+  { id: "FAS20260006", parent: "Ahmad bin Hassan", spouse: "—", children: ["Aiman Ahmad", "Aisyah Ahmad"], schools: ["Sunrise Primary School", "Greenfield Secondary School"], levels: ["Primary 1", "Secondary 1"], contact: "—", address: "—", income: { g: [5001, 6000], p: [1250.01, 1500] }, results: ["SBFAS granted", "SBFAS granted"] },
+  { id: "FAS20260007", parent: "Teo Kok Hwa", spouse: "—", children: ["Teo Zhi Hao", "Teo Zhi Ying"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 1", "Secondary 1"], contact: "—", address: "—", income: { g: [5001, 6000], p: [1250.01, 1500] }, results: ["Rejected", "Rejected"] },
+  { id: "FAS20260009", parent: "Wong Kian Seng", spouse: "—", children: ["Wong Jia Hui", "Wong Jia Le"], schools: ["Sunrise Primary School", "Sunrise Primary School"], levels: ["Primary 1", "Primary 4"], contact: "—", address: "—", income: { g: [5001, 6000], p: [1250.01, 1500] }, results: ["Rejected", "SBFAS granted"] },
+  { id: "FAS20260010", parent: "Lim Teck Soon", spouse: "—", children: ["Lim Kai Ling", "Lim Kai Xuan"], schools: ["Riverbank Primary School", "Greenfield Secondary School"], levels: ["Primary 1", "Secondary 1"], contact: "—", address: "—", income: { g: [5001, 6000], p: [1250.01, 1500] }, results: ["Pending SBFAS review", "Pending SBFAS review"] },
 ];
 
 export const snapshotFor = (f: Family, i: number): Snapshot => SNAPSHOTS.find((s) => s.id === (f.snapshots?.[i] ?? SNAPSHOTS[0].id)) ?? SNAPSHOTS[0];
@@ -232,13 +234,17 @@ export const matchRange = (v: Range, r: Range) => v[0] >= r[0] && v[1] <= r[1];
 /** GHI OR PCI matching is enough. Returns the first matching condition index, or -1. */
 export const matchedCondition = (f: Family, i: number) => snapshotFor(f, i).conditions.findIndex((c) => matchRange(f.income.g, c.g) || matchRange(f.income.p, c.p));
 
-export type ChildOutcome = "MOEFAS granted" | "Pending SBFAS review";
-export const childResult = (f: Family, i: number): ChildOutcome => (matchedCondition(f, i) >= 0 ? "MOEFAS granted" : "Pending SBFAS review");
+export type ChildOutcome = "MOEFAS granted" | "Pending SBFAS review" | "SBFAS granted" | "Rejected";
+export const childResult = (f: Family, i: number): ChildOutcome => f.results?.[i] ?? (matchedCondition(f, i) >= 0 ? "MOEFAS granted" : "Pending SBFAS review");
 
-export type Outcome = "MOEFAS Granted" | "SBFAS review" | "Mixed outcomes";
-export const OUTCOMES: Outcome[] = ["MOEFAS Granted", "SBFAS review", "Mixed outcomes"];
+export type Outcome = "MOEFAS Granted" | "SBFAS Review" | "Mixed Outcomes" | "SBFAS Granted" | "Rejected";
+export const OUTCOMES: Outcome[] = ["MOEFAS Granted", "SBFAS Review", "Mixed Outcomes", "SBFAS Granted", "Rejected"];
 export function applicationStatus(f: Family): Outcome {
   const r = f.children.map((_, i) => childResult(f, i));
-  const granted = r.includes("MOEFAS granted"), pending = r.includes("Pending SBFAS review");
-  return granted && pending ? "Mixed outcomes" : pending ? "SBFAS review" : "MOEFAS Granted";
+  const all = (x: ChildOutcome) => r.every((y) => y === x);
+  if (all("MOEFAS granted")) return "MOEFAS Granted";
+  if (all("Pending SBFAS review")) return "SBFAS Review";
+  if (all("SBFAS granted")) return "SBFAS Granted";
+  if (all("Rejected")) return "Rejected";
+  return "Mixed Outcomes";
 }
