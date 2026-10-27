@@ -195,6 +195,35 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
             <span className="font-medium">{fa.residents ?? "—"}</span>
           </p>
         )}
+        {fa.extraIncomeDocs?.length ? (
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-on-surface">Documents for the extra money declared</p>
+            <ul className="space-y-1">
+              {fa.extraIncomeDocs.map((d) => (
+                <li key={d} className="flex items-center gap-2 text-sm">
+                  <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {fa.residentsDocs?.length ? (
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-on-surface">Documents for the people living in the home</p>
+            <ul className="space-y-1">
+              {fa.residentsDocs.map((d) => (
+                <li key={d} className="flex items-center gap-2 text-sm">
+                  <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {(fa.extraIncomeDocs?.length || fa.residentsDocs?.length) ? (
+          <p className="text-[12px] text-on-surface-variant">
+            Handed to the school with the returned form, kept against the Section II answer each one backs (mock: file names only).
+          </p>
+        ) : null}
         {fa.welfareHome ? (
           <p className="text-sm">
             <span className="text-on-surface-variant">Welfare home resident — letter: </span>
@@ -234,19 +263,6 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         )}
         {fa.note && <p className="text-[13px] text-on-surface-variant">{flow2 ? "What changed: " : "Note on the form: "}{fa.note}</p>}
       </section>
-      {fa.docs?.length ? (
-        <section className="space-y-2 border-t border-line pt-4">
-          <h3 className="text-sm font-bold text-on-surface">Supporting documents brought in</h3>
-          <ul className="space-y-1.5">
-            {fa.docs.map((d) => (
-              <li key={d} className="flex items-center gap-2 text-sm">
-                <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
-              </li>
-            ))}
-          </ul>
-          <p className="text-[13px] text-on-surface-variant">Handed to the school with the returned form (mock: file names only).</p>
-        </section>
-      ) : null}
       <section className="space-y-2 border-t border-line pt-4">
         <SectionTitle n="IV" title="Where this form goes" />
         <p className="text-sm font-medium">
@@ -295,6 +311,49 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
   );
 }
 
+/** One Section II declaration's own upload slot: documents the parent handed in that back THAT
+ *  answer sit right under it — each declaration carries its own evidence (mock: file names only,
+ *  nothing is uploaded anywhere). */
+function DocSlot({ name, hint, docs, onChange }: { name: string; hint: string; docs: string[]; onChange: (next: string[]) => void }) {
+  return (
+    <div className="mt-2 space-y-1.5">
+      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-control border border-outline bg-surface-container-lowest px-3 py-1.5 text-[13px] font-semibold text-on-surface hover:bg-surface-container-low focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-primary">
+        <Paperclip size={14} aria-hidden="true" /> Add a document
+        <input
+          type="file"
+          multiple
+          className="sr-only"
+          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+          aria-label={`Add a document for the ${name}`}
+          onChange={(e) => {
+            const names = Array.from(e.target.files ?? []).map((f) => f.name);
+            onChange([...docs, ...names.filter((n) => !docs.includes(n))]);
+            e.target.value = "";
+          }}
+        />
+      </label>
+      {docs.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {docs.map((d, i) => (
+            <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-container-lowest px-2.5 py-1 text-[13px]">
+              <FileText size={14} aria-hidden="true" /> {d}
+              <button
+                type="button"
+                onClick={() => onChange(docs.filter((_, j) => j !== i))}
+                aria-label={`Remove ${d}`}
+                className="rounded text-on-surface-variant hover:text-alert focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="text-[12px] text-on-surface-variant">{hint}</p>
+    </div>
+  );
+}
+
 /** Keying in a draft's returned copy, opened by clicking the draft's row in the register (Sprint 3).
  *  Everything the form was PRINTED with is carried over from the draft and locked — the staff fills
  *  in only what the parent wrote by hand: the Section II household declarations and the Section III
@@ -326,9 +385,11 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   // The returned-copy cross-check (mandatory): the staff confirms they compared this entry against
   // the signed paper before submitting.
   const [checkedAgainst, setCheckedAgainst] = useState(false);
-  // Documents the parent brought in with the returned form (retrenchment letter, payslips) — the
-  // school user records them here (mock: file names only, nothing is uploaded anywhere).
-  const [docs, setDocs] = useState<string[]>([]);
+  // Section II's own evidence, one upload slot per declaration: what the parent handed in with the
+  // returned form backs the answer it sits under — money not in HOMES vs who lives at home (mock:
+  // file names only, nothing is uploaded anywhere).
+  const [extraDocs, setExtraDocs] = useState<string[]>([]);
+  const [resDocs, setResDocs] = useState<string[]>([]);
   const [reviewing, setReviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // Each error names the part of the form it belongs to, so the warning renders AT that section
@@ -390,7 +451,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
       residents: Number(residents) || 0,
       declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
       guardianNric: draft.guardianNric, draftId: draft.id,
-      docs,
+      extraIncomeDocs: extraDocs, residentsDocs: resDocs,
     });
     onSubmitted();
   };
@@ -442,10 +503,16 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               <span className="text-on-surface-variant">Extra monthly money (not in HOMES): </span>
               <span className="font-medium">S${extraIncome.trim() || "—"}</span>
             </p>
+            {extraDocs.length > 0 && (
+              <p className="text-[13px] text-on-surface-variant">Documents for the extra money: {extraDocs.join(", ")}</p>
+            )}
             <p className="text-sm">
               <span className="text-on-surface-variant">People currently living in the home: </span>
               <span className="font-medium">{residents.trim() || "—"}</span>
             </p>
+            {resDocs.length > 0 && (
+              <p className="text-[13px] text-on-surface-variant">Documents for the people living in the home: {resDocs.join(", ")}</p>
+            )}
             <p className="text-sm">
               <span className="text-on-surface-variant">Income band: </span>
               <span className="font-medium">{bandFromForm().band.label}</span>
@@ -457,18 +524,6 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
           </section>
-          {docs.length > 0 && (
-            <section className="space-y-2 border-t border-line pt-4">
-              <SectionTitle n="IV" title="Supporting documents brought in" note="Handed to the school with the signed form (mock: file names only)." />
-              <ul className="space-y-1.5">
-                {docs.map((d) => (
-                  <li key={d} className="flex items-center gap-2 text-sm">
-                    <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error.message}</p>}
           <div className="flex justify-between gap-3">
             <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
@@ -496,42 +551,6 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                 </span>
               </label>
               {error?.where === "crosscheck" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
-            </div>
-            <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
-              <p className="font-semibold text-on-surface">Supporting documents the parent brought in</p>
-              <p className="text-on-surface-variant">
-                Optional — e.g. a retrenchment letter or payslips handed in with the signed form. They are kept on
-                the application (this demo records the file names; nothing is uploaded anywhere).
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-control border border-outline bg-surface-container-lowest px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-primary">
-                  <Paperclip size={16} aria-hidden="true" /> Add a document
-                  <input
-                    type="file"
-                    multiple
-                    className="sr-only"
-                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                    onChange={(e) => {
-                      const names = Array.from(e.target.files ?? []).map((f) => f.name);
-                      setDocs([...docs, ...names.filter((n) => !docs.includes(n))]);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                {docs.map((d, i) => (
-                  <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-container-lowest px-2.5 py-1">
-                    <FileText size={14} aria-hidden="true" /> {d}
-                    <button
-                      type="button"
-                      onClick={() => setDocs(docs.filter((_, j) => j !== i))}
-                      aria-label={`Remove ${d}`}
-                      className="rounded text-on-surface-variant hover:text-alert focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    >
-                      <X size={14} aria-hidden="true" />
-                    </button>
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
           <section className="space-y-3">
@@ -562,34 +581,51 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
           <section className="space-y-3 border-t border-line pt-4">
             <SectionTitle n="II" title="Household income" note="As declared on the paper form — the same two fields as the online application." />
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field required label="Extra monthly money (S$)" hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none." error={error?.where === "extra" ? error.message : undefined}>
-                <input
-                  ref={extraRef}
-                  className={inputClass}
-                  aria-label="Extra monthly money"
-                  placeholder="e.g. 0"
-                  inputMode="decimal"
-                  value={extraIncome}
-                  onChange={(e) => { setExtraIncome(e.target.value); if (error?.where === "extra") setError(null); }}
+              <div>
+                <Field required label="Extra monthly money (S$)" hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none." error={error?.where === "extra" ? error.message : undefined}>
+                  <input
+                    ref={extraRef}
+                    className={inputClass}
+                    aria-label="Extra monthly money"
+                    placeholder="e.g. 0"
+                    inputMode="decimal"
+                    value={extraIncome}
+                    onChange={(e) => { setExtraIncome(e.target.value); if (error?.where === "extra") setError(null); }}
+                  />
+                </Field>
+                <DocSlot
+                  name="extra money"
+                  hint="Optional — e.g. payslips, a rental statement or a family support letter for the money declared above."
+                  docs={extraDocs}
+                  onChange={setExtraDocs}
                 />
-              </Field>
-              <Field required label="People currently living in your home" hint="Everyone who lives with you now, including you." error={error?.where === "residents" ? error.message : undefined}>
-                <input
-                  ref={resRef}
-                  className={inputClass}
-                  aria-label="People currently living in the home"
-                  type="number"
-                  min={1}
-                  max={20}
-                  step={1}
-                  inputMode="numeric"
-                  value={residents}
-                  onChange={(e) => { setResidents(e.target.value); if (error?.where === "residents") setError(null); }}
+              </div>
+              <div>
+                <Field required label="People currently living in your home" hint="Everyone who lives with you now, including you." error={error?.where === "residents" ? error.message : undefined}>
+                  <input
+                    ref={resRef}
+                    className={inputClass}
+                    aria-label="People currently living in the home"
+                    type="number"
+                    min={1}
+                    max={20}
+                    step={1}
+                    inputMode="numeric"
+                    value={residents}
+                    onChange={(e) => { setResidents(e.target.value); if (error?.where === "residents") setError(null); }}
+                  />
+                </Field>
+                <DocSlot
+                  name="people living in the home"
+                  hint="Optional — e.g. a tenancy agreement or letters addressed to everyone living at the home."
+                  docs={resDocs}
+                  onChange={setResDocs}
                 />
-              </Field>
+              </div>
             </div>
             <p className="text-[13px] text-on-surface-variant">
               The income band itself is retrieved from HOMES (IRAS + CPF) — a band only, never an exact income, exactly like an online application.
+              Documents the parent brought in attach to the declaration they sit under (this demo records file names only — nothing is uploaded anywhere).
             </p>
           </section>
 

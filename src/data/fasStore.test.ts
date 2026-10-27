@@ -472,14 +472,16 @@ describe("issue-form drafts (Sprint 3: print first, key in the returned copy)", 
     expect(s.drafts.find((d) => d.id === "DRF-0002")!.status).toBe("draft");
   });
 
-  it("documents the parent brought in are kept on the family application", () => {
+  it("documents the parent brought in are kept on the family application, each list under its Section II declaration", () => {
     let s = initialFasState();
     s = fasReducer(s, { type: "issueDraft", draft: draft("DRF-0001") });
     s = fasReducer(s, {
       type: "submitHardcopy", studentIds: [ethan.id], band, school: "Riverbank Primary School",
       applicant: "Benson Chua", contact: "+65 8112 9743", note: "", by: "Alicia Tan", entryMode: "manual",
-      at, guardianNric: "S1234567D", draftId: "DRF-0001", docs: ["Retrenchment_letter_Oct2026.pdf", "Payslip_Sep2026.png"],
+      at, guardianNric: "S1234567D", draftId: "DRF-0001",
+      extraIncomeDocs: ["Payslip_Sep_2026.pdf"], residentsDocs: ["Tenancy_agreement_Oct2026.pdf"],
     });
-    expect(s.familyApps[0].docs).toEqual(["Retrenchment_letter_Oct2026.pdf", "Payslip_Sep2026.png"]);
+    expect(s.familyApps[0].extraIncomeDocs).toEqual(["Payslip_Sep_2026.pdf"]);
+    expect(s.familyApps[0].residentsDocs).toEqual(["Tenancy_agreement_Oct2026.pdf"]);
   });
 });

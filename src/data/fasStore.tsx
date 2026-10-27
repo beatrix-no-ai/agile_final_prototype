@@ -20,7 +20,7 @@ export type FasState = { apps: SbfasApplication[]; sbfasBudget: number; levels: 
 export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; docs?: string[]; recommend?: Record<string, SbfasSuggestion> }
+  | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; extraIncomeDocs?: string[]; residentsDocs?: string[]; recommend?: Record<string, SbfasSuggestion> }
   | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; docs?: string[]; at: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
@@ -139,7 +139,8 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       welfareHome: a.welfareHome, welfareLetter: a.welfareHome ? a.welfareLetter : undefined,
       homesOnly: a.homesOnly || undefined,
       imdaHardcopy: a.imdaHardcopy, declaredAt: a.declaredAt, note: a.note.trim() || undefined,
-      docs: a.docs?.length ? a.docs : undefined,
+      extraIncomeDocs: a.extraIncomeDocs?.length ? a.extraIncomeDocs : undefined,
+      residentsDocs: a.residentsDocs?.length ? a.residentsDocs : undefined,
       enteredBy: a.by, entryMode: a.entryMode, formFile: a.formFile, at: a.at, children,
     };
     return { ...state, apps, moefas, familyApps: [familyApp, ...state.familyApps], drafts: markReturned(state.drafts, a.guardianNric, faId, a.at, a.draftId) };
