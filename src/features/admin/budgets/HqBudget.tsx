@@ -64,9 +64,9 @@ export function HqBudget() {
             })}
           </ul>
         </Card>
+        <BudgetHistory changes={history} />
         <TierChartCard amountOf={(t) => MOEFAS_TIER_AMOUNT[t as SbfasTier] ?? 0} byTier={m.byTier} classes={LEVELS} note={(n) => `${n} students receiving MOEFAS this year.`} />
       </div>
-      <BudgetHistory changes={history} />
       <SetBudgetModal
         open={modal}
         onClose={() => setModal(false)}
