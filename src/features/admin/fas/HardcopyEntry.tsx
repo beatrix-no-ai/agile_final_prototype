@@ -643,11 +643,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
           {/* The cross-check closes the form: the staff reads the whole keyed-in entry first, then
               confirms against the signed paper — so it sits at the very end, above the button. */}
           <div className={`rounded-control border px-3 py-2 text-[13px] ${error?.where === "crosscheck" ? "border-alert" : "border-line"} bg-surface-container-low`}>
-            <p className="font-semibold text-on-surface">Check against the issued form — required before submitting</p>
-            <p className="text-on-surface-variant">
-              This entry is the returned copy — compare the parent&apos;s Section II declarations against the signed form before submitting.
-            </p>
-            <label className="mt-2 flex items-start gap-2.5">
+            <label className="flex items-start gap-2.5">
               <input ref={crossRef} type="checkbox" className="mt-0.5 size-4 accent-[#8A2538]" checked={checkedAgainst} onChange={(e) => { setCheckedAgainst(e.target.checked); if (error?.where === "crosscheck") setError(null); }} />
               <span>
                 I have compared this entry with the signed form and draft {draft.id} — the children match and Section II is as the parent declared.{" "}
