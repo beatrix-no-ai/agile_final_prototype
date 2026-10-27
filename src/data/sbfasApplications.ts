@@ -26,6 +26,10 @@ export type SbfasApplication = {
   student: string;
   studentId: string;
   level: string;
+  /** The school year this application covers — FAS runs per year, so the SAME child may hold one
+   *  application each year (a re-request within the year requeues that year's record; a new year
+   *  files a new application). Absent = the demo's seeded 2026 queue. */
+  year?: number;
   /** Per-capita household income BAND only; the third-party income API never returns exact income. */
   incomeBand: string;
   /** Gross household income band; a big household can sit in a higher band than its per-capita band. Absent on family-submitted applications. */
@@ -69,6 +73,9 @@ export type SbfasApplication = {
 export const sourceOf = (a: Pick<SbfasApplication, "source">): SbfasSource => a.source ?? "MOE referral";
 /** Attempt (round) with the legacy default: every seeded application is a first request. */
 export const attemptOf = (a: Pick<SbfasApplication, "attemptNo">): number => a.attemptNo ?? 1;
+/** The school year an application covers; the seeds all belong to the demo's 2026 queue, and every
+ *  application created after carries its own year (one application per child PER YEAR). */
+export const yearOf = (a: Pick<SbfasApplication, "year">): number => a.year ?? 2026;
 
 /** The rounds a record carries, synthesising round 1 for records created before rounds existed (the
  *  seeds) so every decided record can close its round. Pure — dates come from the record itself. */

@@ -6,7 +6,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Field, inputClass } from "../../../components/ui/Field";
-import { SBFAS_TIERS, attemptOf, sourceOf, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
+import { SBFAS_TIERS, attemptOf, sourceOf, yearOf, type SbfasApplication, type SbfasTier } from "../../../data/sbfasApplications";
 import { useFas } from "../../../data/fasStore";
 import { useFasActions } from "../../../data/fasActions";
 import { useFees } from "../../../data/feeStore";
@@ -108,7 +108,7 @@ function ReviewBody({ app, rule, onDecide, onAmend }: { app: Enriched; rule: Sbf
         </Dt>
         <Dt label="Nationality">{app.nationality}</Dt>
         <Dt label="Application source">
-          {sourceOf(app)}{attemptOf(app) > 1 ? ` · attempt ${attemptOf(app)}` : ""}
+          {sourceOf(app)} · {yearOf(app)} application{attemptOf(app) > 1 ? ` · round ${attemptOf(app)}` : ""}
           {app.enteredBy && <span className="block text-[13px] font-normal text-on-surface-variant">Entered by {app.enteredBy}</span>}
         </Dt>
         <Dt label="Income sync">{app.incomeSyncedOn ?? "Paper form — no MyInfo sync"}</Dt>

@@ -5,7 +5,7 @@ import { MOEFAS_BY_LEVEL, MOEFAS_BY_TIER, MOEFAS_TIER_AMOUNT, SBFAS, SBFAS_BY_TI
 import type { Band } from "./familyFas";
 import { nextFamilyId, type FamilyApplication, type FamilyChild, type FamilyDraft, type HouseholdMember, type TransportMode } from "./familyApplications";
 import { normNric } from "./familyRegistry";
-import { applyAmendment, applyDecision, applyRequeue, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
+import { applyAmendment, applyDecision, applyRequeue, attemptOf, nextSbfasId, SBFAS_APPLICATIONS, yearOf, type SbfasApplication, type SbfasTier } from "./sbfasApplications";
 import type { RiskLevel } from "./sbfasRule";
 import { STUDENTS } from "./students";
 
@@ -77,15 +77,18 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
   if (a.type === "submitFamily") {
     let apps = state.apps;
     const moefas = { ...state.moefas };
+    const yr = Number(a.at.slice(0, 4));
     for (const id of a.studentIds) {
       const student = STUDENTS.find((s) => s.id === id);
-      if (!student || moefas[id] || apps.some((x) => x.studentId === id)) continue; // one application and one grant per student
+      // One application and one grant per student PER YEAR (FAS runs per year): last year's record
+      // does not block this year's — the new year files its own application.
+      if (!student || moefas[id] || apps.some((x) => x.studentId === id && yearOf(x) === yr)) continue;
       if (a.band.tier === "MOEFAS Tier 1" || a.band.tier === "MOEFAS Tier 2") moefas[id] = { tier: a.band.tier.replace("MOEFAS ", "") as SbfasTier, at: a.at };
       // ASSUMPTION: the school has 10 working days to decide a new application.
       else if (a.band.tier === "SBFAS") {
         const rec = a.recommend?.[id];
         apps = [...apps, {
-          id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
+          id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, year: yr,
           incomeBand: a.band.label, incomeSyncedOn: a.at.slice(0, 10), source: "MOE referral", riskScore: 50,
           recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
           rounds: [{ at: a.at, note: "First request" }],
@@ -106,13 +109,15 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
     let apps = state.apps;
     const moefas = { ...state.moefas };
     const children: FamilyChild[] = [];
+    const yr = Number(a.at.slice(0, 4));
     for (const id of a.studentIds) {
       const student = STUDENTS.find((s) => s.id === id);
       if (!student) continue;
-      if (moefas[id] || apps.some((x) => x.studentId === id)) {
-        // Cross-channel duplicate guard (AC-031): one application per student, paper or online. The
-        // school user transcribes the form as the parent filled it, so the child STAYS on the family
-        // record — marked covered — instead of a second application being created.
+      if (moefas[id] || apps.some((x) => x.studentId === id && yearOf(x) === yr)) {
+        // Cross-channel duplicate guard (AC-031, per year): one application per student THIS year,
+        // paper or online — last year's record does not block this year's form. The school user
+        // transcribes the form as the parent filled it, so the child STAYS on the family record —
+        // marked covered — instead of a second application being created.
         children.push({ studentId: id, student: student.name, level: student.level, outcome: "Already covered" });
         continue;
       }
@@ -126,7 +131,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
       // schemes — is still a submitted application, so it is referred down instead of vanishing.
       const rec = a.recommend?.[id];
       apps = [...apps, {
-        id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level,
+        id: nextSbfasId(apps), student: student.name, studentId: id, level: student.level, year: yr,
         incomeBand: a.band.label, source: "MOE referral", familyAppId: faId, enteredBy: a.by, riskScore: 50,
         recommendedTier: rec?.tier ?? rec?.fallback ?? "Tier 3", slaDays: 10,
         rounds: [{ at: a.at, note: "First request" }],
@@ -149,9 +154,11 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
   }
   if (a.type === "requeueSbfas") {
     // The parent asked again after a rejection (Sprint 3): the SAME application returns to the
-    // school's queue with the reason logged as its next round — one record per child, never a
-    // second application, and no MOE re-assessment.
-    const mine = state.apps.filter((x) => x.studentId === a.studentId);
+    // school's queue with the reason logged as its next round — one record per child PER YEAR,
+    // never a second record, and no MOE re-assessment. A decision change never crosses years:
+    // only THIS year's rejection can be requeued (a new year files a new application).
+    const yr = Number(a.at.slice(0, 4));
+    const mine = state.apps.filter((x) => x.studentId === a.studentId && yearOf(x) === yr);
     if (state.moefas[a.studentId] || mine.some((x) => x.status === "Pending") || !a.reason.trim()) return state;
     const rejected = mine.filter((x) => x.status === "Rejected").sort((x, y) => attemptOf(y) - attemptOf(x))[0];
     if (!rejected) return state;
@@ -200,9 +207,10 @@ export function selectMoefas(s: FasState) {
   };
 }
 
-/** The student's most recent SBFAS application (highest attempt): the one every outcome reads from. */
+/** The student's most recent SBFAS application — newest year first, then the latest round in that
+ *  year: the one every live outcome (fees, child status) reads from. */
 export const latestAppFor = (apps: SbfasApplication[], studentId: string): SbfasApplication | undefined =>
-  apps.filter((x) => x.studentId === studentId).sort((x, y) => attemptOf(y) - attemptOf(x))[0];
+  apps.filter((x) => x.studentId === studentId).sort((x, y) => yearOf(y) - yearOf(x) || attemptOf(y) - attemptOf(x))[0];
 
 /** What the parent is told about one child: the scheme, whether it is granted yet, and why not if refused. null = no application. */
 export type ChildFas = { scheme: "MOEFAS" | "SBFAS"; status: "Granted" | "Awaiting school decision" | "Not granted"; tier?: string; reason?: string };

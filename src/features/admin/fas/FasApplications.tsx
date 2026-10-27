@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { SBFAS_APPLICATIONS, attemptOf, sourceOf, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
+import { SBFAS_APPLICATIONS, attemptOf, sourceOf, yearOf, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
 import { rankOf } from "../../../data/sbfasRule";
 import { useFas } from "../../../data/fasStore";
 import { useFees } from "../../../data/feeStore";
@@ -91,7 +91,9 @@ function SbfasReview() {
     { key: "source", header: "Source", render: (a) => (
       <>
         <Badge tone="neutral">{sourceOf(a)}</Badge>
-        {attemptOf(a) > 1 && <span className="mt-1 block text-[13px] text-on-surface-variant">Round {attemptOf(a)} — re-requested by the parent</span>}
+        <span className="mt-1 block text-[13px] text-on-surface-variant">
+          {yearOf(a)} application{attemptOf(a) > 1 ? ` · Round ${attemptOf(a)} — re-requested by the parent` : ""}
+        </span>
       </>
     ) },
     { key: "payable", header: "Fee to pay", sortable: true, align: "right", render: (a) => (
@@ -138,7 +140,7 @@ function SbfasReview() {
           </div>
         }
       >
-        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only. One row per child — a parent re-request requeues the same application with its reason logged.</p>
+        <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only. One row per child per year — a parent re-request requeues the same year's application with its reason logged.</p>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (

@@ -4,7 +4,8 @@ import type { FamilyDraft } from "./familyApplications";
 import type { Band } from "./familyFas";
 import { FAMILY_STUDENT_NAMES } from "./parent";
 import { STUDENTS } from "./students";
-import { fasReducer, initialFasState, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
+import { fasReducer, initialFasState, latestAppFor, selectBudgets, selectChildFas, selectMoefas, selectRecentGrants, selectSbfas } from "./fasStore";
+import { yearOf } from "./sbfasApplications";
 
 const first = (s = initialFasState()) => s.apps[0]; // SBFAS0001, recommended Tier 1
 const approveAt = (s: ReturnType<typeof initialFasState>, id: string, at: string) =>
@@ -350,6 +351,48 @@ describe("a parent re-request after a rejection (one application, round log)", (
     expect(a.rounds).toHaveLength(1);
     expect(a.rounds![0].decision).toMatchObject({ status: "Approved", tier: "Tier 3", at });
     expect(a.decidedAt).toBe(at);
+  });
+});
+
+describe("applications log per year (FAS runs per year)", () => {
+  const [ethan] = FAMILY_STUDENT_NAMES.map((n) => STUDENTS.find((s) => s.name === n)!);
+  const y26 = "2026-10-20T09:00:00.000Z";
+  const y27 = "2027-03-02T09:00:00.000Z";
+  const band: Band = { id: "b3", label: "$751 - $1,000 per person", tier: "SBFAS" };
+  const submitAt = (s: ReturnType<typeof initialFasState>, at: string) =>
+    fasReducer(s, { type: "submitFamily", studentIds: [ethan.id], band, at });
+  const idIn = (s: ReturnType<typeof initialFasState>, yr: number) =>
+    s.apps.find((a) => a.studentId === ethan.id && yearOf(a) === yr)!.id;
+
+  it("the same child files a NEW application next year — last year's record does not block it", () => {
+    let s = submitAt(initialFasState(), y26);
+    s = fasReducer(s, { type: "decide", id: idIn(s, 2026), action: "approve", draft: { justification: "", tier: "Tier 3" }, at: y26 });
+    s = submitAt(s, y27);
+    const mine = s.apps.filter((a) => a.studentId === ethan.id);
+    expect(mine).toHaveLength(2);
+    expect(mine.map((a) => yearOf(a)).sort()).toEqual([2026, 2027]);
+    // the live outcome reads the NEWEST year's application — this year is awaiting again
+    expect(selectChildFas(s, ethan.id)).toMatchObject({ scheme: "SBFAS", status: "Awaiting school decision" });
+    expect(latestAppFor(s.apps, ethan.id)!.year).toBe(2027);
+  });
+
+  it("within one year the duplicate guard still holds (AC-031, per year)", () => {
+    const s = submitAt(initialFasState(), y26);
+    const again = fasReducer(s, { type: "submitFamily", studentIds: [ethan.id], band, at: "2026-11-01T09:00:00.000Z" });
+    expect(again.apps.filter((a) => a.studentId === ethan.id)).toHaveLength(1);
+  });
+
+  it("a decision change never crosses years — only this year's rejection requeues", () => {
+    let s = submitAt(initialFasState(), y26);
+    s = fasReducer(s, { type: "decide", id: idIn(s, 2026), action: "reject", draft: { justification: "Income above range", tier: "Tier 1" }, at: y26 });
+    s = submitAt(s, y27);
+    // 2027 has no rejection yet (its application is pending): a re-request is refused
+    expect(fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason: "x", by: "Alicia Tan", at: y27 })).toBe(s);
+    // decide 2027, reject it, requeue: only the 2027 record requeues — 2026 stays rejected as history
+    s = fasReducer(s, { type: "decide", id: idIn(s, 2027), action: "reject", draft: { justification: "Still above range", tier: "Tier 1" }, at: y27 });
+    s = fasReducer(s, { type: "requeueSbfas", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at: y27 });
+    expect(s.apps.find((a) => a.id === idIn(s, 2026))).toMatchObject({ status: "Rejected" });
+    expect(s.apps.find((a) => a.id === idIn(s, 2027))).toMatchObject({ status: "Pending", attemptNo: 2 });
   });
 });
 
