@@ -48,4 +48,13 @@ describe("the printed pre-filled form", () => {
     expect(html).toContain("Signature of applicant");
     expect(html).toContain("Benson Chua</div><div>Date");
   });
+
+  it("gives the parent a place to fill in the current phone number and address", () => {
+    expect(html).toContain("Parent / guardian to fill — current contact details");
+    expect(html).toContain("The contact number and home address printed above are still correct.");
+    // Two fill-in lines in Section I: the pre-filled values stay for checking, the blanks carry what the parent writes.
+    expect((html.match(/Contact number:<\/b> ___/g) ?? []).length).toBe(1);
+    expect((html.match(/Home address:<\/b> ___/g) ?? []).length).toBe(1);
+    expect(html.indexOf("Home address:</b> ___")).toBeGreaterThan(html.indexOf("Home address:</b> Blk 315"));
+  });
 });

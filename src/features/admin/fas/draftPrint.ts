@@ -24,6 +24,9 @@ const STYLE = `
   .blank td { height: 26px; }
   .kv { margin: 6px 0; }
   .kv b { display: inline-block; min-width: 130px; font-weight: bold; }
+  .fillbox { border: 1px solid #c9bfbf; border-radius: 6px; background: #fcfbfb; padding: 8px 12px; margin: 12px 0; }
+  .fillbox .fillhead { font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: #8a2538; margin: 0 0 4px; }
+  .fillbox .note { font-size: 11px; color: #5e5658; margin: 4px 0 0; }
   .check { margin: 6px 0 2px; }
   .box { display: inline-block; width: 13px; height: 13px; border: 1.5px solid #1a1512; margin-right: 8px; vertical-align: -2px; }
   ul { margin: 6px 0; padding-left: 18px; }
@@ -45,7 +48,7 @@ export function draftHtml(d: FamilyDraft, schoolName: string): string {
 
 <div class="notice"><b>For the parent / guardian:</b> this form was pre-filled by ${esc(schoolName)} from the MOE registry on ${issued}.
 Check every pre-filled field. If anything is wrong, tell the school office — <b>do not amend the pre-filled fields yourself</b>.
-Then fill in Section II (household income), read the declaration and sign.</div>
+Then fill in your contact details in Section I, Section II (household income), read the declaration and sign.</div>
 
 <h2>Section I — Particulars of the child</h2>
 <table><tr><th>BC/NRIC No.</th><th>Name (Underline Surname)</th><th>Name of Current School</th><th>Current Level</th></tr>${rows}</table>
@@ -53,6 +56,14 @@ Then fill in Section II (household income), read the declaration and sign.</div>
 <p class="kv"><b>Contact number:</b> ${esc(d.contact)}</p>
 <p class="kv"><b>Home address:</b> ${esc(d.address)}</p>
 ${d.email ? `<p class="kv"><b>Email:</b> ${esc(d.email)}</p>` : ""}
+<div class="fillbox">
+  <p class="fillhead">Parent / guardian to fill — current contact details</p>
+  <p class="check"><span class="box"></span>The contact number and home address printed above are still correct.</p>
+  <p class="kv"><b>Contact number:</b> _________________________________________</p>
+  <p class="kv"><b>Home address:</b> _____________________________________________________________</p>
+  <p class="note">If the printed details are still correct, just tick the box. If anything changed, write your current
+  number and address on the lines above — the school keys the returned form in from what you write here.</p>
+</div>
 
 <h2>Section II — Household income</h2>
 <p class="kv"><b>Extra monthly money (S$):</b> ____________</p>
