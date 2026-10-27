@@ -57,6 +57,9 @@ export type FamilyApplication = {
   transportMode?: TransportMode;
   /** "Anything else on the form" (flow 1) or what changed since the rejected request (flow 2). */
   note?: string;
+  /** Documents the parent brought in with the returned form — e.g. a retrenchment letter or payslips
+   *  handed to the school as evidence (mock demo: file names only, nothing is uploaded anywhere). */
+  docs?: string[];
   /** Section III: the paper declaration was signed by the applicant on this date (ISO). */
   declaredAt?: string;
   /** Staff member who keyed the form in. */

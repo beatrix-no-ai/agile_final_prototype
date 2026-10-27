@@ -80,6 +80,8 @@ export function useFasActions() {
       /** The DRF no. printed on the returned paper — closes exactly that draft (several can be open
        *  for one family after a re-issue). */
       draftId?: string;
+      /** Documents the parent brought in with the returned form, as evidence (mock: file names). */
+      docs?: string[];
     }) {
       run({
         type: "submitHardcopy", ...input, at: new Date().toISOString(), recommend: suggest(input.studentIds, input.band),

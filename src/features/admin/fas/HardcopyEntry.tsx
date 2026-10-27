@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type RefObject } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { ArrowLeft, CaretRight, FilePlus, MagnifyingGlass, Plus, Printer, X } from "@phosphor-icons/react";
+import { ArrowLeft, CaretRight, FilePlus, FileText, MagnifyingGlass, Paperclip, Plus, Printer, X } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -234,6 +234,19 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
         )}
         {fa.note && <p className="text-[13px] text-on-surface-variant">{flow2 ? "What changed: " : "Note on the form: "}{fa.note}</p>}
       </section>
+      {fa.docs?.length ? (
+        <section className="space-y-2 border-t border-line pt-4">
+          <h3 className="text-sm font-bold text-on-surface">Supporting documents brought in</h3>
+          <ul className="space-y-1.5">
+            {fa.docs.map((d) => (
+              <li key={d} className="flex items-center gap-2 text-sm">
+                <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[13px] text-on-surface-variant">Handed to the school with the returned form (mock: file names only).</p>
+        </section>
+      ) : null}
       <section className="space-y-2 border-t border-line pt-4">
         <SectionTitle n="IV" title="Where this form goes" />
         <p className="text-sm font-medium">
@@ -313,6 +326,9 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   // The returned-copy cross-check (mandatory): the staff confirms they compared this entry against
   // the signed paper before submitting.
   const [checkedAgainst, setCheckedAgainst] = useState(false);
+  // Documents the parent brought in with the returned form (retrenchment letter, payslips) — the
+  // school user records them here (mock: file names only, nothing is uploaded anywhere).
+  const [docs, setDocs] = useState<string[]>([]);
   const [reviewing, setReviewing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // Each error names the part of the form it belongs to, so the warning renders AT that section
@@ -374,6 +390,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
       residents: Number(residents) || 0,
       declaredAt: declared ? new Date().toISOString().slice(0, 10) : undefined,
       guardianNric: draft.guardianNric, draftId: draft.id,
+      docs,
     });
     onSubmitted();
   };
@@ -440,6 +457,18 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
           </section>
+          {docs.length > 0 && (
+            <section className="space-y-2 border-t border-line pt-4">
+              <SectionTitle n="IV" title="Supporting documents brought in" note="Handed to the school with the signed form (mock: file names only)." />
+              <ul className="space-y-1.5">
+                {docs.map((d) => (
+                  <li key={d} className="flex items-center gap-2 text-sm">
+                    <FileText size={16} aria-hidden="true" className="text-on-surface-variant" /> {d}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error.message}</p>}
           <div className="flex justify-between gap-3">
             <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
@@ -467,6 +496,42 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                 </span>
               </label>
               {error?.where === "crosscheck" && <p role="alert" className="mt-2 font-medium text-alert">{error.message}</p>}
+            </div>
+            <div className="rounded-control border border-line bg-surface-container-low px-3 py-2 text-[13px]">
+              <p className="font-semibold text-on-surface">Supporting documents the parent brought in</p>
+              <p className="text-on-surface-variant">
+                Optional — e.g. a retrenchment letter or payslips handed in with the signed form. They are kept on
+                the application (this demo records the file names; nothing is uploaded anywhere).
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-control border border-outline bg-surface-container-lowest px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-primary">
+                  <Paperclip size={16} aria-hidden="true" /> Add a document
+                  <input
+                    type="file"
+                    multiple
+                    className="sr-only"
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                    onChange={(e) => {
+                      const names = Array.from(e.target.files ?? []).map((f) => f.name);
+                      setDocs([...docs, ...names.filter((n) => !docs.includes(n))]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {docs.map((d, i) => (
+                  <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-container-lowest px-2.5 py-1">
+                    <FileText size={14} aria-hidden="true" /> {d}
+                    <button
+                      type="button"
+                      onClick={() => setDocs(docs.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${d}`}
+                      className="rounded text-on-surface-variant hover:text-alert focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
           <section className="space-y-3">
