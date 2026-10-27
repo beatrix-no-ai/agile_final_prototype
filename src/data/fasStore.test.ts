@@ -303,13 +303,6 @@ describe("a parent re-request after a rejection (one application, round log)", (
     expect(mine[0].rounds![1]).toMatchObject({ note: "Parent stopped working", by: "Alicia Tan" });
   });
 
-  it("a re-request can carry supporting documents, logged on its own round only", () => {
-    const s = fasReducer(rejected(), { type: "requeueSbfas", studentId: ethan.id, reason: "Parent stopped working", by: "Alicia Tan", at, docs: ["Retrenchment_letter.pdf", "Payslip_Sep2026.png"] });
-    const a = s.apps.find((x) => x.studentId === ethan.id)!;
-    expect(a.rounds![1].docs).toEqual(["Retrenchment_letter.pdf", "Payslip_Sep2026.png"]);
-    expect(a.rounds![0].docs).toBeUndefined();
-  });
-
   it("is refused while the application is pending, without a reason, and after a grant", () => {
     const pending = fasReducer(initialFasState(), { type: "submitFamily", studentIds: [ethan.id], band, at });
     expect(requeue(pending)).toEqual(pending);

@@ -92,9 +92,8 @@ export function useFasActions() {
       }, input.studentIds);
     },
     // The parent asked again after a rejection: the SAME application returns to the queue with the
-    // reason logged as its next round (plus any supporting documents) — the child goes back to
-    // "awaiting", so fees re-check too.
-    requeueSbfas(input: { studentId: string; reason: string; by?: string; docs?: string[] }) {
+    // reason logged as its next round — the child goes back to "awaiting", so fees re-check too.
+    requeueSbfas(input: { studentId: string; reason: string; by?: string }) {
       run({ type: "requeueSbfas", ...input, at: new Date().toISOString() }, [input.studentId]);
     },
     // Issuing a form touches no student's FAS, so it goes straight to the store — no fee sync.

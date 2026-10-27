@@ -5,14 +5,12 @@ export type SbfasTier = `Tier ${number}`;
 export type SbfasStatus = "Pending" | "Approved" | "Overridden" | "Rejected";
 
 /** One round of this application in the school's queue: why it (re-)entered, and the decision that
- *  ended it. `note` carries the parent's what-changed reason on a re-request round, `docs` the
- *  supporting documents filed with it (mock demo: file names only). */
+ *  ended it. `note` carries the parent's what-changed reason on a re-request round. */
 export type SbfasRound = {
   /** ISO date the round entered the queue. */
   at: string;
   by?: string;
   note?: string;
-  docs?: string[];
   decision?: { status: SbfasStatus; tier?: SbfasTier; justification?: string; at: string };
 };
 /**
@@ -114,7 +112,7 @@ export function applyDecision(apps: SbfasApplication[], id: string, action: Acti
  *  school's queue — status Pending again, the round counter up, and the what-changed reason logged
  *  as the next round. Only a rejection can be requeued, and no second record is ever created (one
  *  application per child). The previous round is already closed by the rejection decision. */
-export function applyRequeue(apps: SbfasApplication[], id: string, reason: string, by: string, at: string, docs: string[] = []): SbfasApplication[] {
+export function applyRequeue(apps: SbfasApplication[], id: string, reason: string, by: string, at: string): SbfasApplication[] {
   return apps.map((a) => {
     if (a.id !== id || a.status !== "Rejected") return a;
     return {
@@ -125,7 +123,7 @@ export function applyRequeue(apps: SbfasApplication[], id: string, reason: strin
       decidedAt: undefined,
       attemptNo: attemptOf(a) + 1,
       explanation: `The parent asked again after the rejection — what changed: ${reason}. The bands are unchanged; every earlier round stays on this application's log.`,
-      rounds: [...roundsOf(a), { at, by, note: reason, ...(docs.length ? { docs } : {}) }],
+      rounds: [...roundsOf(a), { at, by, note: reason }],
     };
   });
 }

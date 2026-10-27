@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, FileText, Paperclip, Sparkle, X } from "@phosphor-icons/react";
+import { ArrowLeft, Sparkle } from "@phosphor-icons/react";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -51,7 +51,7 @@ function Dt({ label, children }: { label: string; children: React.ReactNode }) {
 
 /** The review body, shared by nothing else anymore but kept as its own component so the page can key
  *  it per application (resets the decision draft when the reviewer opens another one). */
-function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: SbfasRule | null; onDecide: (id: string, action: Action, draft: Draft) => void; onRequeue: (studentId: string, reason: string, docs: string[]) => void }) {
+function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: SbfasRule | null; onDecide: (id: string, action: Action, draft: Draft) => void; onRequeue: (studentId: string, reason: string) => void }) {
   // The school decides how many tiers exist — list them from its rule, not a fixed national set.
   const tierList: { tier: SbfasTier; basis?: SubsidyBasis; rate?: number; components?: ComponentRates }[] = rule
     ? rule.tiers
@@ -64,8 +64,6 @@ function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: S
   // what-changed reason logged on it.
   const [reasking, setReasking] = useState(false);
   const [reaskReason, setReaskReason] = useState("");
-  // Supporting documents the parent brought in (mock: file names only — no upload happens anywhere).
-  const [reaskDocs, setReaskDocs] = useState<string[]>([]);
   const reaskRef = useRef<HTMLTextAreaElement>(null);
   // BR15: a school reviewer only sees their own students in the family sections; MOE sees all.
   const { role, staff } = useSession();
@@ -97,9 +95,8 @@ function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: S
     }
     setError(null);
     setReasking(false);
-    onRequeue(app.studentId, reaskReason.trim(), reaskDocs);
+    onRequeue(app.studentId, reaskReason.trim());
     setReaskReason("");
-    setReaskDocs([]);
   };
 
   return (
@@ -141,7 +138,6 @@ function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: S
                 {r.at ? new Date(r.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                 {r.note && r.note !== "First request" ? ` — ${r.note}` : ""}
                 {r.by ? ` (filed by ${r.by})` : ""}
-                {r.docs?.length ? <span className="text-on-surface-variant">{` · ${r.docs.length} document${r.docs.length > 1 ? "s" : ""}: ${r.docs.join(", ")}`}</span> : ""}
                 {r.decision && (
                   <span className="text-on-surface-variant">
                     {" "}→ {statusLabel(r.decision.status)}
@@ -225,44 +221,8 @@ function ReviewBody({ app, rule, onDecide, onRequeue }: { app: Enriched; rule: S
                   }}
                 />
               </Field>
-              <div>
-                <p className="mb-1.5 text-[13px] font-semibold text-on-surface">Supporting documents</p>
-                <p className="mb-2 text-[13px] text-on-surface-variant">
-                  Optional — e.g. the retrenchment letter the parent brought in. They are logged on the round
-                  (this demo records the file names; nothing is uploaded anywhere).
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-control border border-outline bg-surface-container-lowest px-3 py-2 text-sm font-semibold text-on-surface hover:bg-surface-container-low focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-primary">
-                    <Paperclip size={16} aria-hidden="true" /> Add a document
-                    <input
-                      type="file"
-                      multiple
-                      className="sr-only"
-                      accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
-                      onChange={(e) => {
-                        const names = Array.from(e.target.files ?? []).map((f) => f.name);
-                        setReaskDocs([...reaskDocs, ...names.filter((n) => !reaskDocs.includes(n))]);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  {reaskDocs.map((d, i) => (
-                    <span key={d} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-container-low px-2.5 py-1 text-[13px]">
-                      <FileText size={14} aria-hidden="true" /> {d}
-                      <button
-                        type="button"
-                        onClick={() => setReaskDocs(reaskDocs.filter((_, j) => j !== i))}
-                        aria-label={`Remove ${d}`}
-                        className="rounded text-on-surface-variant hover:text-alert focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      >
-                        <X size={14} aria-hidden="true" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
               <div className="flex flex-wrap justify-end gap-3">
-                <Button variant="secondary" onClick={() => { setReasking(false); setReaskReason(""); setReaskDocs([]); setError(null); }}>Cancel</Button>
+                <Button variant="secondary" onClick={() => { setReasking(false); setReaskReason(""); setError(null); }}>Cancel</Button>
                 <Button onClick={fileReask}>File the re-request</Button>
               </div>
             </div>
@@ -347,12 +307,12 @@ export default function ReviewPage() {
     if (a) setAnnounce(`Application ${id} for ${a.student} ${{ approve: "approved", override: "overridden", reject: "rejected" }[action]}.`);
   };
 
-  // The parent's re-request: the same application returns to the queue as its next round, reason and
-  // any supporting documents logged — the page flips back to the live decision form for the new round.
-  const onRequeue = (studentId: string, reason: string, docs: string[]) => {
-    requeueSbfas({ studentId, reason, by: staff?.name ?? "School user", docs });
+  // The parent's re-request: the same application returns to the queue as its next round, the
+  // what-changed reason logged — the page flips back to the live decision form for the new round.
+  const onRequeue = (studentId: string, reason: string) => {
+    requeueSbfas({ studentId, reason, by: staff?.name ?? "School user" });
     const a = enriched;
-    if (a) setAnnounce(`Re-request filed for ${a.student} — application ${a.id} returned to the queue as its next round${docs.length ? ` with ${docs.length} supporting document${docs.length > 1 ? "s" : ""}` : ""}.`);
+    if (a) setAnnounce(`Re-request filed for ${a.student} — application ${a.id} returned to the queue as its next round.`);
   };
 
   const backLink = (
