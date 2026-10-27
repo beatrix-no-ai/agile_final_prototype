@@ -1,4 +1,5 @@
-import type { FamilyDraft } from "../../../data/familyApplications";
+import { childOutcomeNow, type FamilyApplication, type FamilyDraft } from "../../../data/familyApplications";
+import type { SbfasApplication } from "../../../data/sbfasApplications";
 
 // The printable pre-filled MOE FAS form (Sprint 3 refinement — Sherly's print-first flow): everything
 // the registry knows is printed for the parent to CHECK; the household table and the declaration are
@@ -92,6 +93,60 @@ export function openDraftPrint(d: FamilyDraft, schoolName: string): boolean {
   const w = window.open("", "_blank", "width=880,height=1000");
   if (!w) return false;
   w.document.write(draftHtml(d, schoolName));
+  w.document.close();
+  w.focus();
+  w.print();
+  return true;
+}
+
+/** The keyed-in application as a VERIFICATION COPY for the parent: the school prints it after
+ *  key-in, the parent checks every field against what they wrote on the returned form — and if
+ *  something is still wrong the school corrects THIS record in place, never a new application. */
+export function verificationHtml(fa: FamilyApplication, linked: SbfasApplication[], schoolName: string): string {
+  const flow2 = fa.children.length > 0 && fa.children.every((c) => c.outcome === "New SBFAS request");
+  const rows = fa.children
+    .map((c) => `<tr><td>${esc(c.student)}</td><td>${esc(c.level)}</td><td>${esc(childOutcomeNow(fa, c, linked).label)}</td></tr>`)
+    .join("");
+  const entered = new Date(fa.at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const docs = [...(fa.extraIncomeDocs ?? []), ...(fa.residentsDocs ?? [])];
+  const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return `<!doctype html><html><head><meta charset="utf-8"><title>MOE FAS verification copy · ${esc(fa.id)}</title><style>${STYLE}</style></head><body>
+<header><span class="crest">MOE</span><div><h1>Ministry of Education — Financial Assistance Scheme (FAS)</h1>
+<div class="sub">Verification copy — what the school keyed in from your returned form · ${esc(fa.id)} · ${esc(schoolName)} · ${entered}</div></div></header>
+
+<div class="notice"><b>For the parent / guardian:</b> this is the record the school keyed in from the form you returned. Check every field against what you wrote. If anything is still wrong, tell the school office — they will correct <b>this same application</b>; you never need to fill in a new form.</div>
+
+<h2>Section I — Particulars of the child</h2>
+<table><tr><th>Name</th><th>Current Level</th><th>Status now</th></tr>${rows}</table>
+<p class="kv"><b>Parent / guardian:</b> ${esc(fa.applicant)}</p>
+<p class="kv"><b>Contact number:</b> ${esc(fa.contact)}</p>
+${fa.address ? `<p class="kv"><b>Home address:</b> ${esc(fa.address)}</p>` : ""}
+${fa.email ? `<p class="kv"><b>Email:</b> ${esc(fa.email)}</p>` : ""}
+${fa.corrected ? `<p class="kv"><b>Last corrected:</b> ${longDate(fa.corrected.at)} by ${esc(fa.corrected.by)} — this copy already includes that correction.` : ""}
+
+<h2>Section II — Household income</h2>
+<p class="kv"><b>Extra monthly money (S$):</b> ${fa.extraIncome !== undefined ? fa.extraIncome.toLocaleString("en-SG") : "—"}</p>
+<p class="kv"><b>People currently living in your home:</b> ${fa.residents ?? "—"}</p>
+<p class="kv"><b>Income band:</b> ${esc(fa.bandLabel)}</p>
+${docs.length ? `<p class="kv"><b>Documents you handed in:</b> ${docs.map(esc).join(", ")}</p>` : ""}
+
+<h2>Section III — Declaration and agreement by the applicant</h2>
+<p class="kv"><b>Signed and dated by</b> ${esc(fa.applicant)}${fa.declaredAt ? ` on ${longDate(fa.declaredAt)}` : ""}.</p>
+${fa.note ? `<p class="kv"><b>Anything else on the form:</b> ${esc(fa.note)}</p>` : ""}
+
+<h2>Section IV — Where this form went</h2>
+<p class="kv">${flow2 ? "To the school's SBFAS review queue — a separate request after an earlier rejection." : "To MOE for assessment at submission — children outside the MOEFAS bands were referred to their own school's SBFAS review queue."}</p>
+
+<footer>School use only — application ${esc(fa.id)}, keyed in by ${esc(fa.enteredBy)}. Printed for the parent to check;
+any correction after this check is made on this same application.</footer>
+</body></html>`;
+}
+
+/** Opens the verification copy in a print window. Returns false when the browser blocked the popup. */
+export function openVerificationPrint(fa: FamilyApplication, linked: SbfasApplication[], schoolName: string): boolean {
+  const w = window.open("", "_blank", "width=880,height=1000");
+  if (!w) return false;
+  w.document.write(verificationHtml(fa, linked, schoolName));
   w.document.close();
   w.focus();
   w.print();

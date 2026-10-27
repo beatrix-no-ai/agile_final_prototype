@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { nextDraftId, type FamilyDraft } from "../../../data/familyApplications";
-import { draftHtml } from "./draftPrint";
+import { nextDraftId, type FamilyApplication, type FamilyDraft } from "../../../data/familyApplications";
+import { draftHtml, verificationHtml } from "./draftPrint";
 
 const draft: FamilyDraft = {
   id: "DRF-0001",
@@ -58,5 +58,49 @@ describe("the printed pre-filled form", () => {
     expect((html.match(/Contact number:<\/b> ___/g) ?? []).length).toBe(1);
     expect((html.match(/Home address:<\/b> ___/g) ?? []).length).toBe(1);
     expect(html.indexOf("Home address:</b> ___")).toBeGreaterThan(html.indexOf("Home address:</b> Blk 315"));
+  });
+});
+
+describe("the printed verification copy", () => {
+  const familyApp: FamilyApplication = {
+    id: "FAS20260005", channel: "Hardcopy", school: "Greenfield Secondary School",
+    applicant: "Benson Chua", contact: "+65 9000 1234",
+    address: "Blk 808 Jurong West Ave 1, #10-101, Singapore 640808",
+    contactCorrected: true, bandLabel: "$1,001 - $1,500 per person",
+    extraIncome: 350, residents: 5, extraIncomeDocs: ["Payslip_Oct_2026.pdf"],
+    declaredAt: "2026-10-27", note: "Writes slowly; office helped by phone.",
+    enteredBy: "Marcus Ong", entryMode: "manual", at: "2026-10-27T09:00:00.000Z",
+    children: [{ studentId: "S20260010", student: "Chloe Lim Wen Xin", level: "Sec 2", outcome: "MOEFAS not granted" }],
+  };
+  const html = verificationHtml(familyApp, [], "Greenfield Secondary School");
+
+  it("shows the keyed-in record for the parent to check, field by field", () => {
+    expect(html).toContain("Verification copy");
+    expect(html).toContain("FAS20260005");
+    expect(html).toContain("Chloe Lim Wen Xin");
+    expect(html).toContain("SBFAS pending"); // the live per-child status, like the screen's badge
+    expect(html).toContain("+65 9000 1234");
+    expect(html).toContain("Blk 808 Jurong West Ave 1, #10-101, Singapore 640808");
+    expect(html).toContain("<b>Extra monthly money (S$):</b> 350");
+    expect(html).toContain("<b>People currently living in your home:</b> 5");
+    expect(html).toContain("$1,001 - $1,500 per person");
+    expect(html).toContain("Payslip_Oct_2026.pdf");
+    expect(html).toContain("Signed and dated by</b> Benson Chua on 27 October 2026");
+  });
+
+  it("tells the parent a correction edits THIS application, never a new form", () => {
+    expect(html).toContain("Check every field against what you wrote");
+    expect(html).toContain("they will correct <b>this same application</b>");
+    expect(html).toContain("you never need to fill in a new form");
+  });
+
+  it("marks corrections already made after an earlier check", () => {
+    const reprinted = verificationHtml(
+      { ...familyApp, corrected: { at: "2026-10-27T14:00:00.000Z", by: "Marcus Ong" } },
+      [],
+      "Greenfield Secondary School",
+    );
+    expect(reprinted).toContain("<b>Last corrected:</b> 27 October 2026 by Marcus Ong");
+    expect(reprinted).toContain("this copy already includes that correction");
   });
 });

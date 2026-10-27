@@ -65,6 +65,9 @@ export type FamilyApplication = {
    *  is uploaded anywhere). */
   extraIncomeDocs?: string[];
   residentsDocs?: string[];
+  /** Set when the school corrected this record in place after the parent checked the printed
+   *  verification copy — the SAME application is fixed, never re-filed as a new one. */
+  corrected?: { at: string; by: string };
   /** Section III: the paper declaration was signed by the applicant on this date (ISO). */
   declaredAt?: string;
   /** Staff member who keyed the form in. */

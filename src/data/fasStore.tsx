@@ -22,6 +22,7 @@ export type FasAction =
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; extraIncomeDocs?: string[]; residentsDocs?: string[]; detailsCorrected?: boolean; recommend?: Record<string, SbfasSuggestion> }
   | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; at: string }
+  | { type: "correctFamilyApp"; id: string; contact: string; address: string; extraIncome: number; residents: number; note: string; by: string; at: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
@@ -157,6 +158,28 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
     const rejected = mine.filter((x) => x.status === "Rejected").sort((x, y) => attemptOf(y) - attemptOf(x))[0];
     if (!rejected) return state;
     return { ...state, apps: applyRequeue(state.apps, rejected.id, a.reason.trim(), a.by ?? "School user", a.at) };
+  }
+  if (a.type === "correctFamilyApp") {
+    // The parent checked the printed verification copy and something was still wrong: the school
+    // fixes THIS record in place — the same FAS id, never a second application (one per family per
+    // year). Only the keyed-in data changes; the HOMES band and every decision stay as they were,
+    // and the correction is stamped on the record so the audit trail keeps it.
+    return {
+      ...state,
+      familyApps: state.familyApps.map((f) =>
+        f.id !== a.id
+          ? f
+          : {
+              ...f,
+              contact: a.contact.trim(),
+              address: a.address.trim() || undefined,
+              extraIncome: a.extraIncome,
+              residents: a.residents,
+              note: a.note.trim() || undefined,
+              corrected: { at: a.at, by: a.by },
+            },
+      ),
+    };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
   const entry: BudgetChange = { id: `BC-${state.history.length + 1}`, scope: a.scope, target: a.target, from, to: a.amount, by: a.by, at: a.at };
