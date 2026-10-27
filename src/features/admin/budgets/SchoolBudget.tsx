@@ -46,7 +46,7 @@ export function SchoolBudget() {
         </div>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
-        <TierChartCard amountOf={(t) => SBFAS_TIER_AMOUNT[t as SbfasTier] ?? 0} byTier={s.byTier} classes={myClasses} note={(n, lvl) => `${n} ${lvl}students receiving SBFAS this year. Updates when you approve an application.`} />
+        <TierChartCard amountOf={(t) => SBFAS_TIER_AMOUNT[t as SbfasTier] ?? 0} byTier={s.byTier} classes={myClasses} note={(n) => `${n} students receiving SBFAS this year. Updates when you approve an application.`} />
         <RecentGrants grants={selectRecentGrants(state)} />
       </div>
       <BudgetHistory changes={history} />
