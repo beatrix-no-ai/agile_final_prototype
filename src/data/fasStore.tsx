@@ -21,7 +21,7 @@ export type FasAction =
   | { type: "decide"; id: string; action: Action; draft: Draft; at: string }
   | { type: "submitFamily"; studentIds: string[]; band: Band; at: string; recommend?: Record<string, SbfasSuggestion> }
   | { type: "submitHardcopy"; studentIds: string[]; band: Band; school: string; applicant: string; contact: string; note: string; by: string; entryMode: "manual" | "ocr"; at: string; address?: string; email?: string; extraIncome?: number; residents?: number; transportMode?: TransportMode; hasAdminIncome?: boolean; household?: HouseholdMember[]; welfareHome?: boolean; welfareLetter?: FamilyApplication["welfareLetter"]; homesOnly?: boolean; imdaHardcopy?: "yes" | "no"; declaredAt?: string; formFile?: string; guardianNric?: string; draftId?: string; recommend?: Record<string, SbfasSuggestion> }
-  | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; at: string }
+  | { type: "requeueSbfas"; studentId: string; reason: string; by?: string; docs?: string[]; at: string }
   | { type: "issueDraft"; draft: FamilyDraft }
   | { type: "voidDraft"; id: string }
   | { type: "setBudget"; scope: BudgetScope; target: string; amount: number; by: string; at: string };
@@ -153,7 +153,7 @@ export function fasReducer(state: FasState, a: FasAction): FasState {
     if (state.moefas[a.studentId] || mine.some((x) => x.status === "Pending") || !a.reason.trim()) return state;
     const rejected = mine.filter((x) => x.status === "Rejected").sort((x, y) => attemptOf(y) - attemptOf(x))[0];
     if (!rejected) return state;
-    return { ...state, apps: applyRequeue(state.apps, rejected.id, a.reason.trim(), a.by ?? "School user", a.at) };
+    return { ...state, apps: applyRequeue(state.apps, rejected.id, a.reason.trim(), a.by ?? "School user", a.at, a.docs ?? []) };
   }
   const from = a.scope === "SBFAS" ? state.sbfasBudget : (state.levels.find((l) => l.id === a.target)?.budget ?? 0);
   const entry: BudgetChange = { id: `BC-${state.history.length + 1}`, scope: a.scope, target: a.target, from, to: a.amount, by: a.by, at: a.at };
