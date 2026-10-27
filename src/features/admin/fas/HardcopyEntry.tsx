@@ -316,9 +316,9 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
   );
 }
 
-/** One Section II declaration's own upload slot: documents the parent handed in that back THAT
- *  answer sit right under it — each declaration carries its own evidence (mock: file names only,
- *  nothing is uploaded anywhere). */
+/** One Section II declaration's own upload slot: the parent's evidence for THAT answer, named per
+ *  slot, in the optional "Supporting documents" block at the end of the key-in form (mock: file
+ *  names only, nothing is uploaded anywhere). */
 function DocSlot({ name, docs, onChange }: { name: string; docs: string[]; onChange: (next: string[]) => void }) {
   return (
     <div className="mt-2 space-y-1.5">
@@ -395,9 +395,9 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
   // The returned-copy cross-check (mandatory): the staff confirms they compared this entry against
   // the signed paper before submitting.
   const [checkedAgainst, setCheckedAgainst] = useState(false);
-  // Section II's own evidence, one upload slot per declaration: what the parent handed in with the
-  // returned form backs the answer it sits under — money not in HOMES vs who lives at home (mock:
-  // file names only, nothing is uploaded anywhere).
+  // Optional evidence handed in with the returned form, one named slot per Section II declaration —
+  // recorded in the "Supporting documents (optional)" block at the end of the form (mock: file
+  // names only, nothing is uploaded anywhere).
   const [extraDocs, setExtraDocs] = useState<string[]>([]);
   const [resDocs, setResDocs] = useState<string[]>([]);
   const [reviewing, setReviewing] = useState(false);
@@ -535,16 +535,10 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               <span className="text-on-surface-variant">Extra monthly money (not in HOMES): </span>
               <span className="font-medium">S${extraIncome.trim() || "—"}</span>
             </p>
-            {extraDocs.length > 0 && (
-              <p className="text-[13px] text-on-surface-variant">Documents for the extra money: {extraDocs.join(", ")}</p>
-            )}
             <p className="text-sm">
               <span className="text-on-surface-variant">People currently living in the home: </span>
               <span className="font-medium">{residents.trim() || "—"}</span>
             </p>
-            {resDocs.length > 0 && (
-              <p className="text-[13px] text-on-surface-variant">Documents for the people living in the home: {resDocs.join(", ")}</p>
-            )}
             <p className="text-sm">
               <span className="text-on-surface-variant">Income band: </span>
               <span className="font-medium">{bandFromForm().band.label}</span>
@@ -556,6 +550,17 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
             <p className="text-sm font-medium">{declared ? `Signed and dated by ${applicant.trim() || "the applicant"}` : "Not confirmed"}</p>
             {note.trim() && <p className="text-[13px] text-on-surface-variant">Note on the form: {note.trim()}</p>}
           </section>
+          {(extraDocs.length > 0 || resDocs.length > 0) && (
+            <div className="space-y-2 border-t border-line pt-4">
+              <p className="text-sm font-bold text-on-surface">Supporting documents (optional)</p>
+              {extraDocs.length > 0 && (
+                <p className="text-[13px] text-on-surface-variant">For the extra money declared: {extraDocs.join(", ")}</p>
+              )}
+              {resDocs.length > 0 && (
+                <p className="text-[13px] text-on-surface-variant">For the people living in the home: {resDocs.join(", ")}</p>
+              )}
+            </div>
+          )}
           {error && <p className="text-[13px] font-medium text-alert" role="alert">{error.message}</p>}
           <div className="flex justify-between gap-3">
             <Button variant="secondary" onClick={() => setReviewing(false)}>Back to edit</Button>
@@ -648,45 +653,31 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
           <section className="space-y-3 border-t border-line pt-4">
             <SectionTitle n="II" title="Household income" />
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <Field required label="Extra monthly money (S$)" error={error?.where === "extra" ? error.message : undefined}>
-                  <input
-                    ref={extraRef}
-                    className={inputClass}
-                    aria-label="Extra monthly money"
-                    placeholder="e.g. 0"
-                    inputMode="decimal"
-                    value={extraIncome}
-                    onChange={(e) => { setExtraIncome(e.target.value); if (error?.where === "extra") setError(null); }}
-                  />
-                </Field>
-                <DocSlot
-                  name="extra money"
-                  docs={extraDocs}
-                  onChange={setExtraDocs}
+              <Field required label="Extra monthly money (S$)" error={error?.where === "extra" ? error.message : undefined}>
+                <input
+                  ref={extraRef}
+                  className={inputClass}
+                  aria-label="Extra monthly money"
+                  placeholder="e.g. 0"
+                  inputMode="decimal"
+                  value={extraIncome}
+                  onChange={(e) => { setExtraIncome(e.target.value); if (error?.where === "extra") setError(null); }}
                 />
-              </div>
-              <div>
-                <Field required label="People currently living in your home" error={error?.where === "residents" ? error.message : undefined}>
-                  <input
-                    ref={resRef}
-                    className={inputClass}
-                    aria-label="People currently living in the home"
-                    type="number"
-                    min={1}
-                    max={20}
-                    step={1}
-                    inputMode="numeric"
-                    value={residents}
-                    onChange={(e) => { setResidents(e.target.value); if (error?.where === "residents") setError(null); }}
-                  />
-                </Field>
-                <DocSlot
-                  name="people living in the home"
-                  docs={resDocs}
-                  onChange={setResDocs}
+              </Field>
+              <Field required label="People currently living in your home" error={error?.where === "residents" ? error.message : undefined}>
+                <input
+                  ref={resRef}
+                  className={inputClass}
+                  aria-label="People currently living in the home"
+                  type="number"
+                  min={1}
+                  max={20}
+                  step={1}
+                  inputMode="numeric"
+                  value={residents}
+                  onChange={(e) => { setResidents(e.target.value); if (error?.where === "residents") setError(null); }}
                 />
-              </div>
+              </Field>
             </div>
           </section>
 
@@ -713,6 +704,22 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               <textarea rows={2} className={`${inputClass} py-2`} value={note} onChange={(e) => setNote(e.target.value)} />
             </Field>
           </section>
+
+          {/* Optional evidence, not a numbered section of the paper form: it is recorded last, after
+              the answers it backs are keyed in, just before the cross-check closes the form. */}
+          <div className="space-y-3 border-t border-line pt-4">
+            <p className="text-sm font-bold text-on-surface">Supporting documents (optional)</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-[13px] font-semibold text-on-surface">For the extra money declared</p>
+                <DocSlot name="extra money" docs={extraDocs} onChange={setExtraDocs} />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-on-surface">For the people living in the home</p>
+                <DocSlot name="people living in the home" docs={resDocs} onChange={setResDocs} />
+              </div>
+            </div>
+          </div>
 
           {/* The cross-check closes the form: the staff reads the whole keyed-in entry first, then
               confirms against the signed paper — so it sits at the very end, above the button. */}
