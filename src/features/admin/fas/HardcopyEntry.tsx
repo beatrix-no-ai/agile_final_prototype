@@ -319,7 +319,7 @@ export function PaperDetail({ fa, linked, schoolOf }: { fa: FamilyApplication; l
 /** One Section II declaration's own upload slot: documents the parent handed in that back THAT
  *  answer sit right under it — each declaration carries its own evidence (mock: file names only,
  *  nothing is uploaded anywhere). */
-function DocSlot({ name, hint, docs, onChange }: { name: string; hint: string; docs: string[]; onChange: (next: string[]) => void }) {
+function DocSlot({ name, docs, onChange }: { name: string; docs: string[]; onChange: (next: string[]) => void }) {
   return (
     <div className="mt-2 space-y-1.5">
       <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-control border border-outline bg-surface-container-lowest px-3 py-1.5 text-[13px] font-semibold text-on-surface hover:bg-surface-container-low focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-primary">
@@ -354,7 +354,6 @@ function DocSlot({ name, hint, docs, onChange }: { name: string; hint: string; d
           ))}
         </div>
       )}
-      <p className="text-[12px] text-on-surface-variant">{hint}</p>
     </div>
   );
 }
@@ -569,11 +568,11 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
             <p className="text-sm font-semibold text-on-surface">{draft.id} · {draft.applicant}</p>
             <p className="text-[13px] text-on-surface-variant">
               Issued {new Date(draft.issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} by {draft.issuedBy}
-              {" "}· {draft.children.length} {draft.children.length > 1 ? "children" : "child"} — everything the form was printed with is locked below; fill in what the parent wrote by hand.
+              {" "}· {draft.children.length} {draft.children.length > 1 ? "children" : "child"}
             </p>
           </div>
           <section className="space-y-3">
-            <SectionTitle n="I" title="Particulars of the child" note="Pre-printed from the registry when the form was issued — locked (not editable)." />
+            <SectionTitle n="I" title="Particulars of the child" />
             <ul className="space-y-1.5">
               {rows.map((row, i) => {
                 const match = matchOf(row);
@@ -599,7 +598,6 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
               <p className="font-semibold text-on-surface">
                 Are the printed contact details still correct? <span className="text-alert" aria-hidden>*</span>
               </p>
-              <p className="text-on-surface-variant">Tick the answer on the returned form (Section I).</p>
               <div className="mt-2 flex flex-col gap-1.5">
                 <label className="flex items-start gap-2.5">
                   <input
@@ -625,7 +623,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
             </div>
             {detailsOk === "no" && (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field required label="Current contact number" hint="As the parent wrote it on the returned form." error={error?.where === "contact" ? error.message : undefined}>
+                <Field required label="Current contact number" error={error?.where === "contact" ? error.message : undefined}>
                   <input
                     ref={contactRef}
                     className={inputClass}
@@ -634,7 +632,7 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                     onChange={(e) => { setContact(e.target.value); if (error?.where === "contact") setError(null); }}
                   />
                 </Field>
-                <Field required label="Current home address" hint="As the parent wrote it on the returned form." error={error?.where === "address" ? error.message : undefined}>
+                <Field required label="Current home address" error={error?.where === "address" ? error.message : undefined}>
                   <input
                     ref={addressRef}
                     className={inputClass}
@@ -648,10 +646,10 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
           </section>
 
           <section className="space-y-3 border-t border-line pt-4">
-            <SectionTitle n="II" title="Household income" note="As declared on the paper form — the same two fields as the online application." />
+            <SectionTitle n="II" title="Household income" />
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Field required label="Extra monthly money (S$)" hint="Income not in HOMES, e.g. rental, allowance or family support. Enter 0 if none." error={error?.where === "extra" ? error.message : undefined}>
+                <Field required label="Extra monthly money (S$)" error={error?.where === "extra" ? error.message : undefined}>
                   <input
                     ref={extraRef}
                     className={inputClass}
@@ -664,13 +662,12 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                 </Field>
                 <DocSlot
                   name="extra money"
-                  hint="Optional — e.g. payslips, a rental statement or a family support letter for the money declared above."
                   docs={extraDocs}
                   onChange={setExtraDocs}
                 />
               </div>
               <div>
-                <Field required label="People currently living in your home" hint="Everyone who lives with you now, including you." error={error?.where === "residents" ? error.message : undefined}>
+                <Field required label="People currently living in your home" error={error?.where === "residents" ? error.message : undefined}>
                   <input
                     ref={resRef}
                     className={inputClass}
@@ -686,16 +683,11 @@ function DraftKeyIn({ draft, roster, schoolName, by, onBack, onSubmitted }: {
                 </Field>
                 <DocSlot
                   name="people living in the home"
-                  hint="Optional — e.g. a tenancy agreement or letters addressed to everyone living at the home."
                   docs={resDocs}
                   onChange={setResDocs}
                 />
               </div>
             </div>
-            <p className="text-[13px] text-on-surface-variant">
-              The income band itself is retrieved from HOMES (IRAS + CPF) — a band only, never an exact income, exactly like an online application.
-              Documents the parent brought in attach to the declaration they sit under (this demo records file names only — nothing is uploaded anywhere).
-            </p>
           </section>
 
           <section className="space-y-3 border-t border-line pt-4">
