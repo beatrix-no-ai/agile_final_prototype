@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable, RowAction, type Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { inputClass } from "../../../components/ui/Field";
 import { SBFAS_APPLICATIONS, attemptOf, sourceOf, yearOf, type SbfasApplication, type SbfasStatus } from "../../../data/sbfasApplications";
 import { rankOf } from "../../../data/sbfasRule";
 import { useFas } from "../../../data/fasStore";
@@ -51,6 +53,7 @@ function SbfasReview() {
     [fas.apps, mySchool, reg.students, reg.classes],
   );
   const [filter, setFilter] = useState<Filter>("all");
+  const [search, setSearch] = useState("");
   const navigate = useNavigate();
 
   const enriched: Row[] = useMemo(
@@ -63,12 +66,17 @@ function SbfasReview() {
     })),
     [apps, fees.state.charges, movements, reg.students],
   );
+  // The search narrows the active tab by the student's name or the application code (SBFASxxxx).
+  const q = search.trim().toLowerCase();
   const rows: Row[] = useMemo(
-    () => enriched.filter((a) => filter === "all"
-      || (filter === "pending" && a.status === "Pending")
-      || (filter === "granted" && isGranted(a))
-      || (filter === "declined" && isDeclined(a))),
-    [enriched, filter],
+    () => enriched.filter((a) => {
+      const inTab = filter === "all"
+        || (filter === "pending" && a.status === "Pending")
+        || (filter === "granted" && isGranted(a))
+        || (filter === "declined" && isDeclined(a));
+      return inTab && (!q || a.student.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
+    }),
+    [enriched, filter, q],
   );
   const pendingCount = apps.filter((a) => a.status === "Pending").length;
   const grantedCount = apps.filter(isGranted).length;
@@ -134,6 +142,19 @@ function SbfasReview() {
         }
       >
         <p className="mb-4 text-sm text-on-surface-variant">Highest risk first, pending before decided. Income is shown as a band only. One row per child per year — a parent re-request requeues the same year's application with its reason logged.</p>
+        <div className="relative mb-4 max-w-sm">
+          <MagnifyingGlass size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
+          <input
+            id="sbfas-search"
+            type="search"
+            autoComplete="off"
+            aria-label="Search applications"
+            className={`${inputClass} pl-9`}
+            placeholder="Search by student or application code..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         {query.status === "loading" && <div aria-busy="true" aria-label="Loading applications" className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-12 motion-safe:animate-pulse rounded-control bg-track" />)}</div>}
         {query.status === "error" && <EmptyState title="Could not load applications" hint="Check your connection and try again." action={<Button onClick={query.retry}>Retry</Button>} />}
         {query.status === "ready" && (
@@ -143,7 +164,7 @@ function SbfasReview() {
             rowKey={(a) => a.id}
             rowActions={(a) => <RowAction onClick={() => navigate(`/admin/fas/review/${a.id}`)}>{a.status === "Pending" ? "Open review" : "View decision"}</RowAction>}
             large
-            empty={<EmptyState title="No applications in this view" hint={filter === "pending" ? "Every application has been decided." : filter === "granted" ? "Nothing granted yet — approve or override an application from the Pending tab." : filter === "declined" ? "Nothing declined yet — rejected applications appear here with their reason." : "Nothing here yet."} action={<Button variant="secondary" onClick={() => setFilter("all")}>Show all</Button>} />}
+            empty={<EmptyState title="No applications in this view" hint={q ? "No application matches this search — try the student's name or the application code (e.g. SBFAS0001)." : filter === "pending" ? "Every application has been decided." : filter === "granted" ? "Nothing granted yet — approve or override an application from the Pending tab." : filter === "declined" ? "Nothing declined yet — rejected applications appear here with their reason." : "Nothing here yet."} action={q ? <Button variant="secondary" onClick={() => setSearch("")}>Clear search</Button> : <Button variant="secondary" onClick={() => setFilter("all")}>Show all</Button>} />}
           />
         )}
       </Card>
