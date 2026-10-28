@@ -30,6 +30,11 @@ export default function FamilyApplication() {
   // The form starts with the details already on the parent's profile. Residents defaults to the household on file (parents + children), editable.
   const [values, setValues] = useState<FormValues>({ extraIncome: "0", residents: String(state.children.length + 2), contact: state.profile.contact, mailingAddress: state.profile.mailingAddress, note: "" });
 
+  // Reaching this page means the parent chose Apply on the history page, so open the form straight away.
+  useEffect(() => {
+    if (stage === "not-started") dispatch({ type: "startFas" });
+  }, [stage, dispatch]);
+
   // The chat can hand over values for the form. Apply them once, then clear the request so edits are never overwritten later.
   const { fill, clearFill } = useAssistant();
   const [marks, setMarks] = useState<Marks>({});
@@ -69,7 +74,7 @@ export default function FamilyApplication() {
     <div className="space-y-4">
       <Tracker steps={trackerSteps(stage, decided)} submittedOn={submittedOn} />
       <Household bandId={sync.bandId} syncedOn={sync.syncedOn} />
-      <StartFas stage={stage} submittedOn={submittedOn} onStart={() => dispatch({ type: "startFas" })} />
+      <StartFas stage={stage} submittedOn={submittedOn} />
       {stage === "submitted" && <ChildResults children={state.children} outcomes={state.outcomes} />}
       {stage === "submitted" && <Reapply />}
       {stage === "preparing" && (
