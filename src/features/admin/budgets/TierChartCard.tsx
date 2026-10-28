@@ -23,7 +23,7 @@ export function TierChartCard({ byTier, classes, note, amountOf }: { byTier: Row
   return (
     <Card title={metric === "cash" ? "Cash granted by class" : "Students helped by class"} action={
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <Segmented size="sm" label="Show" value={metric} onChange={setMetric} options={[{ value: "students", label: "Students" }, { value: "cash", label: "Cash" }]} />
+          <Segmented size="sm" label="Show" value={metric} onChange={setMetric} options={[{ value: "students", label: "Students" }, { value: "cash", label: "Granted" }]} />
         </div>
       } className={classes.length > 6 ? "lg:col-span-2" : ""}>
       <BarChart data={data} format={metric === "cash" ? short : undefined} axisFormat={metric === "cash" ? (n) => `S$${short(n)}` : undefined} />
