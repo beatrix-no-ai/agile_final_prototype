@@ -42,7 +42,7 @@ export function SchoolBudget() {
           <StatCard label="Students helped" value={helped} icon={<UsersThree size={26} />} />
         </div>
         <div className="mt-5">
-          <ProgressBar pct={s.budget > 0 ? (s.used / s.budget) * 100 : 0} label="Budget granted" hint={`Granted ${formatSGD(s.used)} · ${over ? "Over by" : "Remaining"} ${formatSGD(Math.abs(s.remaining))}`} />
+          <ProgressBar pct={s.budget > 0 ? (s.used / s.budget) * 100 : 0} label="Budget granted" usedHint={`Granted ${formatSGD(s.used)}`} restHint={`Remaining ${formatSGD(s.remaining)}`} />
         </div>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
