@@ -144,7 +144,7 @@ export function Assistant() {
           <p className="mt-1">You can still do everything yourself. Nothing is lost.</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={a.retry} disabled={a.busy}>Try again</Button>
-            <Link to="/parent/fas" onClick={closeIfNarrow} className="inline-flex min-h-9 items-center rounded-control border border-line bg-surface-container-lowest px-3 text-[13px] font-semibold text-primary hover:bg-primary-fixed">Fill in the form myself</Link>
+            <Link to="/parent/fas/apply" onClick={closeIfNarrow} className="inline-flex min-h-9 items-center rounded-control border border-line bg-surface-container-lowest px-3 text-[13px] font-semibold text-primary hover:bg-primary-fixed">Fill in the form myself</Link>
           </div>
         </div>
       )}

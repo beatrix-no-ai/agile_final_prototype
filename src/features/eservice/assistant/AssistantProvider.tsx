@@ -85,7 +85,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
           values: Object.fromEntries(d.fields.map((f) => [f.key, f.value])),
           marks: Object.fromEntries(d.fields.map((f) => [f.key, f.source === "missing" ? "missing" : "ai"])),
         });
-        navigate("/parent/fas");
+        navigate("/parent/fas/apply");
         setMsgs((m) => [...m, bot(filledReply(missing))]);
         if (window.matchMedia("(max-width: 1279px)").matches) setOpen(false); // the panel would cover the form
       },

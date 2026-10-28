@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -21,6 +22,7 @@ const pulse = "motion-safe:animate-pulse rounded-card bg-track";
 export default function FamilyApplication() {
   const query = useMockQuery(true);
   const sync = useSync();
+  const navigate = useNavigate();
   const { state, dispatch } = useParent();
   const { stage, submittedOn } = state.fas;
   // Disbursement starts once the school has answered for every child that was waiting on it.
@@ -72,7 +74,7 @@ export default function FamilyApplication() {
       {stage === "submitted" && <Reapply />}
       {stage === "preparing" && (
         <div id="fas-form" className="scroll-mt-6">
-          <ApplicationForm marks={marks} onEdit={(k) => setMarks((m) => ({ ...m, [k]: undefined }))} values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => dispatch({ type: "submitFas", date: TODAY, band: BANDS.find((b) => b.id === sync.bandId)!, details: { extraIncome: Number(values.extraIncome), residents: Number(values.residents) } })} />
+          <ApplicationForm marks={marks} onEdit={(k) => setMarks((m) => ({ ...m, [k]: undefined }))} values={values} onChange={setValues} applicant={state.profile.name} onSubmit={() => { dispatch({ type: "submitFas", date: TODAY, band: BANDS.find((b) => b.id === sync.bandId)!, details: { extraIncome: Number(values.extraIncome), residents: Number(values.residents) } }); navigate("/parent/fas"); }} />
         </div>
       )}
     </div>
